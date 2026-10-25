@@ -1,0 +1,8 @@
+{
+  "name": "ortogra-fi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Portada dels recursos educatius oberts d’ortogra.fi",
+  "scripts": { "start": "node tools/serve.cjs", "check": "node tools/check.cjs" },
+  "devDependencies": { "playwright": "1.62.1" }
+}

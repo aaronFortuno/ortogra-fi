@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Recursos oberts per aprendre i ensenyar llengua. Descobreix Plec, el primer projecte d’ortogra.fi: dictats per escoltar, escriure i revisar amb autonomia.">
+  <meta name="theme-color" content="#f8f6ef">
+  <meta property="og:title" content="ortogra.fi · Eines per aprendre i ensenyar llengua">
+  <meta property="og:description" content="Un espai de recursos educatius oberts que comença amb Plec.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ortogra.fi/">
+  <link rel="canonical" href="https://ortogra.fi/">
+  <link rel="icon" href="assets/brand/symbol.svg" type="image/svg+xml">
+  <title>ortogra.fi · Eines per aprendre i ensenyar llengua</title>
+  <script src="theme.js?v=1.0.0"></script>
+  <link rel="stylesheet" href="styles.css?v=1.0.0">
+  <script src="app.js?v=1.0.0" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#contingut">Ves al contingut</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="./" aria-label="ortogra.fi, inici">
+        <svg class="brand-symbol" viewBox="0 0 48 48" aria-hidden="true"><circle cx="22" cy="28" r="14"/><path class="accent" d="m27 9 7-6"/></svg>
+        <span>ortogra<span class="brand-dot">.</span>fi</span>
+      </a>
+      <button class="icon-button theme-toggle" type="button" data-theme-toggle aria-label="Activa el tema fosc" aria-pressed="false">
+        <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.9 13a9 9 0 0 1-9.9-9.9A9 9 0 1 0 20.9 13Z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+      </button>
+    </div>
+  </header>
+  <main id="contingut" tabindex="-1">
+    <div class="content">
+      <section class="intro" aria-labelledby="intro-title">
+        <p class="eyebrow">Recursos educatius oberts</p>
+        <h1 id="intro-title">Eines per aprendre<br>i ensenyar llengua<span class="brand-dot">.</span></h1>
+        <p class="intro-copy">ortogra.fi és un espai per reunir projectes que ens ajuden a practicar la llengua, a l’aula i a casa. Comencem amb Plec.</p>
+      </section>
+      <section class="projects" aria-labelledby="projects-title">
+        <h2 id="projects-title" class="section-label">El primer projecte</h2>
+        <article class="project">
+          <div class="project-copy">
+            <h3 class="plec-brand"><svg viewBox="0 0 42 44" aria-hidden="true"><path d="m3 8 12-5 13 5 11-5v33l-11 5-13-5-12 5Z"/><path d="M15 3v33M28 8v33"/></svg><span>plec<span class="brand-dot">.</span></span></h3>
+            <p>Escolta. Escriu. Desplega.</p>
+            <p class="project-description">Prepara dictats de paraules i pseudoparaules, imprimeix un full amb el model amagat entre dos plecs o escolta el dictat al teu ritme.</p>
+          </div>
+          <a class="primary-link" href="https://plec.ortogra.fi/">Obre Plec <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
+        </article>
+      </section>
+    </div>
+  </main>
+  <footer class="site-footer">
+    <div class="bar footer-inner">
+      <span class="footer-note">Fet per compartir coneixement.</span>
+      <nav aria-label="Sobre ortogra.fi">
+        <a href="https://github.com/aaronFortuno/ortogra-fi" target="_blank" rel="noopener noreferrer">Codi obert</a>
+        <span class="separator" aria-hidden="true">·</span>
+        <button class="text-button" type="button" id="about-open">Sobre el projecte · V4V</button>
+      </nav>
+    </div>
+  </footer>
+  <dialog id="about-dialog" aria-labelledby="about-title">
+    <div class="dialog-header">
+      <h2 id="about-title">Sobre ortogra.fi</h2>
+      <button class="icon-button" type="button" data-close aria-label="Tanca la informació"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+    </div>
+    <div class="dialog-content">
+      <p>ortogra.fi reuneix eines obertes per a l’aprenentatge i l’ensenyament de la llengua. És un projecte que comença amb Plec i deixa espai per a nous recursos.</p>
+      <section class="author" aria-labelledby="author-title">
+        <img src="assets/author/aaron-fortuno.png" alt="Aarón Fortuño" width="112" height="112" loading="lazy" decoding="async">
+        <div><h3 id="author-title">Aarón Fortuño</h3><p>Soc docent i creo aplicacions educatives i altres projectes de codi obert.</p><a href="https://aaronfortuno.github.io/portfolio/" target="_blank" rel="noopener noreferrer">Explora el meu portfoli <span aria-hidden="true">↗</span></a></div>
+      </section>
+      <section class="v4v" aria-labelledby="v4v-title">
+        <div><h3 id="v4v-title">Value for Value</h3><p>Els recursos són gratuïts. Si et resulten útils, pots donar-hi suport amb una aportació voluntària. Compartir-los o proposar millores també ajuda.</p>
+          <p class="lightning-label">Lightning Network</p>
+          <div class="lightning-address"><span id="lightning-address">aptswim903@walletofsatoshi.com</span><button class="icon-button" type="button" id="copy-lightning" aria-label="Copia l’adreça Lightning"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+          <p class="copy-status" id="copy-status" role="status" aria-live="polite"></p>
+        </div>
+        <a class="lightning-qr" href="lightning:LNURL1DP68GURN8GHJ7AMPD3KX2AR0VEEKZAR0WD5XJTNRDAKJ7TNHV4KXCTTTDEHHWM30D3H82UNVWQHKZUR5WDMKJMFEXQESLJTDDS" aria-label="Obre la cartera Lightning"><img src="assets/v4v/lightning.svg" width="128" height="128" alt="Codi QR per fer una aportació voluntària amb Lightning"></a>
+      </section>
+      <div class="credits"><p><a href="https://github.com/aaronFortuno/ortogra-fi" target="_blank" rel="noopener noreferrer">GitHub · Codi i propostes</a><span aria-hidden="true"> · </span><a href="LICENSE" target="_blank" rel="noopener noreferrer">Llicència MIT</a></p><p>Icones de <a href="https://lucide.dev/" target="_blank" rel="noopener noreferrer">Lucide</a> · <a href="assets/icons/LICENSE" target="_blank" rel="noopener noreferrer">ISC</a>. Fotografia i QR compartits amb <a href="https://plec.ortogra.fi/">Plec</a>.</p></div>
+    </div>
+  </dialog>
+</body>
+</html>
