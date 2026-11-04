@@ -16,7 +16,7 @@ const path = require('node:path');
       page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
       page.on('request', request => { assert.equal(new URL(request.url()).origin, origin, 'No external requests during use'); });
       await page.goto(origin);
-      assert.equal(await page.title(), 'ortogra.fi · Eines per aprendre i ensenyar llengua');
+      assert.equal(await page.title(), 'ortogra.fi · Eines per aprendre i ensenyar');
       await page.locator('h1').waitFor();
       const layout = await page.evaluate(() => ({
         fits: document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight,

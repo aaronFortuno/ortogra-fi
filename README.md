@@ -1,8 +1,12 @@
 # ortogra.fi
 
-Portada de **[ortogra.fi](https://ortogra.fi/)**, un espai de recursos oberts per aprendre i ensenyar llengua. El primer projecte és **[Plec](https://plec.ortogra.fi/)**.
+Portada de **[ortogra.fi](https://ortogra.fi/)**, un espai de recursos oberts per aprendre i ensenyar.
 
-La pàgina inclou una presentació breu, un accés a Plec, tema clar/fosc i un diàleg sobre l’autor i Value for Value. No hi ha comptes, analítica, cookies de seguiment ni serveis de tercers carregats des del navegador. La preferència de tema es desa al dispositiu amb `localStorage`.
+- [Plec](https://plec.ortogra.fi/): dictats en català.
+- [Fil i Compte](https://filicompte.ortogra.fi/): problemes de matemàtiques i fitxes imprimibles.
+- [Relleu Obert](https://aaronfortuno.github.io/relleu-obert/): maquetes geogràfiques per imprimir en 3D. L’enllaç és provisional fins que tingui subdomini; es pot actualitzar a la fitxa d’`index.html` i aquí.
+
+La pàgina inclou tema clar/fosc i un diàleg sobre l’autor i Value for Value. No hi ha comptes, analítica, cookies de seguiment ni serveis de tercers carregats des del navegador. La preferència de tema es desa al dispositiu amb `localStorage`.
 
 ## Desenvolupament
 
