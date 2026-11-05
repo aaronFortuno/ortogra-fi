@@ -6,6 +6,7 @@ Portada de **[ortogra.fi](https://ortogra.fi/)**, un espai de recursos oberts pe
 - [Fil i Compte](https://filicompte.ortogra.fi/): problemes de matemàtiques i fitxes imprimibles.
 - [Relleu Obert](https://relleu.ortogra.fi/): maquetes geogràfiques per imprimir en 3D.
 - [Pentagrama](https://pentagrama.page/): paper pautat a mida per escriure música a mà.
+- [Pauta](https://pauta.ortogra.fi/): fulls pautats A4 i A5 per escriure i practicar cal·ligrafia.
 
 La pàgina inclou tema clar/fosc i un diàleg sobre l’autor i Value for Value. No hi ha comptes, analítica, cookies de seguiment ni serveis de tercers carregats des del navegador. La preferència de tema es desa al dispositiu amb `localStorage`.
 
