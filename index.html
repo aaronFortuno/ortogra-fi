@@ -13,7 +13,7 @@
   <link rel="icon" href="assets/brand/symbol.svg" type="image/svg+xml">
   <title>ortogra.fi · Eines per aprendre i ensenyar</title>
   <script src="theme.js?v=1.0.0"></script>
-  <link rel="stylesheet" href="styles.css?v=1.3.0">
+  <link rel="stylesheet" href="styles.css?v=1.4.0">
   <script src="app.js?v=1.1.0" defer></script>
   <script defer src="https://cloud.umami.is/script.js" data-website-id="8d1413a8-1847-4be6-b1d9-87b16e5d4e46" data-domains="ortogra.fi"></script>
 </head>
@@ -21,10 +21,13 @@
   <a class="skip-link" href="#contingut">Ves al contingut</a>
   <header class="site-header">
     <div class="bar">
-      <a class="brand" href="./" aria-label="ortogra.fi, inici">
-        <svg class="brand-symbol" viewBox="0 0 48 48" aria-hidden="true"><circle cx="22" cy="28" r="14"/><path class="accent" d="m27 9 7-6"/></svg>
-        <span>ortogra<span class="brand-dot">.</span>fi</span>
-      </a>
+      <div class="header-identity">
+        <a class="brand" href="./" aria-label="ortogra.fi, inici">
+          <svg class="brand-symbol" viewBox="0 0 48 48" aria-hidden="true"><circle cx="22" cy="28" r="14"/><path class="accent" d="m27 9 7-6"/></svg>
+          <span>ortogra<span class="brand-dot">.</span>fi</span>
+        </a>
+        <p class="header-note">Recursos educatius oberts</p>
+      </div>
       <button class="icon-button theme-toggle" type="button" data-theme-toggle aria-label="Activa el tema fosc" aria-pressed="false">
         <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.9 13a9 9 0 0 1-9.9-9.9A9 9 0 1 0 20.9 13Z"/></svg>
         <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
@@ -34,55 +37,71 @@
   <main id="contingut" tabindex="-1">
     <div class="content">
       <section class="intro" aria-labelledby="intro-title">
-        <p class="eyebrow">Recursos educatius oberts</p>
         <h1 id="intro-title">Eines per aprendre i ensenyar<span class="brand-dot">.</span></h1>
         <p class="intro-copy">Recursos per treballar la llengua, les matemàtiques, la geografia i la música, a l’aula i a casa.</p>
       </section>
-      <section class="projects" aria-labelledby="projects-title">
-        <h2 id="projects-title" class="section-label">Projectes</h2>
-        <div class="project-list">
-          <article class="project">
-            <div class="project-copy">
-              <h3 class="project-brand"><svg viewBox="0 0 42 44" aria-hidden="true"><path d="m3 8 12-5 13 5 11-5v33l-11 5-13-5-12 5Z"/><path d="M15 3v33M28 8v33"/></svg><span>plec<span class="brand-dot">.</span></span></h3>
-              <p>Escolta. Escriu. Desplega.</p>
-              <p class="project-description">Prepara dictats en català de paraules i pseudoparaules. Imprimeix el full plegable o escolta el dictat al teu ritme.</p>
-            </div>
-            <a class="primary-link" href="https://plec.ortogra.fi/" data-umami-event="obre_projecte" data-umami-event-projecte="plec">Obre Plec <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
-          </article>
-          <article class="project">
-            <div class="project-copy">
-              <h3 class="project-brand"><svg viewBox="0 0 64 64" aria-hidden="true"><g transform="rotate(-12 32 32)"><path stroke-width="4" d="M12 37V16Q12 9 19 9H47Q54 9 54 16V46Q54 53 47 53H22C11 53 7 49 7 44C7 38 16 38 19 44"/><path stroke-width="5" d="M24 30H43M33.5 20.5V39.5"/></g></svg><span>Fil i Compte</span></h3>
-              <p>Banc de problemes de matemàtiques.</p>
-              <p class="project-description">Tria problemes en català i prepara fitxes imprimibles amb solucionaris i estratègies visuals.</p>
-            </div>
-            <a class="primary-link" href="https://filicompte.ortogra.fi/" data-umami-event="obre_projecte" data-umami-event-projecte="fil-i-compte">Obre Fil i Compte <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
-          </article>
-          <article class="project">
-            <div class="project-copy">
-              <h3 class="project-brand"><svg viewBox="0 0 38 32" aria-hidden="true"><path d="M3 27 18 3l17 24H3Z"/><path d="m8 23 10-15 11 15H8Zm5-4 5-7 5 7H13Z"/></svg><span>Relleu Obert</span></h3>
-              <p>Geografia que pots tocar.</p>
-              <p class="project-description">Tria un lloc real al mapa, dissenya’n una maqueta de relleu i prepara-la per imprimir en 3D.</p>
-            </div>
-            <a class="primary-link" href="https://relleu.ortogra.fi/" data-umami-event="obre_projecte" data-umami-event-projecte="relleu-obert">Obre Relleu Obert <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
-          </article>
-          <article class="project">
-            <div class="project-copy">
-              <h3 class="project-brand"><svg viewBox="0 0 31 30" aria-hidden="true"><path d="M1 7h29M1 11h29M1 15h29M1 19h29M1 23h29" stroke-width="1.2"/><ellipse class="brand-dot" cx="23" cy="19" rx="2.7" ry="1.8" transform="rotate(-20 23 19)" fill="currentColor" stroke="none"/></svg><span>Pentagrama</span></h3>
-              <p>Paper pautat a mida.</p>
-              <p class="project-description">Configura els pentagrames, les claus i els compassos, i imprimeix un full per escriure música a mà.</p>
-            </div>
-            <a class="primary-link" href="https://pentagrama.page/" data-umami-event="obre_projecte" data-umami-event-projecte="pentagrama">Obre Pentagrama <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
-          </article>
-          <article class="project">
-            <div class="project-copy">
-              <h3 class="project-brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="3" width="22" height="26" rx="3" stroke-width="1.5"/><path d="M9 9h14m-14 5h14m-14 5h14m-14 5h14" stroke-width="1.2"/><path class="brand-dot" d="M12 7v19" stroke-width="1.3"/></svg><span>Pauta<span class="brand-dot">.</span></span></h3>
-              <p>Paper pautat per imprimir.</p>
-              <p class="project-description">Crea fulls A4 o A5 amb línies i marges a mida per escriure i practicar cal·ligrafia.</p>
-            </div>
-            <a class="primary-link" href="https://pauta.ortogra.fi/" data-umami-event="obre_projecte" data-umami-event-projecte="pauta">Obre Pauta <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
-          </article>
-        </div>
-      </section>
+      <div class="resource-groups">
+        <section aria-labelledby="projects-title">
+          <h2 id="projects-title" class="section-label">Projectes</h2>
+          <div class="project-list">
+            <article class="project">
+              <a class="project-link" href="https://plec.ortogra.fi/" aria-label="Obre Plec" aria-describedby="plec-description" data-umami-event="obre_projecte" data-umami-event-projecte="plec">
+                <div class="project-copy">
+                  <h3 class="project-brand"><svg viewBox="0 0 42 44" aria-hidden="true"><path d="m3 8 12-5 13 5 11-5v33l-11 5-13-5-12 5Z"/><path d="M15 3v33M28 8v33"/></svg><span>plec<span class="brand-dot">.</span></span></h3>
+                  <p id="plec-description">Dictats en català per fer amb un full plegable o escoltar al teu ritme.</p>
+                </div>
+                <img class="project-preview" src="assets/project-previews/plec.png" width="300" height="200" alt="">
+                <svg class="project-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+              </a>
+            </article>
+            <article class="project">
+              <a class="project-link" href="https://filicompte.ortogra.fi/" aria-label="Obre Fil i Compte" aria-describedby="fil-description" data-umami-event="obre_projecte" data-umami-event-projecte="fil-i-compte">
+                <div class="project-copy">
+                  <h3 class="project-brand"><svg viewBox="0 0 64 64" aria-hidden="true"><g transform="rotate(-12 32 32)"><path stroke-width="4" d="M12 37V16Q12 9 19 9H47Q54 9 54 16V46Q54 53 47 53H22C11 53 7 49 7 44C7 38 16 38 19 44"/><path stroke-width="5" d="M24 30H43M33.5 20.5V39.5"/></g></svg><span>Fil i Compte</span></h3>
+                  <p id="fil-description">Problemes de matemàtiques en català i fitxes imprimibles amb solucionaris.</p>
+                </div>
+                <img class="project-preview" src="assets/project-previews/fil-i-compte.png" width="300" height="200" alt="">
+                <svg class="project-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+              </a>
+            </article>
+            <article class="project">
+              <a class="project-link" href="https://relleu.ortogra.fi/" aria-label="Obre Relleu Obert" aria-describedby="relleu-description" data-umami-event="obre_projecte" data-umami-event-projecte="relleu-obert">
+                <div class="project-copy">
+                  <h3 class="project-brand"><svg viewBox="0 0 38 32" aria-hidden="true"><path d="M3 27 18 3l17 24H3Z"/><path d="m8 23 10-15 11 15H8Zm5-4 5-7 5 7H13Z"/></svg><span>Relleu Obert</span></h3>
+                  <p id="relleu-description">Converteix un lloc del mapa en una maqueta de relleu per imprimir en 3D.</p>
+                </div>
+                <img class="project-preview" src="assets/project-previews/relleu-obert.webp" width="720" height="450" alt="">
+                <svg class="project-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+              </a>
+            </article>
+          </div>
+        </section>
+        <section aria-labelledby="utilities-title">
+          <h2 id="utilities-title" class="section-label">Utilitats</h2>
+          <div class="project-list">
+            <article class="project">
+              <a class="project-link" href="https://pentagrama.page/" aria-label="Obre Pentagrama" aria-describedby="pentagrama-description" data-umami-event="obre_projecte" data-umami-event-projecte="pentagrama">
+                <div class="project-copy">
+                  <h3 class="project-brand"><svg viewBox="0 0 31 30" aria-hidden="true"><path d="M1 7h29M1 11h29M1 15h29M1 19h29M1 23h29" stroke-width="1.2"/><ellipse class="brand-dot" cx="23" cy="19" rx="2.7" ry="1.8" transform="rotate(-20 23 19)" fill="currentColor" stroke="none"/></svg><span>Pentagrama</span></h3>
+                  <p id="pentagrama-description">Paper a mida per escriure música, amb pentagrames, claus i compassos.</p>
+                </div>
+                <img class="project-preview" src="assets/project-previews/pentagrama.png" width="300" height="200" alt="">
+                <svg class="project-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+              </a>
+            </article>
+            <article class="project">
+              <a class="project-link" href="https://pauta.ortogra.fi/" aria-label="Obre Pauta" aria-describedby="pauta-description" data-umami-event="obre_projecte" data-umami-event-projecte="pauta">
+                <div class="project-copy">
+                  <h3 class="project-brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="3" width="22" height="26" rx="3" stroke-width="1.5"/><path d="M9 9h14m-14 5h14m-14 5h14m-14 5h14" stroke-width="1.2"/><path class="brand-dot" d="M12 7v19" stroke-width="1.3"/></svg><span>Pauta<span class="brand-dot">.</span></span></h3>
+                  <p id="pauta-description">Fulls A4 i A5 amb línies i marges a mida per escriure i practicar cal·ligrafia.</p>
+                </div>
+                <img class="project-preview" src="assets/project-previews/pauta.png" width="300" height="200" alt="">
+                <svg class="project-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+              </a>
+            </article>
+          </div>
+        </section>
+      </div>
     </div>
   </main>
   <footer class="site-footer">

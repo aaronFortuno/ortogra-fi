@@ -10,11 +10,13 @@ Portada de **[ortogra.fi](https://ortogra.fi/)**, un espai de recursos oberts pe
 
 La pàgina inclou tema clar/fosc i un diàleg sobre l’autor i Value for Value. No hi ha comptes. La preferència de tema es desa al dispositiu amb `localStorage`.
 
+La portada separa projectes (Plec, Fil i Compte i Relleu Obert) i utilitats (Pentagrama i Pauta). Les miniatures d’`assets/project-previews/` mostren fragments de les previsualitzacions imprimibles, i el render de Sant Maurici prové dels exemples de Relleu Obert.
+
 ## Analítica
 
 [Umami](https://docs.umami.is/docs/track-events) compta les visites i aquests esdeveniments al domini `ortogra.fi`:
 
-- `obre_projecte`: clic al botó d’un projecte, amb la propietat `projecte` per desglossar els clics.
+- `obre_projecte`: clic a una fitxa, amb la propietat `projecte` per desglossar els clics.
 - `obre_v4v`: obertura del diàleg sobre el projecte.
 - `obre_portafoli`: clic a l’enllaç del portafoli.
 - `copia_lightning`: còpia confirmada al porta-retalls. L’esdeveniment no inclou el text de l’adreça; seleccionar-la perquè es copiï manualment no es compta.
