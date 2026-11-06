@@ -3,10 +3,14 @@
   const dialog = document.querySelector('#about-dialog');
   const opener = document.querySelector('#about-open');
   let closing = false;
+  function trackEvent(name) {
+    try { window.umami?.track?.(name)?.catch?.(() => {}); } catch { /* Analytics is optional. */ }
+  }
   opener.addEventListener('click', () => {
     if (dialog.open || closing) return;
     dialog.showModal();
     requestAnimationFrame(() => requestAnimationFrame(() => dialog.classList.add('is-visible')));
+    trackEvent('obre_v4v');
   });
   function close() {
     if (!dialog.open || closing) return;
@@ -41,6 +45,8 @@
       selection.removeAllRanges();
       selection.addRange(range);
       status.textContent = 'Adreça seleccionada. Copia-la amb el menú del dispositiu.';
+      return;
     }
+    trackEvent('copia_lightning');
   });
 })();

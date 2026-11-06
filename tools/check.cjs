@@ -6,15 +6,23 @@ const path = require('node:path');
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const origin = 'http://127.0.0.1:4187';
+  const tracker = 'https://cloud.umami.is/script.js';
+  async function localContext(options) {
+    const context = await browser.newContext(options);
+    await context.route(tracker, route => route.abort('blockedbyclient'));
+    return context;
+  }
   const errors = [];
   fs.mkdirSync(path.join(__dirname, '../tmp'), { recursive: true });
   try {
     for (const [width, height] of [[1440, 900], [1024, 768], [768, 600], [390, 844], [320, 568]]) {
-      const context = await browser.newContext({ viewport: { width, height }, colorScheme: 'light' });
+      const context = await localContext({ viewport: { width, height }, colorScheme: 'light' });
       const page = await context.newPage();
       page.on('pageerror', error => errors.push(error.message));
       page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
-      page.on('request', request => { assert.equal(new URL(request.url()).origin, origin, 'No external requests during use'); });
+      page.on('request', request => {
+        if (request.url() !== tracker) assert.equal(new URL(request.url()).origin, origin, 'Unexpected external request');
+      });
       await page.goto(origin);
       assert.equal(await page.title(), 'ortogra.fi · Eines per aprendre i ensenyar');
       await page.locator('h1').waitFor();
@@ -59,7 +67,7 @@ const path = require('node:path');
       await context.close();
       console.log(`OK ${width}×${height}: layout, V4V, controls and theme`);
     }
-    const context = await browser.newContext({ reducedMotion: 'reduce', colorScheme: 'dark' });
+    const context = await localContext({ reducedMotion: 'reduce', colorScheme: 'dark' });
     const page = await context.newPage();
     await page.goto(origin);
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark', 'System theme is respected');

@@ -8,7 +8,16 @@ Portada de **[ortogra.fi](https://ortogra.fi/)**, un espai de recursos oberts pe
 - [Pentagrama](https://pentagrama.page/): paper pautat a mida per escriure música a mà.
 - [Pauta](https://pauta.ortogra.fi/): fulls pautats A4 i A5 per escriure i practicar cal·ligrafia.
 
-La pàgina inclou tema clar/fosc i un diàleg sobre l’autor i Value for Value. No hi ha comptes, analítica, cookies de seguiment ni serveis de tercers carregats des del navegador. La preferència de tema es desa al dispositiu amb `localStorage`.
+La pàgina inclou tema clar/fosc i un diàleg sobre l’autor i Value for Value. No hi ha comptes. La preferència de tema es desa al dispositiu amb `localStorage`.
+
+## Analítica
+
+[Umami](https://docs.umami.is/docs/track-events) compta les visites i aquests esdeveniments al domini `ortogra.fi`:
+
+- `obre_projecte`: clic al botó d’un projecte, amb la propietat `projecte` per desglossar els clics.
+- `obre_v4v`: obertura del diàleg sobre el projecte.
+- `obre_portafoli`: clic a l’enllaç del portafoli.
+- `copia_lightning`: còpia confirmada al porta-retalls. L’esdeveniment no inclou el text de l’adreça; seleccionar-la perquè es copiï manualment no es compta.
 
 ## Desenvolupament
 
