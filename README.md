@@ -2,15 +2,14 @@
 
 Portada de **[ortogra.fi](https://ortogra.fi/)**, un espai de recursos oberts per aprendre i ensenyar.
 
-- [Plec](https://plec.ortogra.fi/): dictats en català.
-- [Fil i Compte](https://filicompte.ortogra.fi/): problemes de matemàtiques i fitxes imprimibles.
-- [Relleu Obert](https://relleu.ortogra.fi/): maquetes geogràfiques per imprimir en 3D.
-- [Pentagrama](https://pentagrama.page/): paper pautat a mida per escriure música a mà.
-- [Pauta](https://pauta.ortogra.fi/): fulls pautats A4 i A5 per escriure i practicar cal·ligrafia.
+- **Llengua.** [Plec](https://plec.ortogra.fi/) ofereix dictats en català i [Trama](https://trama.ortogra.fi/) ofereix comprensions lectores il·lustrades amb fitxes imprimibles.
+- **Matemàtiques.** [Fil i Compte](https://filicompte.ortogra.fi/) reuneix problemes i fitxes imprimibles amb solucionaris.
+- **Medi.** [Relleu Obert](https://relleu.ortogra.fi/) permet crear maquetes geogràfiques per imprimir en 3D.
+- **Utilitats.** [Pentagrama](https://pentagrama.page/) prepara paper pautat per escriure música i [Pauta](https://pauta.ortogra.fi/) crea fulls pautats per practicar cal·ligrafia.
 
 La pàgina inclou tema clar/fosc i un diàleg sobre l’autor i Value for Value. No hi ha comptes. La preferència de tema es desa al dispositiu amb `localStorage`.
 
-La portada separa projectes (Plec, Fil i Compte i Relleu Obert) i utilitats (Pentagrama i Pauta). Les miniatures d’`assets/project-previews/` mostren fragments de les previsualitzacions imprimibles, i el render de Sant Maurici prové dels exemples de Relleu Obert.
+Les miniatures d’`assets/project-previews/` mostren fragments de les previsualitzacions imprimibles. El render de Sant Maurici prové dels exemples de Relleu Obert.
 
 ## Analítica
 

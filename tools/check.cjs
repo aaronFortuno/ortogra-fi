@@ -29,10 +29,21 @@ const path = require('node:path');
       const layout = await page.evaluate(() => ({
         fits: document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight,
         footer: document.querySelector('footer').getBoundingClientRect().bottom <= innerHeight,
-        mainScrolls: getComputedStyle(document.querySelector('main')).overflowY === 'auto'
+        mainScrolls: getComputedStyle(document.querySelector('main')).overflowY === 'auto',
+        contentFits: document.querySelector('main').scrollWidth <= document.querySelector('main').clientWidth
       }));
-      assert.deepEqual(layout, { fits: true, footer: true, mainScrolls: true }, `${width}px layout`);
-      assert.equal(await page.getByRole('link', { name: 'Obre Plec' }).getAttribute('href'), 'https://plec.ortogra.fi/');
+      assert.deepEqual(layout, { fits: true, footer: true, mainScrolls: true, contentFits: true }, `${width}px layout`);
+      const groups = await page.locator('.resource-groups > section').evaluateAll(sections => sections.map(section => [
+        section.querySelector('h2').textContent,
+        [...section.querySelectorAll('.project-link')].map(link => link.href),
+      ]));
+      assert.deepEqual(groups, [
+        ['Llengua', ['https://plec.ortogra.fi/', 'https://trama.ortogra.fi/']],
+        ['Matemàtiques', ['https://filicompte.ortogra.fi/']],
+        ['Medi', ['https://relleu.ortogra.fi/']],
+        ['Utilitats', ['https://pentagrama.page/', 'https://pauta.ortogra.fi/']],
+      ]);
+      await page.locator('.project-preview').evaluateAll(images => Promise.all(images.map(image => image.decode())));
       await page.locator('#about-open').click();
       await page.waitForTimeout(240);
       assert.equal(await page.locator('dialog').evaluate(el => el.open), true);
