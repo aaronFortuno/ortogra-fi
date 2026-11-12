@@ -6,7 +6,7 @@ const path = require('node:path');
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const origin = 'http://127.0.0.1:4187';
-  const tracker = 'https://cloud.umami.is/script.js';
+  const tracker = 'https://maquestria.tail72bc84.ts.net:8443/script.js';
   async function localContext(options) {
     const context = await browser.newContext(options);
     await context.route(tracker, route => route.abort('blockedbyclient'));

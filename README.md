@@ -13,7 +13,7 @@ Les miniatures d’`assets/project-previews/` mostren fragments de les previsual
 
 ## Analítica
 
-[Umami](https://docs.umami.is/docs/track-events) compta les visites i aquests esdeveniments al domini `ortogra.fi`:
+La instància pròpia d’[Umami](https://docs.umami.is/docs/track-events) compta les visites i aquests esdeveniments al domini `ortogra.fi`:
 
 - `obre_projecte`: clic a una fitxa, amb la propietat `projecte` per desglossar els clics.
 - `obre_v4v`: obertura del diàleg sobre el projecte.
