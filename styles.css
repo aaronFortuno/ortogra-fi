@@ -35,6 +35,7 @@ h1{font:400 clamp(32px,4vw,46px)/1.12 var(--serif);letter-spacing:-1.2px;margin:
 .project-link:hover,.project-link:focus-visible{background:var(--hover);border-color:var(--muted)}
 .project-brand{display:flex;align-items:center;gap:8px;margin:0 0 5px;font:700 23px/1.1 var(--serif);letter-spacing:-.45px;color:var(--green)}
 .project-brand svg{width:23px;height:27px;flex:none;stroke-width:2.1}
+.project-symbol{width:23px;height:23px;flex:none}
 .project-copy>p{margin:0;color:var(--muted);font-size:14px;line-height:1.4}
 .project-preview{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;object-position:left top;border:1px solid var(--line);border-radius:5px;background:#fff}
 .project-preview[src$=".webp"]{object-position:center}
@@ -76,5 +77,6 @@ dialog.is-visible::backdrop{background:#10201970}
 @media(max-width:840px){.resource-groups{grid-template-columns:1fr;gap:26px}.project-link{grid-template-columns:minmax(0,1fr) clamp(84px,23vw,138px) 26px}.project-arrow{width:26px;height:26px}}
 @media(max-width:720px){.bar{width:calc(100% - 40px)}main{padding:28px 22px}.footer-note{display:none}.footer-inner{justify-content:center}.header-identity{gap:12px}.header-note{padding-inline-start:12px}.brand{font-size:26px}.brand-symbol{width:32px;height:36px}}
 @media(max-width:480px){.header-identity{flex-direction:column;align-items:flex-start;gap:1px}.header-note{padding:0;border:0;font-size:9px;letter-spacing:.08em}.brand{gap:6px}.brand-symbol{width:27px;height:28px}.project-link{gap:8px;padding:10px;grid-template-columns:minmax(0,1fr) clamp(64px,22vw,100px) 24px}.project-brand{font-size:20px;gap:6px}.project-brand svg{width:19px;height:22px}.project-copy>p{font-size:13px}.project-arrow{width:24px;height:24px}}
+@media(max-width:480px){.project-symbol{width:19px;height:19px}}
 @media(max-width:440px){main{padding:26px 18px}.dialog-header{padding:14px 16px}.dialog-content{padding:20px;max-height:calc(100dvh - 120px)}.author{align-items:flex-start;gap:14px}.author img{width:64px;height:64px}.v4v{grid-template-columns:1fr}.lightning-qr{justify-self:start}}
 @media(prefers-reduced-motion:reduce){:root{--motion:0ms}}

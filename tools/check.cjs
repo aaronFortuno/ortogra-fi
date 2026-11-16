@@ -38,12 +38,13 @@ const path = require('node:path');
         [...section.querySelectorAll('.project-link')].map(link => link.href),
       ]));
       assert.deepEqual(groups, [
-        ['Llengua', ['https://plec.ortogra.fi/', 'https://trama.ortogra.fi/']],
+        ['Llengua', ['https://plec.ortogra.fi/', 'https://trama.ortogra.fi/', 'https://resso.ortogra.fi/']],
         ['Matemàtiques', ['https://filicompte.ortogra.fi/']],
         ['Medi', ['https://relleu.ortogra.fi/']],
         ['Utilitats', ['https://pentagrama.page/', 'https://pauta.ortogra.fi/']],
       ]);
       await page.locator('.project-preview').evaluateAll(images => Promise.all(images.map(image => image.decode())));
+      await page.getByRole('link', { name: 'Obre Ressò' }).locator('.project-symbol').evaluate(image => image.decode());
       await page.locator('#about-open').click();
       await page.waitForTimeout(240);
       assert.equal(await page.locator('dialog').evaluate(el => el.open), true);
