@@ -38,7 +38,7 @@ const path = require('node:path');
         [...section.querySelectorAll('.project-link')].map(link => link.href),
       ]));
       assert.deepEqual(groups, [
-        ['Llengua', ['https://plec.ortogra.fi/', 'https://trama.ortogra.fi/', 'https://resso.ortogra.fi/']],
+        ['Llengua', ['https://plec.ortogra.fi/', 'https://trama.ortogra.fi/', 'https://resso.ortogra.fi/', 'https://sentit.ortogra.fi/']],
         ['Matemàtiques', ['https://filicompte.ortogra.fi/']],
         ['Medi', ['https://relleu.ortogra.fi/']],
         ['Utilitats', ['https://pentagrama.page/', 'https://pauta.ortogra.fi/']],

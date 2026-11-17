@@ -32,6 +32,7 @@ h1{font:400 clamp(32px,4vw,46px)/1.12 var(--serif);letter-spacing:-1.2px;margin:
 .section-label{margin:0 0 12px;padding-bottom:9px;border-bottom:1px solid var(--line)}
 .project-list{display:grid;gap:10px}
 .project-link{display:grid;grid-template-columns:minmax(0,1fr) clamp(94px,12vw,138px) 28px;gap:14px;align-items:center;padding:11px 13px 11px 16px;background:var(--surface);border:1px solid var(--line);border-radius:9px;text-decoration:none;color:var(--ink)}
+.project-link.no-preview{grid-template-columns:minmax(0,1fr) auto}
 .project-link:hover,.project-link:focus-visible{background:var(--hover);border-color:var(--muted)}
 .project-brand{display:flex;align-items:center;gap:8px;margin:0 0 5px;font:700 23px/1.1 var(--serif);letter-spacing:-.45px;color:var(--green)}
 .project-brand svg{width:23px;height:27px;flex:none;stroke-width:2.1}
