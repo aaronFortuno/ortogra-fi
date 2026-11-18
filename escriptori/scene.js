@@ -5,10 +5,11 @@ import { createAtmosphere } from './atmosphere.js?v=1.6.0';
 import { prepareMaterials } from './materials.js?v=1.6.0';
 import { createReadingPages } from './reading.js?v=1.5.0';
 import { createDaylight } from './daylight.js?v=1.6.0';
+import { createObjectJourney } from './journey.js?v=1.7.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const narrow = matchMedia('(max-width: 700px)');
-const motionDuration = { flight: 780, camera: 900, lid: 680 };
+const journeyDuration = 2500;
 const areas = {
   Llengua: { center: [-4.48, 2.05, -.2], width: 3.8, label: [-3.92, 3.99, .0] },
   Matemàtiques: { center: [-.6, 2.05, -.2], width: 3.15, label: [-.6, 3.99, .0] },
@@ -205,6 +206,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   function render(time) {
     frame = 0;
     for (const [key, motion] of motions) {
+      if (motion.start === null) motion.start = time;
       const ratio = Math.min(1, (time - motion.start) / motion.duration);
       motion.update(ratio * ratio * (3 - 2 * ratio));
       if (ratio === 1) { motions.delete(key); motion.resolve(); }
@@ -235,11 +237,11 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     motions.get(key).resolve();
     motions.delete(key);
   }
-  function animate(key, update, duration = motionDuration[key] || 220) {
+  function animate(key, update, duration = 220) {
     cancelMotion(key);
     if (reducedMotion.matches) { update(1); requestRender(); return Promise.resolve(); }
     return new Promise(resolve => {
-      motions.set(key, { start: performance.now(), update, resolve, duration });
+      motions.set(key, { start: key === 'journey' ? null : performance.now(), update, resolve, duration });
       requestRender();
     });
   }
@@ -342,66 +344,56 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     highlight(null);
     active = models.get(id);
     navigation.enabled = false;
-    phase = 'opening';
-    canvas.parentElement.classList.add('is-reading');
+    phase = 'preparing';
     returnView = { position: camera.position.clone(), target: navigation.target.clone(), rotation: camera.quaternion.clone(), aspect: camera.aspect };
     const model = active;
     cancelMotion('hover-' + id);
     reading.mount(model);
-    const card = model.group.getObjectByName('ProjectCard');
+    // Upload and compile newly loaded samples before the animation clock starts.
+    for (const sample of model.sampleTextures) renderer.initTexture(sample.texture);
+    await renderer.compileAsync(scene, camera);
+    phase = 'opening';
+    canvas.parentElement.classList.add('is-reading');
     const from = model.group.position.clone();
-    const lifted = model.home.clone().add(new THREE.Vector3(0, .3, 2.2));
-    const flatRotation = model.project.kind === 'binder'
-      ? new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
-        new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(-1, 0, 0)))
-      : new THREE.Quaternion();
-    const destination = new THREE.Vector3(model.project.kind === 'box' ? -.95 : .78, model.project.kind === 'folder' ? -.53 : model.project.kind === 'box' ? -.205 : -.34, 2.5);
-    // Fit the final open pages before the flight starts, then restore the pose.
-    model.group.position.copy(destination); model.group.quaternion.copy(flatRotation);
-    model.lid.rotation[model.axis] = model.angle;
-    const view = readingView();
-    model.group.position.copy(from); model.group.quaternion.copy(model.rotation); model.lid.rotation[model.axis] = 0;
-    const approach = { position: new THREE.Vector3(0, 3.5, 7.4), target: new THREE.Vector3(0, -.15, 2.5) };
-    await Promise.all([
-      animate('flight', t => model.group.position.lerpVectors(from, lifted, t)),
-      moveCamera(approach),
-    ]);
-    await Promise.all([animate('flight', t => {
-      model.group.position.lerpVectors(lifted, destination, t);
-      model.group.position.y += Math.sin(t * Math.PI) * .5;
-      model.group.quaternion.slerpQuaternions(model.rotation, flatRotation, t);
-    }), moveCamera(view)]);
-    if (card) { card.visible = true; card.position.x = 0; }
-    await Promise.all([animate('lid', t => {
-      model.lid.rotation[model.axis] = model.angle * t;
-      if (card) card.position.x = 2.05 * t;
-    }), animate('reading-light', t => { readingLight.intensity = readingIntensity() * t; }, 680)]);
+    const journey = prepareJourney(model, from, returnView);
+    await animate('journey', journey, journeyDuration);
     phase = 'reading';
     canvas.dataset.selected = id;
     canvas.dataset.presentation = 'table';
     requestRender();
   }
+  function prepareJourney(model, from, startView) {
+    const saved = { position: model.group.position.clone(), rotation: model.group.quaternion.clone(), lid: model.lid.rotation[model.axis] };
+    const card = model.group.getObjectByName('ProjectCard');
+    const savedCard = card && { x: card.position.x, visible: card.visible };
+    const flatRotation = model.project.kind === 'binder'
+      ? new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+        new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(-1, 0, 0)))
+      : new THREE.Quaternion();
+    const destination = new THREE.Vector3(model.project.kind === 'box' ? -.95 : .78, model.project.kind === 'folder' ? -.53 : model.project.kind === 'box' ? -.205 : -.34, 2.5);
+    // Measure the final reading pose, then restore the actual pose before moving.
+    model.group.position.copy(destination); model.group.quaternion.copy(flatRotation);
+    model.lid.rotation[model.axis] = model.angle;
+    if (card) { card.visible = true; card.position.x = 2.05; }
+    model.group.updateWorldMatrix(true, true);
+    const view = readingView();
+    const endFocus = new THREE.Box3().setFromPoints(reading.points(narrow.matches)).getCenter(new THREE.Vector3());
+    model.group.position.copy(saved.position); model.group.quaternion.copy(saved.rotation); model.lid.rotation[model.axis] = saved.lid;
+    if (card) { card.visible = savedCard.visible; card.position.x = savedCard.x; }
+    model.group.updateWorldMatrix(true, true);
+    return createObjectJourney({
+      model, from, to: destination, flatRotation, startView, endView: view, endFocus,
+      camera, target: navigation.target, focusPoints: () => reading.points(narrow.matches),
+      onLid: opening => { readingLight.intensity = readingIntensity() * opening; },
+    });
+  }
   async function home() {
     if (!active) return;
     phase = 'closing';
     const model = active;
-    const card = model.group.getObjectByName('ProjectCard');
-    const previousLight = readingLight.intensity;
-    await Promise.all([animate('lid', t => {
-      model.lid.rotation[model.axis] = model.angle * (1 - t);
-      if (card) card.position.x = 2.05 * (1 - t);
-    }), animate('reading-light', t => { readingLight.intensity = previousLight * (1 - t); }, 680)]);
-    if (card) card.visible = false;
-    const from = model.group.position.clone(), rotation = model.group.quaternion.clone();
-    const lifted = model.home.clone().add(new THREE.Vector3(0, .3, 2.2));
-    await Promise.all([animate('flight', t => {
-      model.group.position.lerpVectors(from, lifted, t);
-      model.group.quaternion.slerpQuaternions(rotation, model.rotation, t);
-    }), moveCamera({ position: new THREE.Vector3(0, 3.5, 7.4), target: new THREE.Vector3(0, -.15, 2.5) })]);
     const view = Math.abs(returnView.aspect - camera.aspect) < .01 ? returnView : initialView();
-    await Promise.all([
-      animate('flight', t => model.group.position.lerpVectors(lifted, model.home, t)), moveCamera(view),
-    ]);
+    const journey = prepareJourney(model, model.home, view);
+    await animate('journey', t => journey(1 - t), journeyDuration);
     active = null; hovered = null;
     phase = 'shelf';
     navigation.enabled = true;
@@ -435,15 +427,6 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     distance *= narrow.matches ? 1.06 : paired ? 1.09 : 1.07;
     target.addScaledVector(up, -reserved / lastHeight * distance * tangent);
     return { target, position: target.clone().addScaledVector(direction, distance) };
-  }
-  async function moveCamera(view) {
-    const position = camera.position.clone(), rotation = camera.quaternion.clone(), target = navigation.target.clone();
-    const preview = camera.clone(); preview.position.copy(view.position); preview.lookAt(view.target);
-    await animate('camera', t => {
-      camera.position.lerpVectors(position, view.position, t);
-      camera.quaternion.slerpQuaternions(rotation, preview.quaternion, t);
-      navigation.target.lerpVectors(target, view.target, t);
-    });
   }
   function setDetailVisible(visible) {
     presenting = visible;

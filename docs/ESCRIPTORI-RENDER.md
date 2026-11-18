@@ -22,6 +22,12 @@ La llum directa ja segueix el sol amb SunCalc 1.9.0: referència 41,39° N / 2,1
 
 El càlcul astronòmic dona la posició del sol; el color i les intensitats interiors són decisions visuals. L’HDRI d’estudi continua aportant els reflexos de base, amb intensitat variable; la meteorologia i els núvols no es consulten. El control de data/hora permet comparar condicions amb la mateixa càmera. La prova manual no es desa entre visites. Les convencions angulars i la llicència de la versió emprada es documenten a [`assets/vendor/suncalc.README.md`](../assets/vendor/suncalc.README.md).
 
+## Recorregut continu dels objectes
+
+`escriptori/journey.js` calcula un únic camí de Bézier de quart grau. Els primers controls mantenen el material alineat amb el prestatge fins que n’ha sortit. La inclinació es produeix després de separar-se de la balda i la tapa s’obre durant l’arribada. Una sola acceleració i desacceleració envolta tot el recorregut de 2.500 ms.
+
+La càmera es desplaça respecte del centre del material en moviment, centrant-hi progressivament la mirada i apropant-se a la vista de lectura. El canvi del centre d’atenció cap als fulls acompanya l’obertura. El camí es manté sota el sostre i s’avalua a l’inrevés per al retorn. Les textures es pugen i els programes de materials es compilen abans del moviment; el temps comença al primer fotograma. La prova de trajectòria mesura l’enquadrament, la continuïtat i la restauració de la càmera des de diferents vistes inicials.
+
 ## Properes proves, per ordre
 
 1. **Coherència de la llum d’entorn.** L’HDRI actual, [Studio Small 09](https://polyhaven.com/a/studio_small_09), és d’estudi. Cal provar una orientació coherent amb la finestra i una intensitat de 0,8–1,0, reajustant l’exposició després. Si continuen apareixent reflexos d’estudi, comparar-lo amb un entorn de llum de dia. Canviar l’HDRI modifica els reflexos de tots els materials; convé comparar la vista de prestatge i la de lectura juntes. Three.js permet rotar i graduar l’entorn des de [Scene](https://github.com/mrdoob/three.js/blob/r180/docs/api/en/scenes/Scene.html).
