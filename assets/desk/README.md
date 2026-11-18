@@ -8,6 +8,10 @@ El paper utilitza rugositat fina procedimental i els cantells dels fulls tenen l
 
 La font reproduïble és `tools/build-desk-assets.py`. Després de regenerar el GLB, el fitxer editable de Blender queda a `output/desk/escriptori.blend`, fora de Git. No cal Blender per servir ni utilitzar el web.
 
+Els arxivadors es col·loquen amb inclinacions i profunditats diferents, mantenint el cantell inferior sobre la balda. Un petit joc de fulls, un clip i un llapis afegeixen objectes quotidians a la taula. Les fulles `IndoorLeaf_*` del potos es conserven dins de `LivingDetails`, separades de la geometria estàtica, per poder-les moure suaument al navegador.
+
+Els [PDF i fulls complets de mostra](samples/README.md) es distribueixen a `samples/`, amb procedència i atribucions pròpies. El visor els carrega en obrir un objecte i els presenta com a paper físic i com a document ampliable. No es barregen amb les textures de materials.
+
 `garden.webp` és el fons exterior de la finestra, generat amb l’eina imagegen integrada i comprimit a WebP de 900 × 1.200 px (183 KB). La vegetació que es mou davant seu és geometria 3D, amb nervadures procedimentals; la imatge no es deforma.
 
 Prompt del jardí: «Use case: photorealistic-natural. Asset type: background photograph viewed through a side window inside a realistic browser 3D teacher desk scene. Create a natural photograph of a quiet leafy Mediterranean school garden on a bright overcast morning. Eye level from a first-floor window, softly blurred green deciduous trees and branches at mid distance, muted sage leaves, gentle blue-grey overcast sky visible through the upper third, a little distant garden wall at bottom. Real photography with subtle atmospheric depth, detailed natural leaves, no harsh sun, calm daylight and restrained colours, modest depth of field. Portrait 3:4 composition filling the frame edge to edge. No interior, no window frame, no building facade in foreground, no text, no people, no watermark. This is a background image, not a picture of the website or desk.»

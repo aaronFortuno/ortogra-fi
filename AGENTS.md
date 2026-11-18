@@ -5,5 +5,5 @@ Portada estàtica i lleugera del projecte paraigua. HTML, CSS i JavaScript sense
 - Verifica els canvis en local, també en mòbil i amb tema fosc. La comprovació del desplegament remot la fa l’usuari.
 - El servidor local és `node tools/serve.cjs` (port 4187). La prova de navegador és `node tools/check.cjs` amb Playwright disponible.
 - La marca reutilitzable viu a `assets/brand/`. Si la canvies, actualitza també la integració a Plec quan s’hagi demanat.
-- Moviments i transicions: 220 ms; respecta les preferències de moviment reduït.
+- Transicions de la interfície: 220 ms. A petició de l’autor, l’escriptori 3D obre i tanca els objectes amb fases més lentes: trasllat 780 ms, càmera 900 ms i tapes 680 ms; els botons de mirada duren 420 ms. Respecta les preferències de moviment reduït.
 - No incorporis secrets, analítica o serveis externs sense un encàrrec explícit.

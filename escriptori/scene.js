@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
 import { DeskNavigation } from './navigation.js?v=1.2.0';
-import { createAtmosphere } from './atmosphere.js?v=1.3.0';
+import { createAtmosphere } from './atmosphere.js?v=1.4.0';
 import { prepareMaterials } from './materials.js?v=1.3.0';
-import { createReadingPages } from './reading.js?v=1.3.0';
+import { createReadingPages } from './reading.js?v=1.4.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const narrow = matchMedia('(max-width: 700px)');
+const motionDuration = { flight: 780, camera: 900, lid: 680 };
 const areas = {
-  Llengua: { center: [-3.92, 2.05, -.2], width: 3.65, label: [-3.92, 3.99, .0] },
+  Llengua: { center: [-4.48, 2.05, -.2], width: 3.8, label: [-3.92, 3.99, .0] },
   Matemàtiques: { center: [-.6, 2.05, -.2], width: 3.15, label: [-.6, 3.99, .0] },
   Medi: { center: [1.93, 1.8, -.2], width: 3.15, label: [1.93, 3.99, .0] },
   Utilitats: { center: [4.5, -.2, 1.1], width: 3.3, label: [4.5, .25, 1.25] },
@@ -103,7 +104,7 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   bounce.position.set(-5, 2, 3.5);
   scene.add(bounce);
 
-  const asset = await new GLTFLoader().loadAsync(new URL('../assets/desk/escriptori.glb?v=1.3.0', import.meta.url).href);
+  const asset = await new GLTFLoader().loadAsync(new URL('../assets/desk/escriptori.glb?v=1.4.0', import.meta.url).href);
   const room = asset.scene;
   scene.add(room);
   const materials = await prepareMaterials(room, scene, renderer);
@@ -123,7 +124,9 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   let ambientTimer;
   let contextLost = false;
   let controlsDirty = true;
-  const atmosphere = await createAtmosphere(scene);
+  let ambientShadowTime = -Infinity;
+  const outline = createHoverOutline(canvas.parentElement);
+  const atmosphere = await createAtmosphere(scene, room);
   for (const material of materials) if (material.name.startsWith('Leaves') || material.name.startsWith('LeafLight')) {
     material.map = atmosphere.leafTexture;
     material.color.set('#b5ba8f');
@@ -172,7 +175,7 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     }
     models.set(project.id, {
       group, lid, project, bounds, axis, angle,
-      home: group.position.clone(), rotation: group.quaternion.clone(),
+      home: group.position.clone(), rotation: group.quaternion.clone(), outlineBounds: localBounds(group),
     });
   }
   await Promise.all([...models.values()].map(async model => {
@@ -188,7 +191,7 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   function render(time) {
     frame = 0;
     for (const [key, motion] of motions) {
-      const ratio = Math.min(1, (time - motion.start) / 220);
+      const ratio = Math.min(1, (time - motion.start) / motion.duration);
       motion.update(ratio * ratio * (3 - 2 * ratio));
       if (ratio === 1) { motions.delete(key); motion.resolve(); }
     }
@@ -196,9 +199,16 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     camera.updateMatrixWorld();
     if (controlsDirty) { updateControls(); controlsDirty = false; }
     if (active) reading.project(camera, canvas.getBoundingClientRect());
+    outline.update(active ? null : models.get(hovered), camera, lastWidth, lastHeight);
     if ([...motions.keys()].some(key => key !== 'view')) renderer.shadowMap.needsUpdate = true;
     const living = !reducedMotion.matches && !document.hidden && !presenting && !contextLost && atmosphere.visible(camera);
-    if (living) atmosphere.update(time);
+    if (living) {
+      atmosphere.update(time);
+      if (time - ambientShadowTime > 250) {
+        renderer.shadowMap.needsUpdate = true;
+        ambientShadowTime = time;
+      }
+    }
     renderer.render(scene, camera);
     clearTimeout(ambientTimer);
     canvas.dataset.ambience = living ? 'moving' : 'still';
@@ -210,11 +220,11 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     motions.get(key).resolve();
     motions.delete(key);
   }
-  function animate(key, update) {
+  function animate(key, update, duration = motionDuration[key] || 220) {
     cancelMotion(key);
     if (reducedMotion.matches) { update(1); requestRender(); return Promise.resolve(); }
     return new Promise(resolve => {
-      motions.set(key, { start: performance.now(), update, resolve });
+      motions.set(key, { start: performance.now(), update, resolve, duration });
       requestRender();
     });
   }
@@ -305,6 +315,15 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     }
   }
   async function select(id) {
+    const selected = models.get(id);
+    if (selected.project.samples?.length && !selected.sampleTextures) {
+      selected.sampleTextures = await Promise.all(selected.project.samples.map(async sample => {
+        const texture = await new THREE.TextureLoader().loadAsync(sample.image);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+        return { ...sample, texture };
+      }));
+    }
     highlight(null);
     active = models.get(id);
     navigation.enabled = false;
@@ -454,7 +473,7 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
       camera.position.lerpVectors(from, position, t);
       navigation.target.lerpVectors(previousTarget, target, t);
       camera.quaternion.slerpQuaternions(fromRotation, rotation, t);
-    });
+    }, 420);
     navigation.enabled = !active;
     navigation.update();
     scene.updateMatrixWorld(); camera.updateMatrixWorld(); updateControls(); requestRender();
@@ -485,5 +504,42 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   });
   resize();
   setTheme(initialDark);
-  return { highlight, select, home, setTheme, setArea, setDetailVisible, moveView };
+  function setSample(index) { reading.setIndex(index); requestRender(); }
+  return { highlight, select, home, setTheme, setArea, setDetailVisible, moveView, setSample, sampleInfo: reading.info, sampleProjection: reading.projection };
+}
+
+function localBounds(group) {
+  group.updateWorldMatrix(true, true);
+  const inverse = group.matrixWorld.clone().invert();
+  const bounds = new THREE.Box3();
+  group.traverse(mesh => {
+    if (!mesh.isMesh || !mesh.visible || mesh.name === 'ProjectCard') return;
+    mesh.geometry.computeBoundingBox();
+    bounds.union(mesh.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse, mesh.matrixWorld)));
+  });
+  return bounds;
+}
+
+function createHoverOutline(surface) {
+  const namespace = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(namespace, 'svg');
+  svg.classList.add('object-outline'); svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(namespace, 'path'); svg.append(path); surface.append(svg);
+  return {
+    update(model, camera, width, height) {
+      svg.classList.toggle('is-visible', Boolean(model));
+      if (!model) return;
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      const bounds = model.outlineBounds, points = [];
+      for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+        const point = model.group.localToWorld(new THREE.Vector3(x, y, z)).project(camera);
+        points.push({ x: (point.x + 1) * width / 2, y: (1 - point.y) * height / 2 });
+      }
+      const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+      points.sort((a, b) => a.x - b.x || a.y - b.y);
+      const half = values => { const hull = []; for (const point of values) { while (hull.length > 1 && cross(hull.at(-2), hull.at(-1), point) <= 0) hull.pop(); hull.push(point); } return hull.slice(0, -1); };
+      const hull = [...half(points), ...half([...points].reverse())];
+      path.setAttribute('d', hull.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ') + ' Z');
+    },
+  };
 }

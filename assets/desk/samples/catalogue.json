@@ -1,0 +1,68 @@
+{
+  "plec": [
+    {
+      "title": "Dictat de 24 paraules",
+      "image": "plec-1.webp",
+      "pdf": "plec.pdf",
+      "page": 1
+    }
+  ],
+  "trama": [
+    {
+      "title": "El cartell de la plaça · lectura",
+      "image": "trama-1.webp",
+      "pdf": "trama.pdf",
+      "page": 1
+    },
+    {
+      "title": "El cartell de la plaça · preguntes",
+      "image": "trama-2.webp",
+      "pdf": "trama.pdf",
+      "page": 2
+    }
+  ],
+  "fil-i-compte": [
+    {
+      "title": "Problemes per pensar · fitxa 1",
+      "image": "fil-i-compte-1.webp",
+      "pdf": "fil-i-compte.pdf",
+      "page": 1
+    },
+    {
+      "title": "Problemes per pensar · fitxa 2",
+      "image": "fil-i-compte-2.webp",
+      "pdf": "fil-i-compte.pdf",
+      "page": 2
+    }
+  ],
+  "sentit": [
+    {
+      "title": "Preparem una capsa de records · fitxa 1",
+      "image": "sentit-1.webp",
+      "pdf": "sentit.pdf",
+      "page": 1
+    },
+    {
+      "title": "Preparem una capsa de records · fitxa 2",
+      "image": "sentit-2.webp",
+      "pdf": "sentit.pdf",
+      "page": 2
+    }
+  ],
+  "pauta": [
+    {
+      "title": "Pauta amb marge",
+      "image": "pauta-1.webp",
+      "pdf": "pauta.pdf",
+      "page": 1
+    }
+  ],
+  "pentagrama": [
+    {
+      "title": "Paper de música",
+      "image": "pentagrama-1.webp",
+      "pdf": "pentagrama.pdf",
+      "page": 1
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import { createSampleBrowser } from './samples.js?v=1.4.0';
+
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
 const status = document.querySelector('#desk-status');
@@ -12,6 +14,7 @@ let scene;
 let selected = null;
 let busy = false;
 let openingButton;
+const samples = createSampleBrowser({ detail, getScene: () => scene, track });
 
 const presentation = [
   { id: 'plec', name: 'Plec', kind: 'binder', purpose: 'Dictats', color: '#36523c', area: 'Llengua',
@@ -57,6 +60,11 @@ async function loadProjects() {
   const response = await fetch(new URL('index.html', base));
   if (!response.ok) throw new Error('No s’ha pogut carregar el catàleg.');
   const portal = new DOMParser().parseFromString(await response.text(), 'text/html');
+  const sampleBase = new URL('assets/desk/samples/', base);
+  const sampleCatalogue = await fetch(new URL('catalogue.json', sampleBase)).then(response => {
+    if (!response.ok) throw new Error('No s’han pogut carregar les mostres.');
+    return response.json();
+  });
   for (const project of presentation) {
     const link = [...portal.querySelectorAll('.project-link')].find(link => {
       const domain = new URL(link.href).hostname;
@@ -68,6 +76,7 @@ async function loadProjects() {
     project.href = link.href;
     project.preview = link.querySelector('.project-preview')?.getAttribute('src');
     if (project.preview) project.preview = new URL(project.preview, base).href;
+    project.samples = (sampleCatalogue[project.id] || []).map(sample => ({ ...sample, image: new URL(sample.image, sampleBase).href, pdf: new URL(sample.pdf, sampleBase).href }));
   }
   const about = portal.querySelector('#about-dialog');
   if (about) {
@@ -90,9 +99,9 @@ async function loadProjects() {
 function sampleFor(project) {
   const sample = document.querySelector('#project-sample');
   sample.replaceChildren();
-  if (project.preview) {
+  if (project.samples?.length || project.preview) {
     const image = document.createElement('img');
-    image.src = project.preview;
+    image.src = project.samples?.[0]?.image || project.preview;
     image.alt = 'Mostra de ' + project.name;
     sample.append(image);
     return;
@@ -131,12 +140,20 @@ async function openProject(project, button) {
   caption.classList.remove('visible');
   controls.inert = true;
   try {
+    status.textContent = '';
     await scene.select(project.id);
+    samples.setProject(project);
     detail.showModal();
     detail.querySelector('.description-page').scrollTop = 0;
     scene.setDetailVisible(true);
     requestAnimationFrame(() => detail.classList.add('is-visible'));
     track('obre_fitxa_escriptori', { projecte: project.id });
+  } catch (error) {
+    if (detail.open) detail.close();
+    await scene.home().catch(() => {});
+    selected = null; controls.inert = false;
+    status.textContent = 'No s’ha pogut carregar la mostra. Torna-ho a provar.';
+    console.error('Mostra:', error);
   } finally {
     busy = false;
   }
@@ -145,6 +162,7 @@ async function openProject(project, button) {
 async function closeProject() {
   if (busy || !detail.open) return;
   busy = true;
+  samples.hideLens();
   detail.classList.remove('is-visible');
   await new Promise(resolve => setTimeout(resolve, reduced.matches ? 0 : 220));
   detail.close();
@@ -212,7 +230,7 @@ async function start() {
   try {
     await loadProjects();
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.3.0');
+    const { createDesk } = await import('./scene.js?v=1.4.0');
     scene = await createDesk({
       canvas: document.querySelector('#desk-canvas'), projects: presentation,
       dark: document.documentElement.dataset.theme === 'dark',

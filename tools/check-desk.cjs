@@ -21,6 +21,8 @@ async function checkTouch(browser) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 60, y: y + 10 }] });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     assert.equal(await page.locator('#project-detail').evaluate(dialog => dialog.open), false);
+    // Let the rendered swipe finish before tapping a control in the next action.
+    await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) > 20, initial.x);
     const home = await page.locator('[data-view=home]').boundingBox();
     const reset = () => page.touchscreen.tap(home.x + home.width / 2, home.y + home.height / 2);
     await reset();

@@ -5,16 +5,20 @@ import * as THREE from 'three';
 export function createReadingPages(detail, paperMaterial) {
   const elements = [detail.querySelector('.sample-page'), detail.querySelector('.description-page')];
   const pages = elements.map(element => ({ element, anchor: new THREE.Object3D() }));
-  const print = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), paperMaterial.clone());
-  print.name = 'PrintedSample';
-  print.receiveShadow = true;
-  print.material.polygonOffset = true;
-  print.material.polygonOffsetFactor = -1;
-  print.material.polygonOffsetUnits = -1;
-  pages[0].anchor.add(print);
+  const sheet = name => {
+    const ink = paperMaterial.clone();
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, .0015), [paperMaterial, paperMaterial, paperMaterial, paperMaterial, ink, paperMaterial]);
+    mesh.name = name; mesh.castShadow = mesh.receiveShadow = true;
+    pages[0].anchor.add(mesh);
+    return { mesh, ink };
+  };
+  const front = sheet('PrintedSample'), back = sheet('SecondSample');
+  const hit = detail.querySelector('#sample-open');
   let kind;
+  let currentModel, currentIndex = 0, projection;
   function mount(model) {
     kind = model.project.kind;
+    currentModel = model; currentIndex = 0;
     const definitions = kind === 'binder' ? [
       { parent: model.lid, position: [-.029, 0, -.754], rotation: [0, -Math.PI / 2, 0], size: [1.33, 1.84] },
       { parent: model.group, position: [.174, 0, 0], rotation: [0, Math.PI / 2, 0], size: [1.33, 1.84] },
@@ -36,13 +40,25 @@ export function createReadingPages(detail, paperMaterial) {
       page.element.style.width = page.width + 'px';
       page.element.style.height = page.height + 'px';
     });
-    const texture = model.previewTexture ||= fallbackSample(detail);
-    print.material.map = texture;
-    print.material.needsUpdate = true;
-    const aspect = texture.image.width / texture.image.height;
-    const width = Math.min(pages[0].size[0] * .87, pages[0].size[1] * .73 * aspect);
-    print.scale.set(width, width / aspect, 1);
-    print.position.z = .002;
+    if (!model.sampleTextures?.length) model.sampleTextures = [{ texture: model.previewTexture ||= fallbackSample(detail), image: model.project.preview, title: 'Mostra de ' + model.project.name }];
+    setIndex(0);
+  }
+  function setIndex(index) {
+    const samples = currentModel.sampleTextures;
+    currentIndex = (index + samples.length) % samples.length;
+    for (const [piece, sample] of [[front, samples[currentIndex]], [back, samples[(currentIndex + 1) % samples.length]]]) {
+      piece.ink.map = sample.texture; piece.ink.needsUpdate = true;
+      const aspect = sample.texture.image.width / sample.texture.image.height;
+      const width = Math.min(pages[0].size[0] * .89, pages[0].size[1] * .90 * aspect);
+      piece.mesh.scale.set(width, width / aspect, 1);
+    }
+    back.mesh.visible = samples.length > 1;
+    back.mesh.position.set(.035, .035, .004);
+    back.mesh.rotation.z = .035;
+    front.mesh.position.set(-.012, -.006, .008);
+    front.mesh.rotation.z = -.012;
+    hit.setAttribute('aria-label', 'Amplia la mostra: ' + samples[currentIndex].title);
+    detail.dataset.sampleCount = String(samples.length);
   }
   function corners(page) {
     const [w, h] = page.size;
@@ -62,9 +78,17 @@ export function createReadingPages(detail, paperMaterial) {
       });
       page.element.style.transform = planeTransform(quad, page.width, page.height);
     }
+    const quad = [[-.5, .5], [.5, .5], [.5, -.5], [-.5, -.5]].map(([x, y]) => {
+      const point = front.mesh.localToWorld(new THREE.Vector3(x, y, .001)).project(camera);
+      return { x: (point.x + 1) * rect.width / 2, y: (1 - point.y) * rect.height / 2 };
+    });
+    const aspect = currentModel.sampleTextures[currentIndex].texture.image.width / currentModel.sampleTextures[currentIndex].texture.image.height;
+    hit.style.width = '400px'; hit.style.height = (400 / aspect) + 'px';
+    hit.style.transform = planeTransform(quad, 400, 400 / aspect);
+    projection = quad;
     detail.dataset.surface = kind;
   }
-  return { mount, points, project };
+  return { mount, points, project, setIndex, projection: () => projection, info: () => ({ index: currentIndex, samples: currentModel?.sampleTextures || [] }) };
 }
 
 function fallbackSample(detail) {

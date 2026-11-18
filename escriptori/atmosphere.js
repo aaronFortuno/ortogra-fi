@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export async function createAtmosphere(scene) {
+export async function createAtmosphere(scene, room) {
   const window = new THREE.Group();
   window.position.set(-8.1, 3.25, 1);
   window.rotation.y = Math.PI / 2;
@@ -60,20 +60,30 @@ export async function createAtmosphere(scene) {
   const frustum = new THREE.Frustum();
   const projection = new THREE.Matrix4();
   const bounds = new THREE.Box3(new THREE.Vector3(-8.45, 1.62, -.48), new THREE.Vector3(-8, 4.9, 2.48));
+  const plant = room.getObjectByName('Pothos');
+  const plantBounds = plant ? new THREE.Box3().setFromObject(plant) : new THREE.Box3();
+  const indoor = plant ? plant.getObjectsByProperty('isMesh', true).filter(mesh => mesh.name.startsWith('IndoorLeaf_')).map((mesh, index) => ({ mesh, home: mesh.quaternion.clone(), phase: index * 1.7 })) : [];
+  let windowVisible = false, plantVisible = false;
   return {
     leafTexture,
     visible(camera) {
       projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
       frustum.setFromProjectionMatrix(projection);
-      return frustum.intersectsBox(bounds);
+      windowVisible = frustum.intersectsBox(bounds);
+      plantVisible = !plantBounds.isEmpty() && frustum.intersectsBox(plantBounds);
+      return windowVisible || plantVisible;
     },
     update(time) {
       const seconds = time / 1000;
-      for (const { group, leaves, phase } of branches) {
+      if (windowVisible) for (const { group, leaves, phase } of branches) {
         group.rotation.z = Math.sin(seconds * .62 + phase) * .018 + Math.sin(seconds * .21 + phase) * .008;
         for (let i = 0; i < leaves.length; i++) {
           leaves[i].leaf.rotation.z = leaves[i].angle + Math.sin(seconds * .86 + i * .63 + phase) * .035;
         }
+      }
+      if (plantVisible) for (const { mesh, home, phase } of indoor) {
+        const sway = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.sin(seconds * .47 + phase) * .012);
+        mesh.quaternion.copy(home).multiply(sway);
       }
     },
     setTheme(dark) {

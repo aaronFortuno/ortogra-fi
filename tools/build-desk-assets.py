@@ -74,6 +74,7 @@ def empty(name, position=(0, 0, 0), parent=None):
 
 dynamic = empty('Materials')
 room = empty('Room')
+living = empty('LivingDetails')
 
 
 def finish(obj, name, mat, position, parent):
@@ -182,8 +183,12 @@ for z in [-.45, 1, 2.45]:
 box('WindowSill', (.55, .12, 3.25), (-7.75, 1.54, 1), wood, bevel=.025)
 
 
-def binder(identifier, color, x):
-    group = empty('Item_' + identifier, (x, 2.27, -.55), dynamic)
+def binder(identifier, color, x, lean=0, yaw=0, depth=-.55):
+    # Place the lowest cover corner on the shelf, including when it leans.
+    height = 1.228 + 1.04 * math.cos(lean) + .225 * abs(math.sin(lean))
+    group = empty('Item_' + identifier, (x, height, depth), dynamic)
+    group.rotation_euler.y = -lean
+    group.rotation_euler.z = yaw
     group['kind'] = 'binder'
     cover = material('Cloth_' + identifier, color, .65)
     liner = material('Liner_' + identifier, '#a5ad92', .9)
@@ -211,15 +216,16 @@ def binder(identifier, color, x):
     return group
 
 
-binder('plec', '#36523c', -4.85)
-binder('trama', '#36523c', -4.23)
-binder('resso', '#36523c', -3.61)
-binder('sentit', '#36523c', -2.99)
-binder('fil-i-compte', '#aa823c', -.6)
+binder('plec', '#36523c', -5.51, lean=.15, yaw=.018, depth=-.54)
+binder('trama', '#36523c', -4.82, lean=.035, yaw=-.026, depth=-.61)
+binder('resso', '#36523c', -4.06, lean=-.11, yaw=.012, depth=-.50)
+binder('sentit', '#36523c', -3.37, lean=.11, yaw=-.018, depth=-.62)
+binder('fil-i-compte', '#aa823c', -.65, lean=-.065, yaw=-.018, depth=-.51)
 
 # A box and two closed folders exercise the same catalogue with different objects.
 blue = material('BoxFabric', '#53636a', .76)
 box_group = empty('Item_relleu-obert', (1.93, 1.62, -.36), dynamic)
+box_group.rotation_euler.z = .04
 box_group['kind'] = 'box'
 box('BoxBase', (1.9, .1, 1.4), (0, -.32, 0), blue, box_group, .024)
 box('BoxFront', (1.9, .62, .045), (0, -.01, .69), blue, box_group, .012)
@@ -248,12 +254,25 @@ def folder(identifier, color, x, z, angle):
     return group
 
 
-folder('pentagrama', '#ad6245', 4.32, -.32, -.04)
-folder('pauta', '#9d9c76', 4.8, 2.68, .11)
+folder('pentagrama', '#ad6245', 4.28, -.18, -.075)
+folder('pauta', '#9d9c76', 4.75, 2.65, .17)
+
+# A few ordinary papers and a pencil make the working surface lived-in.
+notes = empty('DeskNotes', (-3.65, -.575, 1.58), room)
+for i, angle in enumerate([-.085, .035, -.018]):
+    sheet = box('LooseWorksheet', (1.45, .003, 2.05), ((i - 1) * .08, i * .004, (i - 1) * .075), paper, notes, .0008)
+    sheet.rotation_euler.z = angle
+curve('PaperClip', [(-.56, .017, -.75), (-.56, .017, -.48), (-.44, .017, -.48), (-.44, .017, -.78), (-.52, .017, -.78), (-.52, .017, -.54)], .0035, silver, notes)
+loose_pencil = empty('LoosePencil', (-2.6, -.553, 1.6), room)
+loose_pencil.rotation_euler.x = math.pi / 2
+loose_pencil.rotation_euler.z = -.35
+cylinder('LoosePencilBody', .024, .96, (0, .48, 0), material('LoosePencilPaint', '#a5793d', .65), loose_pencil)
+cylinder('LoosePencilWood', .001, .12, (0, 1.02, 0), wood, loose_pencil, bottom=.024)
+cylinder('LoosePencilGraphite', .001, .026, (0, 1.09, 0), dark_metal, loose_pencil, bottom=.006)
 
 
 # Curved leaves with a centre ridge, a hollow ceramic pot and visible soil.
-plant = empty('Pothos', (-6.3, -.56, 2.38), room)
+plant = empty('Pothos', (-6.3, -.56, 2.38), living)
 profile = [(0, 0), (.3, 0), (.36, .12), (.4, .65), (.39, .69), (.365, .69), (.36, .12), (0, .07)]
 vertices, faces = [], []
 for radius, height in profile:
@@ -299,7 +318,7 @@ for i in range(24):
         for loop_index in polygon.loop_indices:
             vertex_index = mesh.loops[loop_index].vertex_index
             uv.data[loop_index].uv = (vertex_index % 7 / 6, vertex_index // 7 / 12)
-    leaf = bpy.data.objects.new('Leaf', mesh)
+    leaf = bpy.data.objects.new('IndoorLeaf_' + str(i), mesh)
     bpy.context.collection.objects.link(leaf)
     leaf.parent = plant
     leaf.location = xyz(center)
