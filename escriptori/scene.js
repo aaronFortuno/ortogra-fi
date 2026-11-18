@@ -2,9 +2,11 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
 import { DeskNavigation } from './navigation.js?v=1.2.0';
 import { createAtmosphere } from './atmosphere.js?v=1.6.0';
-import { prepareMaterials } from './materials.js?v=1.6.0';
-import { createReadingPages } from './reading.js?v=1.5.0';
-import { createDaylight } from './daylight.js?v=1.6.0';
+import { prepareMaterials } from './materials.js?v=1.8.0';
+import { createReadingPages } from './reading.js?v=1.8.0';
+import { createDaylight } from './daylight.js?v=1.8.0';
+import { createPaperView } from './paper-view.js?v=1.8.0';
+import { createContactShadows } from './contact-shadows.js?v=1.8.0';
 import { createObjectJourney } from './journey.js?v=1.7.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -37,29 +39,6 @@ function tapeTexture(project) {
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.fillText(text, 0, 0);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-function folderPaper(project) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 768;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#fffdf3';
-  ctx.fillRect(0, 0, 512, 768);
-  ctx.fillStyle = '#334837';
-  ctx.font = '32px Georgia';
-  ctx.fillText(project.name, 42, 65);
-  ctx.strokeStyle = project.id === 'pentagrama' ? '#5a6259' : '#a4b2a1';
-  ctx.lineWidth = 3;
-  for (let y = 120; y < 710; y += project.id === 'pentagrama' ? 105 : 35) {
-    const lines = project.id === 'pentagrama' ? 5 : 1;
-    for (let i = 0; i < lines; i++) {
-      ctx.beginPath(); ctx.moveTo(42, y + i * 10); ctx.lineTo(470, y + i * 10); ctx.stroke();
-    }
-  }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
@@ -124,6 +103,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
 
   const models = new Map();
   const motions = new Map();
+  const curlAmounts = new Map();
   let frame = 0;
   let active = null;
   let hovered = null;
@@ -138,6 +118,8 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   let controlsDirty = true;
   let ambientShadowTime = -Infinity;
   let firstFrame;
+  const paperView = createPaperView({ camera, target: navigation.target, reading,
+    animate, requestRender, getSize: () => ({ width: lastWidth, height: lastHeight }) });
   const outline = createHoverOutline(canvas.parentElement);
   const atmosphere = await createAtmosphere(scene, room, resources);
   for (const material of materials) if (material.name.startsWith('Leaves') || material.name.startsWith('LeafLight')) {
@@ -173,7 +155,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       addPlane(group, [1.4, .26], [0, -.01, .731], label);
       bounds = [[-.96, -.34, .72], [.96, .4, .92]];
       axis = 'x'; angle = -Math.PI * .57;
-      const card = new THREE.Mesh(new THREE.BoxGeometry(1.51, .017, 2.08), [...materials].find(material => material.name === 'Paper'));
+      const card = new THREE.Mesh(new THREE.BoxGeometry(1.75, .017, 1.17), [...materials].find(material => material.name === 'Paper'));
       card.position.set(2.05, -.35, 0);
       card.castShadow = card.receiveShadow = true;
       card.visible = false;
@@ -181,8 +163,6 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       group.add(card);
     } else {
       addPlane(lid, [1.37, .285], [.925, .051, -.81], label, true);
-      addPlane(lid, [1.22, 1.13], [.925, .042, .2], folderPaper(project), true);
-      addPlane(group, [1.64, 2.08], [0, .011, 0], folderPaper(project), true);
       bounds = [[-.93, -.03, -1.17], [.93, .08, 1.18]];
       axis = 'z'; angle = Math.PI;
     }
@@ -196,6 +176,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     model.previewTexture = await resources.load(model.project.preview, objectURL => new THREE.TextureLoader().loadAsync(objectURL));
     model.previewTexture.colorSpace = THREE.SRGBColorSpace;
   }));
+  const contactShadows = createContactShadows(room);
   const lighting = createDaylight({ scene, renderer, canvas, atmosphere, ambient, daylight, fill, bounce,
     animate: update => animate('daylight', update), requestRender, dark: initialDark, onChange: onLightingChange });
 
@@ -212,6 +193,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       if (ratio === 1) { motions.delete(key); motion.resolve(); }
     }
     scene.updateMatrixWorld();
+    contactShadows.update();
     camera.updateMatrixWorld();
     if (controlsDirty) { updateControls(); controlsDirty = false; }
     if (active) reading.project(camera, canvas.getBoundingClientRect());
@@ -220,7 +202,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     const living = !reducedMotion.matches && !document.hidden && !presenting && !contextLost && atmosphere.visible(camera);
     if (living) {
       atmosphere.update(time);
-      if (daylight.intensity > .01 && time - ambientShadowTime > 250) {
+      if (lighting.hasShadows() && time - ambientShadowTime > 250) {
         renderer.shadowMap.needsUpdate = true;
         ambientShadowTime = time;
       }
@@ -301,7 +283,8 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     renderer.setSize(lastWidth, lastHeight, false);
     camera.aspect = lastWidth / lastHeight;
     camera.updateProjectionMatrix();
-    if (!active || phase === 'reading') {
+    if (phase === 'inspecting') { cancelMotion('inspection'); paperView.resize(); }
+    else if (!active || phase === 'reading') {
       const view = active ? readingView() : initialView();
       camera.position.copy(view.position);
       navigation.target.copy(view.target);
@@ -352,11 +335,29 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     // Upload and compile newly loaded samples before the animation clock starts.
     for (const sample of model.sampleTextures) renderer.initTexture(sample.texture);
     await renderer.compileAsync(scene, camera);
+    // Warm the actual shadow/material passes as well as the shader programs.
+    // A GPU fence keeps queued uploads out of the first moving frame, without
+    // blocking the main thread with gl.finish().
+    renderer.shadowMap.needsUpdate = true;
+    renderer.render(scene, camera);
+    const gl = renderer.getContext(), fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (fence) {
+      gl.flush();
+      await new Promise(resolve => {
+        const ready = () => {
+          const result = gl.clientWaitSync(fence, 0, 0);
+          if (result === gl.TIMEOUT_EXPIRED) { requestAnimationFrame(ready); return; }
+          gl.deleteSync(fence); resolve();
+        };
+        requestAnimationFrame(ready);
+      });
+    }
     phase = 'opening';
     canvas.parentElement.classList.add('is-reading');
     const from = model.group.position.clone();
     const journey = prepareJourney(model, from, returnView);
     await animate('journey', journey, journeyDuration);
+    contactShadows.onTable(model.group);
     phase = 'reading';
     canvas.dataset.selected = id;
     canvas.dataset.presentation = 'table';
@@ -389,11 +390,16 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }
   async function home() {
     if (!active) return;
+    if (paperView.info().open) await leaveInspection();
     phase = 'closing';
+    contactShadows.onTable(null);
     const model = active;
     const view = Math.abs(returnView.aspect - camera.aspect) < .01 ? returnView : initialView();
     const journey = prepareJourney(model, model.home, view);
     await animate('journey', t => journey(1 - t), journeyDuration);
+    reading.unmount();
+    for (const sample of model.sampleTextures || []) sample.texture.dispose();
+    model.sampleTextures = null;
     active = null; hovered = null;
     phase = 'shelf';
     navigation.enabled = true;
@@ -416,15 +422,15 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     const right = new THREE.Vector3(1, 0, 0);
     const up = new THREE.Vector3().crossVectors(direction, right);
     const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const paired = reading.info().paired;
-    const reserved = paired ? (narrow.matches ? 132 : 96) : 0;
+    const panel = document.querySelector('.description-page');
+    const reserved = panel.offsetHeight ? panel.offsetHeight + 30 : narrow.matches ? 244 : 152;
     const verticalTangent = tangent * Math.max(.4, (lastHeight - reserved) / lastHeight);
     let distance = 0;
     for (const point of points) {
       const local = point.clone().sub(target);
       distance = Math.max(distance, Math.abs(local.dot(right)) / (tangent * camera.aspect) + local.dot(direction), Math.abs(local.dot(up)) / verticalTangent + local.dot(direction));
     }
-    distance *= narrow.matches ? 1.06 : paired ? 1.09 : 1.07;
+    distance *= narrow.matches ? 1.06 : 1.09;
     target.addScaledVector(up, -reserved / lastHeight * distance * tangent);
     return { target, position: target.clone().addScaledVector(direction, distance) };
   }
@@ -440,7 +446,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }
   function setTheme(dark) {
     darkTheme = dark;
-    if (phase === 'reading') readingLight.intensity = readingIntensity();
+    if (active) readingLight.intensity = readingIntensity();
     lighting.setTheme(dark);
     requestRender();
   }
@@ -506,8 +512,44 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   await renderer.compileAsync(scene, camera);
   onStage(98, 'Dibuixant l’escriptori…');
   await new Promise(resolve => { firstFrame = resolve; requestRender(); });
-  function setSample(index) { reading.setIndex(index); requestRender(); }
-  return { highlight, select, home, setTheme, setArea, setDetailVisible, moveView, setSample, sampleInfo: reading.info, setMoment: lighting.setMoment };
+  async function setSample(index) {
+    const info = reading.info();
+    if (phase !== 'reading' || index === info.index || index < 0 || index >= info.count) return;
+    phase = 'turning';
+    for (const direction of [-1, 1]) { cancelMotion('curl-' + direction); curlAmounts.set(direction, 0); }
+    const direction = Math.sign(index - info.index);
+    reading.startTurn(index);
+    await animate('pages', t => reading.turn(t, direction, narrow.matches));
+    reading.finishTurn(index); phase = 'reading'; resize();
+  }
+  function curlSample(direction, amount) {
+    if (phase !== 'reading') return;
+    const from = curlAmounts.get(direction) || 0;
+    animate('curl-' + direction, t => {
+      const value = THREE.MathUtils.lerp(from, amount, t);
+      curlAmounts.set(direction, value); reading.curl(direction, value, narrow.matches);
+    });
+  }
+  async function inspectSheet(index) {
+    if (phase !== 'reading' || !reading.info().pages[index]) return;
+    for (const direction of [-1, 1]) { cancelMotion('curl-' + direction); curlAmounts.set(direction, 0); }
+    reading.curl(-1, 0, narrow.matches); reading.curl(1, 0, narrow.matches);
+    phase = 'zooming';
+    await paperView.open(index); phase = 'inspecting'; paperView.resize();
+    canvas.dataset.presentation = 'sheet'; requestRender();
+  }
+  async function leaveInspection() {
+    if (!paperView.info().open || phase === 'zooming') return;
+    cancelMotion('inspection'); phase = 'zooming';
+    await paperView.close(readingView); phase = 'reading';
+    canvas.dataset.presentation = 'table'; requestRender();
+  }
+  function panInspection(x, y) { if (phase === 'inspecting') return paperView.pan(x, y); }
+  function scrollInspection(x, y) { if (phase === 'inspecting') return paperView.scroll(x, y); }
+  new ResizeObserver(() => { if (active && phase === 'reading') resize(); }).observe(document.querySelector('.description-page'));
+  return { highlight, select, home, setTheme, setArea, setDetailVisible, moveView, setSample, curlSample,
+    inspectSheet, leaveInspection, panInspection, scrollInspection, inspectionInfo: paperView.info,
+    sampleInfo: reading.info, setMoment: lighting.setMoment };
 }
 
 function localBounds(group) {

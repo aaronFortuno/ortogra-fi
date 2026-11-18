@@ -1,4 +1,4 @@
-import { createSampleBrowser } from './samples.js?v=1.5.0';
+import { createSampleBrowser } from './samples.js?v=1.8.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.6.0';
 import { createLightControls } from './light-controls.js?v=1.6.0';
 
@@ -65,7 +65,7 @@ async function loadProjects() {
   if (!response.ok) throw new Error('No s’ha pogut carregar el catàleg.');
   const portal = new DOMParser().parseFromString(await response.text(), 'text/html');
   const sampleBase = new URL('assets/desk/samples/', base);
-  const sampleCatalogue = await fetch(new URL('catalogue.json?v=1.5.0', sampleBase)).then(response => {
+  const sampleCatalogue = await fetch(new URL('examples.json?v=1.8.0', sampleBase)).then(response => {
     if (!response.ok) throw new Error('No s’han pogut carregar les mostres.');
     return response.json();
   });
@@ -80,7 +80,12 @@ async function loadProjects() {
     project.href = link.href;
     project.preview = link.querySelector('.project-preview')?.getAttribute('src');
     if (project.preview) project.preview = new URL(project.preview, base).href;
-    project.samples = (sampleCatalogue[project.id] || []).map(sample => ({ ...sample, image: new URL(sample.image, sampleBase).href, pdf: new URL(sample.pdf, sampleBase).href }));
+    project.examples = sampleCatalogue[project.id];
+    if (project.examples?.length !== 3 || project.examples.some(example => example.pages.length !== 2)) throw new Error('Falten exemples de ' + project.name);
+    project.samples = project.examples.flatMap((example, exampleIndex) => example.pages.map((sample, pageIndex) => ({
+      ...sample, exampleIndex, pageIndex, image: new URL(sample.image, sampleBase).href,
+      pdf: sample.pdf ? new URL(sample.pdf, sampleBase).href : null,
+    })));
   }
   const about = portal.querySelector('#about-dialog');
   if (about) {
@@ -134,12 +139,14 @@ async function openProject(project, button) {
   document.querySelector('#project-area').textContent = project.area;
   document.querySelector('#project-purpose').textContent = project.purpose;
   document.querySelector('#project-description').textContent = project.description;
+  document.querySelector('#project-credits').hidden = project.id !== 'relleu-obert';
   document.querySelector('#sample-caption').textContent = project.id === 'sentit' ? 'Exemple de fitxa' : 'Una mirada al projecte';
   const entry = document.querySelector('#project-enter');
   entry.href = project.href;
   entry.firstChild.textContent = 'Obre ' + project.name + ' ';
   detail.style.setProperty('--binder-color', project.color);
   detail.dataset.kind = project.kind;
+  detail.dataset.preparing = 'true';
   sampleFor(project);
   caption.classList.remove('visible');
   controls.inert = true;
@@ -147,6 +154,7 @@ async function openProject(project, button) {
     status.textContent = '';
     await scene.select(project.id);
     samples.setProject(project);
+    delete detail.dataset.preparing;
     detail.showModal();
     detail.querySelector('.description-page').scrollTop = 0;
     scene.setDetailVisible(true);
@@ -159,12 +167,14 @@ async function openProject(project, button) {
     status.textContent = 'No s’ha pogut carregar la mostra. Torna-ho a provar.';
     console.error('Mostra:', error);
   } finally {
+    delete detail.dataset.preparing;
     busy = false;
   }
 }
 
 async function closeProject() {
-  if (busy || !detail.open) return;
+  if (busy || samples.isBusy() || !detail.open) return;
+  if (samples.isInspecting()) { await samples.closeInspection(); return; }
   busy = true;
   detail.classList.remove('is-visible');
   await new Promise(resolve => setTimeout(resolve, reduced.matches ? 0 : 220));
@@ -241,7 +251,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.7.0');
+    const { createDesk } = await import('./scene.js?v=1.8.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({

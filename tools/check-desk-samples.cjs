@@ -4,108 +4,137 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 const origin = 'http://127.0.0.1:4187';
 const output = path.resolve(__dirname, '../tmp/desk');
+const distance = (a, b) => Math.hypot(...a.map((x, i) => x - b[i]));
+
+const instrument = `
+  window.deskSampleTest = {
+    pose: () => ({ position:camera.position.toArray(), rotation:camera.quaternion.toArray(), forward:new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).toArray() }),
+    paper: index => {const p=reading.sheetView(index);return {normal:p.normal.toArray(),up:p.up.toArray(),height:p.height};},
+    inspection:paperView.info,
+    phase:()=>phase,
+    ink:()=>reading.info().pages.map(p=>p.image),
+    curl:()=>Math.max(...scene.getObjectByName('PrintedSample').geometry.attributes.position.array.filter((_,i)=>i%3===2),...scene.getObjectByName('PrintedAnswer').geometry.attributes.position.array.filter((_,i)=>i%3===2)),
+  };
+`;
+async function open(page, id, mobile) {
+  if (mobile && ['pauta', 'pentagrama'].includes(id)) await page.locator('[data-area=Utilitats]').click();
+  if (mobile && id === 'relleu-obert') await page.locator('[data-area=Medi]').click();
+  await page.locator(`[data-project="${id}"]`).click();
+  await page.locator('#project-detail.is-visible').waitFor();
+  await page.waitForFunction(() => window.deskSampleTest.phase() === 'reading');
+}
+async function back(page) {
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('#project-detail').open && !document.querySelector('#shelf-controls').inert);
+}
+async function inspect(page, side, mobile, screenshot) {
+  const before = await page.evaluate(() => window.deskSampleTest.pose());
+  await page.locator(side ? '#sample-open-second' : '#sample-open-inline').click();
+  await page.waitForFunction(() => window.deskSampleTest.phase() === 'inspecting');
+  assert.equal(await page.locator('dialog[open]').count(), 1, 'Camera inspection must not open a second modal');
+  const zoom = await page.evaluate(index => ({ pose:window.deskSampleTest.pose(),paper:window.deskSampleTest.paper(index) }), side);
+  assert.ok(distance(before.position, zoom.pose.position) > .2, 'Actually move the camera nearer the paper');
+  const dot = zoom.pose.forward.reduce((sum, x, i) => sum + x * zoom.paper.normal[i], 0);
+  assert.ok(dot < -.99999, 'The enlarged view must be perpendicular to this physical sheet');
+  await page.waitForFunction(selector=>document.querySelector(selector).getBoundingClientRect().height > innerHeight - 116,side ? '#sample-open-answers' : '#sample-open');
+  if (screenshot) await page.screenshot({path:path.join(output,screenshot)});
+  if (side && await page.locator('#project-title').innerText() === 'Trama') {
+    const downloading=page.waitForEvent('download'); await page.locator('#sample-pdf').click();
+    const download=await downloading; const destination=path.join(output,'sample-download.pdf');
+    await download.saveAs(destination);
+    assert.equal((await fs.readFile(destination)).subarray(0,5).toString(),'%PDF-');
+  }
+  const area = await page.locator('#sample-inspection').boundingBox();
+  if (mobile) {
+    const cdp = await page.context().newCDPSession(page);
+    const x = area.x + area.width * .5, y = area.y + area.height * .5;
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-100}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    assert.equal(await page.locator('#project-detail').getAttribute('data-inspecting'),'true','Dragging must not act as the return click');
+    await page.waitForFunction(()=>window.deskSampleTest.inspection().panY < -.1);
+  } else {
+    await page.mouse.move(area.x + area.width / 2, area.y + 20);
+    await page.waitForFunction(()=>window.deskSampleTest.inspection().panY > .9);
+    const upper = await page.evaluate(()=>window.deskSampleTest.pose());
+    await page.mouse.move(area.x + area.width / 2, area.y + area.height - 80);
+    await page.waitForFunction(()=>window.deskSampleTest.inspection().panY < -.7);
+    const lower = await page.evaluate(()=>window.deskSampleTest.pose());
+    assert.ok(distance(upper.position,lower.position) > .1,'Reach both ends of the sheet');
+  }
+  if (mobile) await page.touchscreen.tap(area.x + 60, area.y + 60);
+  else if (side) await page.locator('#sample-inspection').click({position:{x:60,y:60}});
+  else await page.keyboard.press('Escape');
+  await page.waitForFunction(()=>window.deskSampleTest.phase()==='reading').catch(async error=>{
+    console.error(JSON.stringify(await page.evaluate(()=>({phase:window.deskSampleTest.phase(),inspection:window.deskSampleTest.inspection(),open:document.querySelector('#project-detail').open,attrs:{...document.querySelector('#project-detail').dataset},events:window.deskEvents})),null,2));throw error;
+  });
+  const restored=await page.evaluate(()=>window.deskSampleTest.pose());
+  assert.ok(distance(before.position,restored.position)<1e-6,'Restore the exact open-table viewpoint');
+  assert.ok(distance(before.rotation,restored.rotation)<1e-6,'Restore the exact open-table orientation');
+  assert.ok(await page.locator('#project-detail').evaluate(e=>e.open),'The first Escape returns to the table: '+JSON.stringify(await page.evaluate(()=>window.deskEvents||[])));
+}
 
 (async () => {
-  await fs.mkdir(output, { recursive: true });
-  const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  await fs.mkdir(output,{recursive:true});
+  const catalogue = JSON.parse(await fs.readFile(path.resolve(__dirname,'../assets/desk/samples/examples.json')));
+  assert.equal(Object.keys(catalogue).length,8);
+  for (const [id,examples] of Object.entries(catalogue)) {
+    assert.equal(examples.length,3,id+' must have three examples');
+    assert.equal(new Set(examples.map(e=>e.title)).size,3,id+' must have distinct materials');
+    for (const example of examples) {
+      assert.equal(example.pages.length,2);
+      for (const sample of example.pages) {
+        assert.ok((await fs.stat(path.resolve(__dirname,'../assets/desk/samples',sample.image))).size>1000);
+        if (sample.pdf) assert.equal((await fs.readFile(path.resolve(__dirname,'../assets/desk/samples',sample.pdf))).subarray(0,5).toString(),'%PDF-');
+      }
+    }
+  }
+  const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   try {
-    for (const [mobile, theme] of [[false, 'light'], [true, 'light'], [false, 'dark']]) {
-      const context = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 960 }, reducedMotion: 'reduce', hasTouch: mobile, colorScheme: theme });
-      await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
-      const page = await context.newPage(), errors = [];
-      page.on('pageerror', error => errors.push(error.message));
-      page.on('response', response => { if (response.status() >= 400) errors.push(response.status() + ' ' + response.url()); });
-      await page.goto(origin + '/escriptori/');
-      await page.locator('#workspace[data-ready=true]').waitFor({ timeout: 30000 });
-      await page.locator('[data-project=trama]').hover();
-      await page.locator('.object-outline.is-visible').waitFor();
-      assert.ok((await page.locator('.object-outline path').getAttribute('d')).startsWith('M'));
-      if (!mobile) await page.screenshot({ path: path.join(output, 'shelf-lived-in.png') });
-      await page.locator('[data-project=trama]').click();
-      await page.locator('#project-detail.is-visible').waitFor();
-      assert.equal(await page.locator('#project-detail').getAttribute('data-sample-count'), '4');
-      assert.equal(await page.locator('#project-detail').getAttribute('data-paired'), 'true');
-      if (mobile) await page.screenshot({ path: path.join(output, 'portfolio-paired-mobile.png') });
-      if (!mobile) {
-        await page.locator('#sample-open').hover();
-        assert.ok(!(await page.locator('#sample-open').getAttribute('style')).includes('NaN'));
-        assert.ok(await page.locator('#sample-open-answers').isVisible());
-        const sample = await page.locator('#sample-open').boundingBox();
-        assert.ok(sample.height > 600, 'The actual sheet must occupy most of the open binder');
-        await page.screenshot({ path: path.join(output, 'portfolio-paired-' + theme + '.png') });
-      }
-      await page.locator(mobile ? '#sample-open-inline' : '#sample-open').click();
-      await page.locator('#sample-viewer.is-visible').waitFor();
-      await page.waitForFunction(() => document.querySelector('#sample-document').naturalWidth > 0 && !document.querySelector('#sample-document').classList.contains('is-loading'));
-      assert.equal(await page.locator('#sample-counter').innerText(), '1 / 2');
-      assert.ok(await page.locator('#project-detail').evaluate(dialog => dialog.open));
-      const before = await page.locator('#sample-document').boundingBox();
-      await page.locator('#sample-zoom-in').click();
-      assert.equal(await page.locator('#sample-scale').innerText(), '125%');
-      assert.ok((await page.locator('#sample-document').boundingBox()).height > before.height * 1.15);
-      await page.locator('#sample-fit').click();
-      await page.locator('#sample-next').click();
-      await page.waitForFunction(() => document.querySelector('#sample-document').src.endsWith('trama-2.webp') && document.querySelector('#sample-document').complete);
-      assert.equal(await page.locator('#sample-counter').innerText(), '2 / 2');
-      await page.locator('[data-document=answers]').click();
-      await page.waitForFunction(() => document.querySelector('#sample-document').src.endsWith('trama-solucionari-1.webp') && document.querySelector('#sample-document').complete);
-      assert.equal(await page.locator('#sample-counter').innerText(), '1 / 2');
-      assert.equal(await page.locator('[data-document=answers]').getAttribute('aria-pressed'), 'true');
-      await page.locator('#sample-next').click();
-      await page.waitForFunction(() => document.querySelector('#sample-document').src.endsWith('trama-solucionari-2.webp') && document.querySelector('#sample-document').complete);
-      assert.equal(await page.locator('#sample-counter').innerText(), '2 / 2');
-      assert.ok((await page.locator('#sample-pdf').getAttribute('href')).endsWith('trama-solucionari.pdf'));
-      await page.screenshot({ path: path.join(output, 'sample-answers-' + (mobile ? 'mobile' : theme) + '.png') });
-      const downloading = page.waitForEvent('download');
-      await page.locator('#sample-pdf').click();
-      const download = await downloading;
-      await download.saveAs(path.join(output, 'sample-download.pdf'));
-      const bytes = await fs.readFile(path.join(output, 'sample-download.pdf'));
-      assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');
-      await page.keyboard.press('Escape');
-      await page.waitForFunction(() => !document.querySelector('#sample-viewer').open);
-      assert.ok(await page.locator('#project-detail').evaluate(dialog => dialog.open));
-      if (!mobile) {
-        await page.locator('#sample-open-answers').click();
-        await page.locator('#sample-viewer.is-visible').waitFor();
-        assert.equal(await page.locator('[data-document=answers]').getAttribute('aria-pressed'), 'true');
-        assert.equal(await page.locator('#sample-counter').innerText(), '2 / 2');
-        await page.keyboard.press('Escape');
-        await page.waitForFunction(() => !document.querySelector('#sample-viewer').open);
-      }
-      await page.keyboard.press('Escape');
-      await page.waitForFunction(() => !document.querySelector('#project-detail').open && !document.querySelector('#shelf-controls').inert);
-      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-      if (!mobile && theme === 'light') {
-        for (const id of ['fil-i-compte', 'sentit', 'plec']) {
-          await page.locator('[data-project=' + id + ']').click();
-          await page.locator('#project-detail.is-visible').waitFor();
-          const paired = id !== 'plec';
-          assert.equal(await page.locator('#project-detail').getAttribute('data-paired'), String(paired));
-          assert.equal(await page.locator('#sample-open-answers').isVisible(), paired);
-          await page.screenshot({path: path.join(output, 'portfolio-' + id + '.png')});
-          await page.keyboard.press('Escape');
-          await page.waitForFunction(() => !document.querySelector('#project-detail').open && !document.querySelector('#shelf-controls').inert);
+    for (const [width,height,theme] of (process.argv.includes('--desktop') ? [[1440,960,'light']] : process.argv.includes('--mobile') ? [[390,844,'light'],[320,568,'dark']] : [[1440,960,'light'],[390,844,'light'],[320,568,'dark']])) {
+      const mobile=width<700;
+      const context=await browser.newContext({viewport:{width,height},hasTouch:mobile,colorScheme:theme,reducedMotion:'reduce'});
+      await context.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());
+      const page=await context.newPage(),errors=[];
+      await page.addInitScript(()=>{window.deskEvents=[];for(const type of ['keydown','keyup','cancel','close','click','pointerdown','pointerup','pointercancel'])document.addEventListener(type,e=>{if(['Escape','Enter',' '].includes(e.key)||['cancel','close','click','pointerdown','pointerup','pointercancel'].includes(type))window.deskEvents.push({type,target:e.target.id,key:e.key,pointer:e.pointerId,open:document.querySelector('#project-detail')?.open,inspect:document.querySelector('#project-detail')?.dataset.inspecting});},true);});
+      page.on('pageerror',e=>errors.push(e.message));
+      page.on('response',r=>{if(r.status()>=400)errors.push(r.status()+' '+r.url());});
+      page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+      await page.route('**/scene.js*',async route=>{const response=await route.fetch();const body=(await response.text()).replace('  return { highlight, select, home,',instrument+'\n  return { highlight, select, home,');await route.fulfill({response,body});});
+      await page.goto(origin+'/escriptori/');
+      await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});
+      for (const id of process.argv.find(a=>a.startsWith('--project=')) ? process.argv.find(a=>a.startsWith('--project=')).split('=')[1].split(',') : mobile ? ['trama','pauta'] : ['trama','pauta','pentagrama','plec','sentit','fil-i-compte','resso','relleu-obert']) {
+        await open(page,id,mobile);
+        assert.equal(await page.locator('#sample-counter').innerText(),'2 / 3','Always start at the middle example');
+        const panel=await page.locator('.description-page').boundingBox();
+        assert.ok(panel.x>=0 && panel.x+panel.width<=width && panel.y+panel.height<=height-40,'External panel stays in the viewport');
+        assert.equal(await page.locator('.description-page').evaluate(e=>getComputedStyle(e).transform),'none');
+        assert.equal(await page.locator('#project-description').evaluate(e=>getComputedStyle(e).fontSize),'16px');
+        const initial=await page.evaluate(()=>window.deskSampleTest.ink());
+        await page.locator('#page-corner-next').hover();
+        await page.waitForFunction(()=>window.deskSampleTest.curl()>.02);
+        await page.locator('#sample-next').click();
+        await page.waitForFunction(()=>document.querySelector('#sample-counter').textContent==='3 / 3');
+        assert.ok(await page.locator('#sample-next').isDisabled());
+        assert.notDeepEqual(await page.evaluate(()=>window.deskSampleTest.ink()),initial,'A new example changes the actual printed materials');
+        await page.locator('#sample-previous').click();
+        await page.locator('#sample-previous').click();
+        await page.waitForFunction(()=>document.querySelector('#sample-counter').textContent==='1 / 3');
+        assert.ok(await page.locator('#sample-previous').isDisabled());
+        await page.locator('#sample-next').click();
+        await page.waitForFunction(()=>document.querySelector('#sample-counter').textContent==='2 / 3');
+        if (['trama','pauta','relleu-obert'].includes(id)) {
+          await page.screenshot({path:path.join(output,`examples-${id}-${width}-${theme}.png`)});
+          await inspect(page,0,mobile,`zenith-${id}-${width}-${theme}.png`);
+          if (!mobile) await inspect(page,1,false);
         }
+        await back(page);
+        console.log('OK '+id+' '+width+' '+theme);
       }
-      assert.deepEqual(errors, []);
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      assert.deepEqual(errors,[]);
       await context.close();
     }
-    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
-    await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
-    const page = await context.newPage();
-    await page.goto(origin + '/escriptori/');
-    await page.locator('#workspace[data-ready=true]').waitFor({ timeout: 30000 });
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
-    const opening = Date.now();
-    await page.locator('[data-project=plec]').click();
-    await page.locator('#project-detail.is-visible').waitFor({ timeout: 30000 });
-    assert.ok(Date.now() - opening >= 2200, 'Opening and camera travel must be visibly slower');
-    const closing = Date.now();
-    await page.keyboard.press('Escape');
-    await page.waitForFunction(() => !document.querySelector('#shelf-controls').inert);
-    assert.ok(Date.now() - closing >= 2400, 'Closing and return camera travel must be visibly slower');
-    await context.close();
-    console.log('PASS: paired worksheet/answer key, larger pages, direct enlargement, document switching, page navigation, zoom, PDF download, nested Escape, light/dark, mobile and slower opening/closing.');
-  } finally { await browser.close(); }
-})().catch(error => { console.error(error); process.exitCode = 1; });
+    console.log('PASS: three real examples per tool, paired sheets, curled corners, external readable panels, zenith camera, mouse/touch panning, exact return, mobile and dark theme.');
+  } finally {await browser.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

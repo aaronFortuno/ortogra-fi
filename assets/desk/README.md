@@ -4,7 +4,7 @@ Els materials actuals de fusta i teixit, i l’HDRI, són a [`pbr/`](pbr/README.
 
 El paper utilitza rugositat fina procedimental i els cantells dels fulls tenen línies de gruix. La paret conserva un acabat mat discret. `paper.webp` i `oak.webp` són recursos de les primeres versions de la maqueta; la fusta actual utilitza el roure de `pbr/`.
 
-`escriptori.glb` conté els models creats amb Blender 5.2, amb roure i una textura d’oclusió ambiental de 2.048 × 2.048 píxels, calculada amb Cycles i 64 mostres. La cocció utilitza explícitament `AmbientUV`; les coordenades de color són independents i tenen escala física. Els objectes interactius tenen noms estables `Item_<id>` i `Lid_<id>`. El navegador hi afegeix etiquetes, tinta impresa i contingut HTML projectat sobre el paper.
+`escriptori.glb` conté els models creats amb Blender 5.2, amb roure i una textura d’oclusió ambiental de 2.048 × 2.048 píxels, calculada amb Cycles i 64 mostres. La cocció utilitza explícitament `AmbientUV`; les coordenades de color són independents i tenen escala física. Els objectes interactius tenen noms estables `Item_<id>` i `Lid_<id>`. El navegador hi afegeix etiquetes, tinta impresa i hit areas HTML projectades sobre el paper; la informació del projecte és un quadre independent.
 
 La font reproduïble és `tools/build-desk-assets.py`. Després de regenerar el GLB, el fitxer editable de Blender queda a `output/desk/escriptori.blend`, fora de Git. No cal Blender per servir ni utilitzar el web.
 
@@ -12,7 +12,7 @@ El plafó de sostre i el cicle solar s’afegeixen al navegador des d’`escript
 
 Els arxivadors es col·loquen amb inclinacions i profunditats diferents, mantenint el cantell inferior sobre la balda. Un petit joc de fulls, un clip i un llapis afegeixen objectes quotidians a la taula. Les fulles `IndoorLeaf_*` del potos es conserven dins de `LivingDetails`, separades de la geometria estàtica, per poder-les moure suaument al navegador.
 
-Els [PDF i fulls complets de mostra](samples/README.md) es distribueixen a `samples/`, amb procedència i atribucions pròpies. El visor els carrega en obrir un objecte i els presenta com a paper físic i com a document ampliable. No es barregen amb les textures de materials.
+Els [PDF i fulls complets de mostra](samples/README.md) es distribueixen a `samples/`, amb procedència i atribucions pròpies. El visor els carrega en obrir un objecte i els presenta com a paper físic i amb ampliació zenital de càmera. No es barregen amb les textures de materials.
 
 `garden.webp` és el fons exterior de la finestra, generat amb l’eina imagegen integrada i comprimit a WebP de 900 × 1.200 px (183 KB). La vegetació que es mou davant seu és geometria 3D, amb nervadures procedimentals; la imatge no es deforma.
 

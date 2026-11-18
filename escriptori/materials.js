@@ -23,6 +23,7 @@ export async function prepareMaterials(room, scene, renderer, resources) {
 
   const cache = new Map();
   const paperGrain = paperTexture();
+  const plasterGrain = plasterTexture();
   function prepare(source) {
     if (cache.has(source)) return cache.get(source);
     let material = source;
@@ -47,12 +48,14 @@ export async function prepareMaterials(room, scene, renderer, resources) {
       material.normalMap = oakNormal;
       material.normalScale.set(.22, .22);
       material.roughnessMap = oakRough;
-      material.roughness = .9;
-      material.envMapIntensity = .8;
+      material.roughness = 1;
+      material.envMapIntensity = .65;
     }
     if (source.name.startsWith('Plaster')) {
-      material.color.set('#e6dfd0');
+      material.color.set('#e9e5db');
       material.roughness = .96;
+      material.envMapIntensity = .65;
+      preparePlaster(material, plasterGrain);
     }
     if (source.name === 'Paper' || source.name === 'PaperEdges') {
       material.color.set('#f7f3e8');
@@ -70,11 +73,12 @@ export async function prepareMaterials(room, scene, renderer, resources) {
       material.customProgramCacheKey = () => 'paper-edges-v1';
     }
     if (source.name.startsWith('Steel')) {
-      material.roughness = .2;
+      material.roughness = .3;
       material.metalness = 1;
-      material.envMapIntensity = 1.25;
+      material.envMapIntensity = 1;
     }
-    if (material.aoMap) material.aoMapIntensity = source.name.startsWith('Plaster') ? .55 : .8;
+    // The baked map contains only static geometry; mobile binders retain real shadows.
+    if (material.aoMap) material.aoMapIntensity = source.name.startsWith('Plaster') ? .85 : .95;
     cache.set(source, material);
     return material;
   }
@@ -84,6 +88,72 @@ export async function prepareMaterials(room, scene, renderer, resources) {
     object.material = Array.isArray(object.material) ? object.material.map(prepare) : prepare(object.material);
   });
   return new Set(cache.values());
+}
+
+// World-space mapping keeps the grain the same size on a wall, a window reveal
+// and the shelf backing, independently of Blender's packed UV islands.
+function preparePlaster(material, grain) {
+  material.onBeforeCompile = shader => {
+    shader.uniforms.plasterGrain = { value: grain };
+    shader.vertexShader = 'varying vec3 plasterPosition;\nvarying vec3 plasterNormal;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nplasterPosition = (modelMatrix * vec4(position, 1.0)).xyz;\nplasterNormal = normalize(mat3(modelMatrix) * normal);');
+    shader.fragmentShader = `
+      uniform sampler2D plasterGrain;
+      varying vec3 plasterPosition;
+      varying vec3 plasterNormal;
+      vec3 plasterSample() {
+        vec3 weight = pow(abs(plasterNormal), vec3(6.0));
+        weight /= max(dot(weight, vec3(1.0)), .0001);
+        return texture2D(plasterGrain, plasterPosition.zy * .42).rgb * weight.x
+          + texture2D(plasterGrain, plasterPosition.xz * .42).rgb * weight.y
+          + texture2D(plasterGrain, plasterPosition.xy * .42).rgb * weight.z;
+      }
+      vec3 plasterBump(vec3 position, vec3 n, float height) {
+        vec3 dx = dFdx(position), dy = dFdy(position);
+        vec3 r1 = cross(dy, n), r2 = cross(n, dx);
+        float determinant = dot(dx, r1);
+        vec3 gradient = sign(determinant) * (dFdx(height) * r1 + dFdy(height) * r2);
+        return normalize(abs(determinant) * n - gradient);
+      }
+    ` + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\nvec3 plaster = plasterSample();\ndiffuseColor.rgb *= .965 + .07 * plaster.r;');
+    shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor + (plaster.g - .5) * .055, .85, 1.0);');
+    shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = plasterBump(-vViewPosition, normal, (plaster.b - .5) * .00008);');
+  };
+  material.customProgramCacheKey = () => 'world-plaster-v1';
+}
+
+function plasterTexture() {
+  const size = 512, pixels = new Uint8Array(size * size * 4);
+  // Deterministic, periodic value noise: no external asset or visible tile seam.
+  const hash = (x, y, period) => {
+    x = (x % period + period) % period; y = (y % period + period) % period;
+    const value = Math.sin(x * 127.1 + y * 311.7 + 13.2) * 43758.5453;
+    return value - Math.floor(value);
+  };
+  const noise = (x, y, period) => {
+    const ix = Math.floor(x), iy = Math.floor(y);
+    let fx = x - ix, fy = y - iy;
+    fx *= fx * (3 - 2 * fx); fy *= fy * (3 - 2 * fy);
+    const a = hash(ix, iy, period), b = hash(ix + 1, iy, period);
+    const c = hash(ix, iy + 1, period), d = hash(ix + 1, iy + 1, period);
+    return (a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy;
+  };
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = x / size, v = y / size, index = (y * size + x) * 4;
+    const broad = noise(u * 8, v * 8, 8), fine = noise(u * 96, v * 96, 96);
+    const pores = noise(u * 192, v * 192, 192);
+    pixels[index] = Math.round(255 * (.4 + .2 * broad));
+    pixels[index + 1] = Math.round(255 * (.3 + .4 * fine));
+    pixels[index + 2] = Math.round(255 * (.3 * broad + .45 * fine + .25 * pores));
+    pixels[index + 3] = 255;
+  }
+  const texture = new THREE.DataTexture(pixels, size, size);
+  texture.name = 'WorldPlasterGrain';
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.magFilter = THREE.LinearFilter; texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true; texture.needsUpdate = true;
+  return texture;
 }
 
 function paperTexture() {

@@ -1,96 +1,121 @@
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-
 export function createSampleBrowser({ getScene, track }) {
-  const viewer = document.querySelector('#sample-viewer');
-  const stage = document.querySelector('#sample-stage');
-  const image = document.querySelector('#sample-document');
-  const hit = document.querySelector('#sample-open');
-  const answerHit = document.querySelector('#sample-open-answers');
-  const documentSwitch = document.querySelector('#sample-document-switch');
+  const detail = document.querySelector('#project-detail');
+  const inspection = document.querySelector('#sample-inspection');
+  const tools = detail.querySelector('.inspection-tools');
   const download = document.querySelector('#sample-pdf');
-  let project, items = [], index = 0, zoom = 1, previousFocus, closing = false;
+  const previous = document.querySelector('#sample-previous');
+  const next = document.querySelector('#sample-next');
+  const previousCorner = document.querySelector('#page-corner-previous');
+  const nextCorner = document.querySelector('#page-corner-next');
+  let project, inspecting = false, busy = false, previousFocus, drag, suppressClick = false, touchReturn;
 
-  const role = item => item.role || 'worksheet';
-  const indices = () => items.flatMap((item, i) => role(item) === role(items[index]) ? [i] : []);
-  function fit(center = false) {
-    if (!viewer.open || !image.naturalWidth) return;
-    const scale = Math.min((stage.clientWidth - 40) / image.naturalWidth, (stage.clientHeight - 40) / image.naturalHeight);
-    image.style.width = Math.max(1, image.naturalWidth * scale * zoom) + 'px';
-    document.querySelector('#sample-scale').textContent = Math.round(zoom * 100) + '%';
-    if (center) requestAnimationFrame(() => {
-      stage.scrollLeft = Math.max(0, (stage.scrollWidth - stage.clientWidth) / 2);
-      stage.scrollTop = Math.max(0, (stage.scrollHeight - stage.clientHeight) / 2);
-    });
+  function update() {
+    const { index, count, pages, paired } = getScene().sampleInfo();
+    document.querySelector('#sample-counter').textContent = `${index + 1} / ${count}`;
+    document.querySelector('#sample-counter').title = project.examples[index].title;
+    for (const button of [previous, previousCorner]) button.disabled = busy || index === 0;
+    for (const button of [next, nextCorner]) button.disabled = busy || index === count - 1;
+    document.querySelector('#sample-open-inline').textContent = paired ? 'Amplia la fitxa' : 'Amplia el primer full';
+    const second = document.querySelector('#sample-open-second');
+    second.textContent = paired ? 'Amplia el solucionari' : 'Amplia el segon full'; second.hidden = !pages[1];
   }
-  function select(next) {
-    index = (next + items.length) % items.length;
-    const item = items[index];
-    getScene().setSample(index);
-    image.classList.add('is-loading');
-    image.src = item.image;
-    image.alt = item.title;
-    document.querySelector('#sample-viewer-title').textContent = project.name;
-    const group = indices();
-    document.querySelector('#sample-counter').textContent = `${group.indexOf(index) + 1} / ${group.length}`;
-    for (const id of ['sample-previous', 'sample-next']) document.getElementById(id).disabled = group.length < 2;
-    documentSwitch.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.document === role(item))));
-    download.hidden = !item.pdf;
-    if (item.pdf) download.href = item.pdf; else download.removeAttribute('href');
-    zoom = 1; stage.scrollTop = stage.scrollLeft = 0;
-    if (image.complete) { image.classList.remove('is-loading'); fit(); }
-  }
-  function show(documentRole) {
-    if (!items.length || closing || viewer.open) return;
-    if (documentRole) index = Number((documentRole === 'answers' ? answerHit : hit).dataset.index);
-    previousFocus = document.activeElement;
-    viewer.showModal();
-    select(index);
-    requestAnimationFrame(() => { viewer.classList.add('is-visible'); fit(); });
+  async function show(index = 0) {
+    if (busy || inspecting) return;
+    busy = true; inspecting = true; previousFocus = document.activeElement;
+    detail.dataset.inspecting = 'true'; inspection.hidden = tools.hidden = false;
+    const sample = getScene().sampleInfo().pages[index];
+    document.querySelector('#inspection-title').textContent = sample.title;
+    download.hidden = !sample.pdf;
+    if (sample.pdf) download.href = sample.pdf; else download.removeAttribute('href');
+    await getScene().inspectSheet(index);
+    inspection.focus({ preventScroll: true }); busy = false;
     track('amplia_mostra_escriptori', { projecte: project.id });
   }
-  function step(direction) {
-    const group = indices();
-    select(group[(group.indexOf(index) + direction + group.length) % group.length]);
+  async function closeInspection() {
+    if (busy || !inspecting) return;
+    busy = true;
+    await getScene().leaveInspection();
+    inspecting = false; busy = false; drag = null;
+    inspection.hidden = tools.hidden = true; delete detail.dataset.inspecting;
+    previousFocus?.focus({ preventScroll: true }); update();
   }
-  async function close() {
-    if (!viewer.open || closing) return;
-    closing = true; viewer.classList.remove('is-visible');
-    await new Promise(resolve => setTimeout(resolve, reducedMotion.matches ? 0 : 220));
-    viewer.close(); closing = false;
-    previousFocus?.focus({ preventScroll: true });
+  async function step(direction) {
+    if (busy || inspecting) return;
+    const { index, count } = getScene().sampleInfo();
+    const destination = index + direction;
+    if (destination < 0 || destination >= count) return;
+    busy = true; update();
+    await getScene().setSample(destination);
+    busy = false; update();
+    track('passa_mostra_escriptori', { projecte: project.id, mostra: destination + 1 });
   }
-  function changeZoom(factor) { zoom = Math.min(3, Math.max(.75, zoom * factor)); fit(true); }
-  hit.addEventListener('click', () => show('worksheet'));
-  answerHit.addEventListener('click', () => show('answers'));
-  document.querySelector('#sample-open-inline').addEventListener('click', () => show());
-  document.querySelector('#sample-close').addEventListener('click', close);
-  viewer.addEventListener('cancel', event => { event.preventDefault(); close(); });
-  viewer.addEventListener('click', event => { if (event.target === viewer) close(); });
-  document.querySelector('#sample-previous').addEventListener('click', () => step(-1));
-  document.querySelector('#sample-next').addEventListener('click', () => step(1));
-  documentSwitch.addEventListener('click', event => {
-    const button = event.target.closest('button[data-document]');
-    if (button) select(items.findIndex(item => role(item) === button.dataset.document));
+  for (const [id, index] of [['sample-open', 0], ['sample-open-answers', 1], ['sample-open-inline', 0], ['sample-open-second', 1]]) {
+    document.getElementById(id).addEventListener('click', () => show(index));
+  }
+  for (const [button, direction] of [[previous, -1], [next, 1], [previousCorner, -1], [nextCorner, 1]]) {
+    button.addEventListener('click', () => step(direction));
+  }
+  for (const [button, direction] of [[previousCorner, -1], [nextCorner, 1]]) {
+    const curl = amount => { if (!busy && !inspecting && !button.disabled) getScene().curlSample(direction, amount); };
+    button.addEventListener('pointerenter', () => curl(1)); button.addEventListener('pointerleave', () => curl(0));
+    button.addEventListener('focus', () => curl(1)); button.addEventListener('blur', () => curl(0));
+  }
+  document.querySelector('#sample-close').addEventListener('click', closeInspection);
+  inspection.addEventListener('click', () => { if (!suppressClick) closeInspection(); suppressClick = false; });
+  inspection.addEventListener('pointerdown', event => {
+    if (busy) return;
+    suppressClick = false;
+    const { panX, panY } = getScene().inspectionInfo();
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX, panY, moved: false };
+    inspection.setPointerCapture(event.pointerId);
   });
-  document.querySelector('#sample-zoom-in').addEventListener('click', () => changeZoom(1.25));
-  document.querySelector('#sample-zoom-out').addEventListener('click', () => changeZoom(.8));
-  document.querySelector('#sample-fit').addEventListener('click', () => { zoom = 1; fit(true); });
-  download.addEventListener('click', () => track('descarrega_mostra_escriptori', { projecte: project.id }));
-  image.addEventListener('load', () => { image.classList.remove('is-loading'); fit(); });
-  new ResizeObserver(() => fit()).observe(stage);
-  stage.addEventListener('wheel', event => {
-    if (!event.ctrlKey) return;
-    event.preventDefault(); changeZoom(event.deltaY < 0 ? 1.12 : 1 / 1.12);
+  inspection.addEventListener('pointermove', event => {
+    if (busy) return;
+    const rect = inspection.getBoundingClientRect();
+    if (drag) {
+      const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+      if (Math.hypot(dx, dy) > 6) drag.moved = true;
+      if (drag.moved) getScene().panInspection(drag.panX - dx * 3 / rect.width, drag.panY + dy * 3 / rect.height);
+    } else if (event.pointerType === 'mouse' || event.pointerType === 'pen') {
+      const edge = value => Math.abs(value) < .2 ? 0 : Math.sign(value) * Math.min(1, (Math.abs(value) - .2) / .65);
+      getScene().panInspection(edge((event.clientX - rect.left) / rect.width * 2 - 1), edge(1 - (event.clientY - rect.top) / rect.height * 2));
+    }
+  });
+  inspection.addEventListener('pointerup', event => {
+    const tapped = drag && !drag.moved;
+    suppressClick = Boolean(drag?.moved); drag = null;
+    // A touch tap can omit its synthetic click immediately after a drag. Treat
+    // pointerup as the activation and consume any later click from this pointer.
+    if (tapped && event.pointerType !== 'mouse') {
+      event.preventDefault(); suppressClick = true;
+      touchReturn = { pointer: event.pointerId, time: performance.now() };
+      closeInspection();
+    }
+  });
+  detail.addEventListener('click', event => {
+    if (touchReturn && event.pointerId === touchReturn.pointer && performance.now() - touchReturn.time < 700) {
+      event.preventDefault(); event.stopImmediatePropagation(); touchReturn = null;
+    }
+  }, true);
+  inspection.addEventListener('pointercancel', () => { drag = null; suppressClick = true; });
+  inspection.addEventListener('wheel', event => {
+    event.preventDefault(); if (!busy) getScene().scrollInspection(event.deltaX, event.deltaY);
   }, { passive: false });
-  return {
-    setProject(value) {
-      project = value;
-      ({ samples: items, index } = getScene().sampleInfo());
-      // A generated fallback remains viewable even when a future project has no thumbnail.
-      for (const item of items) if (!item.image) item.image = item.texture.image.toDataURL();
-      documentSwitch.hidden = !items.some(item => role(item) === 'answers');
-      viewer.dataset.paired = String(!documentSwitch.hidden);
-      document.querySelector('#sample-open-inline').lastChild.textContent = documentSwitch.hidden ? 'Amplia la mostra' : 'Fitxa i solucionari';
-    },
-  };
+  detail.addEventListener('keydown', event => {
+    if (!detail.open) return;
+    if (inspecting && event.key === 'Escape') {
+      event.preventDefault(); event.stopPropagation(); closeInspection(); return;
+    }
+    if (event.target.closest('a')) return;
+    if (inspecting && event.key.startsWith('Arrow')) {
+      event.preventDefault();
+      getScene().scrollInspection(event.key === 'ArrowLeft' ? -100 : event.key === 'ArrowRight' ? 100 : 0,
+        event.key === 'ArrowUp' ? -100 : event.key === 'ArrowDown' ? 100 : 0);
+    } else if (!inspecting && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      event.preventDefault(); step(event.key === 'ArrowLeft' ? -1 : 1);
+    }
+  });
+  download.addEventListener('click', () => track('descarrega_mostra_escriptori', { projecte: project.id }));
+  return { setProject(value) { project = value; inspecting = false; busy = false; delete detail.dataset.inspecting; update(); },
+    closeInspection, isInspecting: () => inspecting, isBusy: () => busy };
 }

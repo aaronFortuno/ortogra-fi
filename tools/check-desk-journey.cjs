@@ -46,12 +46,21 @@ function checkFrames(frames, phase) {
       await context.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():route.abort());
       const page = await context.newPage(), errors=[];
       page.on('pageerror',error=>errors.push(error.message));
+      await page.route('**/daylight.js*',async route=>{
+        const response=await route.fetch();
+        await route.fulfill({response,body:(await response.text()).replace('roomLight.shadow.mapSize.set(2048, 2048);','roomLight.shadow.mapSize.set(256, 256);')});
+      });
       await page.route('**/scene.js*',async route=>{
         const response=await route.fetch(), source=await response.text();
         assert.ok(source.includes('renderer.render(scene, camera);'));
         // SwiftShader needs a small drawing buffer to sample a real-time path.
         // Camera geometry, viewport, trajectories and production timing stay intact.
         const body = source.replace('renderer.render(scene, camera);',instrument+'\n    renderer.render(scene, camera);')
+          .replace('const texture = await new THREE.TextureLoader().loadAsync(sample.image);', `const texture = await new THREE.TextureLoader().loadAsync(sample.image);
+            const original = texture.image, small = document.createElement('canvas');
+            const factor = 256 / Math.max(original.width, original.height);
+            small.width = Math.max(1, Math.round(original.width * factor)); small.height = Math.max(1, Math.round(original.height * factor));
+            small.getContext('2d').drawImage(original, 0, 0, small.width, small.height); texture.image = small;`)
           .replace('const motions = new Map();', 'const motions = new Map(); window.deskMoving = () => motions.has("view");')
           .replace('const camera = new THREE.PerspectiveCamera(32, 1, .06, 75);', 'const camera = new THREE.PerspectiveCamera(32, 1, .06, 75); Object.defineProperty(window, "deskCamera", {get:()=>({position:camera.position.toArray(),rotation:camera.quaternion.toArray()})});')
           .replace('renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));', 'renderer.setPixelRatio(.3);')

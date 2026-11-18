@@ -10,9 +10,9 @@
   <title>Escriptori beta · ortogra.fi</title>
   <script src="../theme.js?v=1.0.0"></script>
   <link rel="stylesheet" href="../styles.css?v=1.6.0">
-  <link rel="stylesheet" href="desk.css?v=1.6.0">
+  <link rel="stylesheet" href="desk.css?v=1.8.0">
   <script type="importmap">{"imports":{"three":"../assets/vendor/three/three.module.min.js"}}</script>
-  <script type="module" src="desk.js?v=1.7.0"></script>
+  <script type="module" src="desk.js?v=1.8.0"></script>
 </head>
 <body class="desk-page">
   <a class="skip-link" href="#projectes">Ves als projectes</a>
@@ -95,6 +95,8 @@
       <div class="open-binder">
         <button class="sample-hit" id="sample-open" type="button" aria-label="Amplia la mostra"><span class="sample-magnify"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 7.5v6m-3-3h6"/></svg></span></button>
         <button class="sample-hit" id="sample-open-answers" type="button" aria-label="Amplia el solucionari" hidden><span class="sample-magnify"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 7.5v6m-3-3h6"/></svg></span></button>
+        <button class="page-corner" id="page-corner-previous" type="button" aria-label="Passa a la mostra anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
+        <button class="page-corner" id="page-corner-next" type="button" aria-label="Passa a la mostra següent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
         <div class="sample-page">
           <p class="page-caption" id="sample-caption"></p>
           <div id="project-sample"></div>
@@ -104,25 +106,16 @@
           <button class="binder-close" type="button" aria-label="Torna el material al seu lloc">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg><span>Torna al seu lloc</span>
           </button>
-          <p class="project-area" id="project-area"></p>
-          <h2 id="project-title"></h2>
-          <p class="project-purpose" id="project-purpose"></p>
-          <p id="project-description"></p>
-          <button class="sample-inline" id="sample-open-inline" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 7.5v6m-3-3h6"/></svg>Veure les mostres</button>
-          <a class="project-enter" id="project-enter" href="../">Obre el projecte <span aria-hidden="true">↗</span></a>
+          <div class="project-summary"><p class="project-area" id="project-area"></p><h2 id="project-title"></h2><p class="project-purpose" id="project-purpose"></p><p id="project-description"></p><p id="project-credits" hidden>Cartografia © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a> · <a href="https://relleu.ortogra.fi/" target="_blank" rel="noopener noreferrer">Fonts a Relleu Obert</a></p></div>
+          <div class="sample-actions">
+            <div class="sample-pager" role="group" aria-label="Exemples de material"><button type="button" id="sample-previous" aria-label="Mostra anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><span id="sample-counter" aria-live="polite"></span><button type="button" id="sample-next" aria-label="Mostra següent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
+            <div class="sample-inspect-actions"><button class="sample-inline" id="sample-open-inline" type="button">Amplia la fitxa</button><button class="sample-inline" id="sample-open-second" type="button">Amplia el segon full</button></div>
+            <a class="project-enter" id="project-enter" href="../">Obre el projecte</a>
+          </div>
         </div>
+        <button type="button" id="sample-inspection" class="sample-inspection" aria-label="Full ampliat. Mou el ratolí o arrossega per recórrer el full. Fes clic per tornar a l’arxivador." hidden></button>
+        <div class="inspection-tools" hidden><span id="inspection-title"></span><span class="inspection-hint">Mou el ratolí o arrossega · Clic per tornar</span><a id="sample-pdf" download aria-label="Descarrega el PDF de mostra" title="Descarrega el PDF de mostra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8ZM14 2v6h6M12 12v6m-3-3 3 3 3-3"/></svg></a><button type="button" id="sample-close" aria-label="Torna a l’arxivador"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
       </div>
-    </dialog>
-    <dialog id="sample-viewer" class="sample-viewer" aria-labelledby="sample-viewer-title">
-      <div class="sample-toolbar">
-        <strong id="sample-viewer-title">Mostra</strong>
-        <div class="sample-document-switch" id="sample-document-switch" role="group" aria-label="Document de mostra" hidden><button type="button" data-document="worksheet" aria-pressed="true">Fitxa</button><button type="button" data-document="answers" aria-pressed="false">Solucionari</button></div>
-        <div class="sample-pager" role="group" aria-label="Fitxes de mostra"><button type="button" id="sample-previous" aria-label="Mostra anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><span id="sample-counter"></span><button type="button" id="sample-next" aria-label="Mostra següent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
-        <div class="sample-zoom" role="group" aria-label="Ampliació de la mostra"><button type="button" id="sample-zoom-out" aria-label="Allunya la mostra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button><button type="button" id="sample-fit" aria-label="Ajusta la mostra"><span id="sample-scale">100%</span></button><button type="button" id="sample-zoom-in" aria-label="Acosta la mostra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>
-        <a id="sample-pdf" class="sample-download" download aria-label="Descarrega el PDF de mostra" title="Descarrega el PDF de mostra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8ZM14 2v6h6M12 12v6m-3-3 3 3 3-3"/></svg></a>
-        <button type="button" id="sample-close" aria-label="Tanca la mostra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
-      </div>
-      <div class="sample-stage" id="sample-stage" tabindex="0" aria-label="Fitxa ampliada"><div class="sample-spread"><img id="sample-document" alt=""></div></div>
     </dialog>
   </main>
   <footer class="site-footer">

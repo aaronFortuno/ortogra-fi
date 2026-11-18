@@ -1,0 +1,450 @@
+{
+  "trama": [
+    {
+      "title": "El banc moll",
+      "pages": [
+        {
+          "title": "El banc moll · fitxa",
+          "image": "trama-exemple-1-1.webp",
+          "pdf": "trama-exemple-1.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "El banc moll · solucionari",
+          "image": "trama-exemple-1-solucionari-1.webp",
+          "pdf": "trama-exemple-1-solucionari.pdf",
+          "page": 1,
+          "role": "answers"
+        }
+      ]
+    },
+    {
+      "title": "El cartell de la plaça",
+      "pages": [
+        {
+          "title": "El cartell de la plaça · fitxa",
+          "image": "trama-1.webp",
+          "pdf": "trama.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "El cartell de la plaça · solucionari",
+          "image": "trama-solucionari-1.webp",
+          "pdf": "trama-solucionari.pdf",
+          "page": 1,
+          "role": "answers"
+        }
+      ]
+    },
+    {
+      "title": "El rastre de plata",
+      "pages": [
+        {
+          "title": "El rastre de plata · fitxa",
+          "image": "trama-exemple-3-1.webp",
+          "pdf": "trama-exemple-3.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "El rastre de plata · solucionari",
+          "image": "trama-exemple-3-solucionari-1.webp",
+          "pdf": "trama-exemple-3-solucionari.pdf",
+          "page": 1,
+          "role": "answers"
+        }
+      ]
+    }
+  ],
+  "fil-i-compte": [
+    {
+      "title": "Llibres, pots i planter",
+      "pages": [
+        {
+          "title": "Llibres, pots i planter · fitxa",
+          "image": "fil-i-compte-exemple-1-1.webp",
+          "pdf": "fil-i-compte-exemple-1.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "Llibres, pots i planter · solucionari",
+          "image": "fil-i-compte-exemple-1-solucionari-1.webp",
+          "pdf": "fil-i-compte-exemple-1-solucionari.pdf",
+          "page": 1,
+          "role": "answers"
+        }
+      ]
+    },
+    {
+      "title": "Problemes per pensar",
+      "pages": [
+        {
+          "title": "Problemes per pensar · fitxa",
+          "image": "fil-i-compte-1.webp",
+          "pdf": "fil-i-compte.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "Problemes per pensar · solucionari",
+          "image": "fil-i-compte-solucionari-1.webp",
+          "pdf": "fil-i-compte-solucionari.pdf",
+          "page": 1,
+          "role": "answers"
+        }
+      ]
+    },
+    {
+      "title": "Circuits, mosaics i teatre",
+      "pages": [
+        {
+          "title": "Circuits, mosaics i teatre · fitxa",
+          "image": "fil-i-compte-exemple-3-1.webp",
+          "pdf": "fil-i-compte-exemple-3.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "Circuits, mosaics i teatre · solucionari",
+          "image": "fil-i-compte-exemple-3-solucionari-1.webp",
+          "pdf": "fil-i-compte-exemple-3-solucionari.pdf",
+          "page": 1,
+          "role": "answers"
+        }
+      ]
+    }
+  ],
+  "sentit": [
+    {
+      "title": "La foto que faltava",
+      "pages": [
+        {
+          "title": "La foto que faltava · fitxa",
+          "image": "sentit-exemple-1-1.webp",
+          "pdf": "sentit-exemple-1.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "La foto que faltava · solucionari",
+          "image": "sentit-exemple-1-solucionari-1.webp",
+          "pdf": "sentit-exemple-1-solucionari.pdf",
+          "page": 1,
+          "role": "answers"
+        }
+      ]
+    },
+    {
+      "title": "Preparem una capsa de records",
+      "pages": [
+        {
+          "title": "Preparem una capsa de records · fitxa",
+          "image": "sentit-1.webp",
+          "pdf": "sentit.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "Preparem una capsa de records · solucionari",
+          "image": "sentit-solucionari-1.webp",
+          "pdf": "sentit-solucionari.pdf",
+          "page": 1,
+          "role": "answers"
+        }
+      ]
+    },
+    {
+      "title": "El senyal de la ràdio",
+      "pages": [
+        {
+          "title": "El senyal de la ràdio · fitxa",
+          "image": "sentit-exemple-3-1.webp",
+          "pdf": "sentit-exemple-3.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "El senyal de la ràdio · solucionari",
+          "image": "sentit-exemple-3-solucionari-1.webp",
+          "pdf": "sentit-exemple-3-solucionari.pdf",
+          "page": 1,
+          "role": "answers"
+        }
+      ]
+    }
+  ],
+  "plec": [
+    {
+      "title": "Dictat de 16 mots",
+      "pages": [
+        {
+          "title": "Dictat de 16 mots · terços",
+          "image": "plec-exemple-1-thirds-1.webp",
+          "pdf": "plec-exemple-1-thirds.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "Dictat de 16 mots · quart de full",
+          "image": "plec-exemple-1-quarter-1.webp",
+          "pdf": "plec-exemple-1-quarter.pdf",
+          "page": 1,
+          "role": "worksheet"
+        }
+      ]
+    },
+    {
+      "title": "Dictat de 24 mots",
+      "pages": [
+        {
+          "title": "Dictat de 24 mots · terços",
+          "image": "plec-exemple-2-thirds-1.webp",
+          "pdf": "plec-exemple-2-thirds.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "Dictat de 24 mots · quart de full",
+          "image": "plec-exemple-2-quarter-1.webp",
+          "pdf": "plec-exemple-2-quarter.pdf",
+          "page": 1,
+          "role": "worksheet"
+        }
+      ]
+    },
+    {
+      "title": "Dictat de 12 mots",
+      "pages": [
+        {
+          "title": "Dictat de 12 mots · terços",
+          "image": "plec-exemple-3-thirds-1.webp",
+          "pdf": "plec-exemple-3-thirds.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "Dictat de 12 mots · quart de full",
+          "image": "plec-exemple-3-quarter-1.webp",
+          "pdf": "plec-exemple-3-quarter.pdf",
+          "page": 1,
+          "role": "worksheet"
+        }
+      ]
+    }
+  ],
+  "pauta": [
+    {
+      "title": "Pauta simple",
+      "pages": [
+        {
+          "title": "Pauta simple ampla",
+          "image": "pauta-exemple-1-1-1.webp",
+          "pdf": "pauta-exemple-1-1.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "Pauta simple estreta",
+          "image": "pauta-exemple-1-2-1.webp",
+          "pdf": "pauta-exemple-1-2.pdf",
+          "page": 1,
+          "role": "worksheet"
+        }
+      ]
+    },
+    {
+      "title": "Pautes de cal·ligrafia",
+      "pages": [
+        {
+          "title": "Pauta doble",
+          "image": "pauta-exemple-2-1-1.webp",
+          "pdf": "pauta-exemple-2-1.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "Pauta quàdruple",
+          "image": "pauta-exemple-2-2-1.webp",
+          "pdf": "pauta-exemple-2-2.pdf",
+          "page": 1,
+          "role": "worksheet"
+        }
+      ]
+    },
+    {
+      "title": "Pautes horitzontals",
+      "pages": [
+        {
+          "title": "Pauta simple ampla · horitzontal",
+          "image": "pauta-exemple-3-1-1.webp",
+          "pdf": "pauta-exemple-3-1.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "Pauta quàdruple · horitzontal",
+          "image": "pauta-exemple-3-2-1.webp",
+          "pdf": "pauta-exemple-3-2.pdf",
+          "page": 1,
+          "role": "worksheet"
+        }
+      ]
+    }
+  ],
+  "pentagrama": [
+    {
+      "title": "Pentagrames i sistemes",
+      "pages": [
+        {
+          "title": "12 pentagrames",
+          "image": "pentagrama-exemple-1-1-1.webp",
+          "pdf": "pentagrama-exemple-1-1.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "10 pentagrames agrupats de dos en dos",
+          "image": "pentagrama-exemple-1-2-1.webp",
+          "pdf": "pentagrama-exemple-1-2.pdf",
+          "page": 1,
+          "role": "worksheet"
+        }
+      ]
+    },
+    {
+      "title": "Paper de música",
+      "pages": [
+        {
+          "title": "9 pentagrames",
+          "image": "pentagrama-exemple-2-1-1.webp",
+          "pdf": "pentagrama-exemple-2-1.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "8 pentagrames agrupats de dos en dos · clau de sol",
+          "image": "pentagrama-exemple-2-2-1.webp",
+          "pdf": "pentagrama-exemple-2-2.pdf",
+          "page": 1,
+          "role": "worksheet"
+        }
+      ]
+    },
+    {
+      "title": "Claus i anotacions",
+      "pages": [
+        {
+          "title": "8 pentagrames agrupats de dos en dos · clau de fa",
+          "image": "pentagrama-exemple-3-1-1.webp",
+          "pdf": "pentagrama-exemple-3-1.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "6 pentagrames · espai per a notes",
+          "image": "pentagrama-exemple-3-2-1.webp",
+          "pdf": "pentagrama-exemple-3-2.pdf",
+          "page": 1,
+          "role": "worksheet"
+        }
+      ]
+    }
+  ],
+  "resso": [
+    {
+      "title": "Lectures de tercer",
+      "pages": [
+        {
+          "title": "La capsa dels sons",
+          "image": "resso-exemple-1-1.webp",
+          "role": "sample"
+        },
+        {
+          "title": "El paraigua blau",
+          "image": "resso-exemple-1-2.webp",
+          "role": "sample"
+        }
+      ]
+    },
+    {
+      "title": "Lectures de quart",
+      "pages": [
+        {
+          "title": "El pont de les granotes",
+          "image": "resso-exemple-2-1.webp",
+          "role": "sample"
+        },
+        {
+          "title": "Una ombra a la plaça",
+          "image": "resso-exemple-2-2.webp",
+          "role": "sample"
+        }
+      ]
+    },
+    {
+      "title": "Lectures de cinquè",
+      "pages": [
+        {
+          "title": "La drecera del camí vell",
+          "image": "resso-exemple-3-1.webp",
+          "role": "sample"
+        },
+        {
+          "title": "On va l’aigua del pati?",
+          "image": "resso-exemple-3-2.webp",
+          "role": "sample"
+        }
+      ]
+    }
+  ],
+  "relleu-obert": [
+    {
+      "title": "La costa",
+      "pages": [
+        {
+          "title": "Badia de Tamariu",
+          "image": "relleu-tamariu.webp",
+          "role": "sample"
+        },
+        {
+          "title": "Cap de Creus",
+          "image": "relleu-cap-de-creus.webp",
+          "role": "sample"
+        }
+      ]
+    },
+    {
+      "title": "La muntanya",
+      "pages": [
+        {
+          "title": "Estany de Sant Maurici",
+          "image": "relleu-sant-maurici.webp",
+          "role": "sample"
+        },
+        {
+          "title": "Montserrat",
+          "image": "relleu-montserrat.webp",
+          "role": "sample"
+        }
+      ]
+    },
+    {
+      "title": "Deltes i volcans",
+      "pages": [
+        {
+          "title": "Delta de l’Ebre",
+          "image": "relleu-delta-ebre.webp",
+          "role": "sample"
+        },
+        {
+          "title": "Volcans del Croscat i Santa Margarida",
+          "image": "relleu-croscat-santa-margarida.webp",
+          "role": "sample"
+        }
+      ]
+    }
+  ]
+}

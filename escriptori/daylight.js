@@ -3,9 +3,16 @@ import { solarLight } from './solar.js?v=1.6.0';
 
 export function createDaylight({ scene, renderer, canvas, atmosphere, ambient, daylight, fill, bounce, animate, requestRender, dark: initialDark, onChange }) {
   let dark = initialDark, manual = null;
-  const roomLight = new THREE.DirectionalLight('#ffe5b9', 0);
-  roomLight.position.set(0, 7.5, 2.5);
-  roomLight.target.position.set(0, -.5, 2.5);
+  const roomLight = new THREE.SpotLight('#fff0d8', 0, 32, Math.PI / 2.5, .65, 2);
+  roomLight.name = 'CeilingLight';
+  roomLight.position.set(-1.6, 7.5, 4.1);
+  roomLight.target.position.set(0, -.5, .8);
+  roomLight.shadow.mapSize.set(2048, 2048);
+  Object.assign(roomLight.shadow.camera, { near: .4, far: 30 });
+  roomLight.shadow.camera.updateProjectionMatrix();
+  roomLight.shadow.normalBias = .025;
+  roomLight.shadow.bias = -.00065;
+  roomLight.shadow.radius = 3;
   scene.add(roomLight, roomLight.target, daylight.target);
   const fixture = new THREE.Mesh(new THREE.CylinderGeometry(.83, .83, .12, 32), new THREE.MeshStandardMaterial({ color: '#dcded7', roughness: .85 }));
   fixture.position.set(0, 7.85, 3);
@@ -13,8 +20,11 @@ export function createDaylight({ scene, renderer, canvas, atmosphere, ambient, d
   diffuser.position.set(0, 7.778, 3); diffuser.rotation.x = Math.PI / 2;
   scene.add(fixture, diffuser);
   daylight.target.position.set(-.5, 1.3, 1.5);
-  Object.assign(daylight.shadow.camera, { left: -14, right: 14, top: 12, bottom: -12, near: .5, far: 55 });
+  Object.assign(daylight.shadow.camera, { left: -10.5, right: 10.5, top: 9, bottom: -8, near: .5, far: 44 });
   daylight.shadow.camera.updateProjectionMatrix();
+  daylight.shadow.normalBias = .018;
+  daylight.shadow.bias = -.0006;
+  daylight.shadow.radius = 2.5;
   const sunColor = new THREE.Color(), sky = new THREE.Color(), ground = new THREE.Color();
   let applied;
 
@@ -25,9 +35,12 @@ export function createDaylight({ scene, renderer, canvas, atmosphere, ambient, d
     daylight.color.copy(sunColor.set('#f7fbff').lerp(new THREE.Color('#ffc281'), state.golden * .8));
     ambient.color.copy(sky.set('#b0c3e7').lerp(new THREE.Color('#e4edf9'), state.day));
     ambient.groundColor.copy(ground.set('#9e7952').lerp(new THREE.Color('#8b8974'), state.day));
-    ambient.intensity = .16 + .18 * state.day + .08 * state.artificial;
-    fill.color.set('#dce9fa'); fill.intensity = .07 + .17 * state.day;
-    roomLight.intensity = .92 * state.artificial;
+    ambient.intensity = .19 + .17 * state.day + .13 * state.artificial;
+    fill.color.set('#dce9fa'); fill.intensity = .12 + .16 * state.day;
+    roomLight.intensity = 85 * state.artificial;
+    // At night the ceiling must still anchor the furniture to the room. Skip
+    // this second shadow pass entirely while daylight lights the interior.
+    roomLight.castShadow = state.artificial > .02;
     bounce.color.set('#f4ce91'); bounce.intensity = 1.5 + 6 * state.artificial;
     diffuser.material.color.set('#fff0d5').multiplyScalar(.22 + .78 * state.artificial);
     scene.environmentIntensity = .10 + 1.15 * state.day;
@@ -61,5 +74,6 @@ export function createDaylight({ scene, renderer, canvas, atmosphere, ambient, d
   return {
     setTheme(value) { dark = value; refresh(); },
     setMoment(value) { manual = value; refresh(); },
+    hasShadows: () => daylight.intensity > .01 || roomLight.castShadow,
   };
 }
