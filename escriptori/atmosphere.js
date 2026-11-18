@@ -81,37 +81,3 @@ export async function createAtmosphere(scene) {
     },
   };
 }
-
-// Derived from the source's own grain, so relief follows the wood or fibres
-// rather than adding unrelated noise over it. The original colour is retained.
-export function surfaceRelief(source) {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 512;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(source, 0, 0, 512, 512);
-  const pixels = ctx.getImageData(0, 0, 512, 512).data;
-  const height = (x, y) => {
-    const offset = (((y + 512) % 512) * 512 + ((x + 512) % 512)) * 4;
-    return (pixels[offset] * .22 + pixels[offset + 1] * .7 + pixels[offset + 2] * .08) / 255;
-  };
-  const normal = new Uint8Array(512 * 512 * 4), rough = new Uint8Array(512 * 512 * 4);
-  for (let y = 0; y < 512; y++) for (let x = 0; x < 512; x++) {
-    const offset = (y * 512 + x) * 4;
-    const vector = new THREE.Vector3((height(x - 1, y) - height(x + 1, y)) * 2, (height(x, y - 1) - height(x, y + 1)) * 2, 1).normalize();
-    normal[offset] = (vector.x * .5 + .5) * 255;
-    normal[offset + 1] = (vector.y * .5 + .5) * 255;
-    normal[offset + 2] = (vector.z * .5 + .5) * 255;
-    normal[offset + 3] = rough[offset + 3] = 255;
-    const value = 158 + (1 - height(x, y)) * 65;
-    rough[offset] = rough[offset + 1] = rough[offset + 2] = value;
-  }
-  const textures = [normal, rough].map(data => {
-    const texture = new THREE.DataTexture(data, 512, 512);
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    texture.magFilter = THREE.LinearFilter;
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
-    texture.generateMipmaps = true; texture.needsUpdate = true;
-    return texture;
-  });
-  return { normal: textures[0], rough: textures[1] };
-}

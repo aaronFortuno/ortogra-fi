@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
-import { RoomEnvironment } from '../assets/vendor/three/addons/environments/RoomEnvironment.js';
 import { DeskNavigation } from './navigation.js?v=1.2.0';
-import { createAtmosphere, surfaceRelief } from './atmosphere.js?v=1.2.0';
+import { createAtmosphere } from './atmosphere.js?v=1.3.0';
+import { prepareMaterials } from './materials.js?v=1.3.0';
+import { createReadingPages } from './reading.js?v=1.3.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const narrow = matchMedia('(max-width: 700px)');
@@ -35,35 +36,6 @@ function tapeTexture(project) {
   context.fillText(text, 0, 0);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-function plasterNormalMap() {
-  const side = 128;
-  const data = new Uint8Array(side * side * 4);
-  const height = (x, y) => {
-    const grain = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-    const random = grain - Math.floor(grain);
-    return random * .1;
-  };
-  for (let y = 0; y < side; y++) {
-    for (let x = 0; x < side; x++) {
-      const normal = new THREE.Vector3(height(x - 1, y) - height(x + 1, y),
-        height(x, y - 1) - height(x, y + 1), 1).normalize();
-      const offset = (y * side + x) * 4;
-      data[offset] = (normal.x * .5 + .5) * 255;
-      data[offset + 1] = (normal.y * .5 + .5) * 255;
-      data[offset + 2] = (normal.z * .5 + .5) * 255;
-      data[offset + 3] = 255;
-    }
-  }
-  const texture = new THREE.DataTexture(data, side, side);
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(6, 6);
-  texture.magFilter = THREE.LinearFilter;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.generateMipmaps = true;
-  texture.needsUpdate = true;
   return texture;
 }
 
@@ -112,11 +84,6 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     animate: update => animate('view', update),
     cancel: () => cancelMotion('view'),
   });
-  const environment = new RoomEnvironment();
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(environment, .025).texture;
-  environment.dispose();
-  pmrem.dispose();
   const ambient = new THREE.HemisphereLight('#e6edf1', '#9b947c', .42);
   scene.add(ambient);
   const daylight = new THREE.DirectionalLight('#fff8eb', 2.5);
@@ -124,9 +91,10 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   daylight.castShadow = true;
   daylight.shadow.mapSize.set(2048, 2048);
   Object.assign(daylight.shadow.camera, { left: -9, right: 9, top: 8, bottom: -5, near: .5, far: 30 });
-  daylight.shadow.normalBias = .009;
-  daylight.shadow.bias = -.0002;
-  daylight.shadow.radius = 3.2;
+  // Avoid self-shadow stripes when the camera reads the pages up close.
+  daylight.shadow.normalBias = .025;
+  daylight.shadow.bias = -.001;
+  daylight.shadow.radius = 5;
   scene.add(daylight);
   const fill = new THREE.DirectionalLight('#e0ebf2', .45);
   fill.position.set(5, 5, 4);
@@ -135,53 +103,11 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   bounce.position.set(-5, 2, 3.5);
   scene.add(bounce);
 
-  const asset = await new GLTFLoader().loadAsync(new URL('../assets/desk/escriptori.glb?v=1.2.0', import.meta.url).href);
+  const asset = await new GLTFLoader().loadAsync(new URL('../assets/desk/escriptori.glb?v=1.3.0', import.meta.url).href);
   const room = asset.scene;
   scene.add(room);
-  const cloth = await new THREE.TextureLoader().loadAsync(new URL('../assets/desk/bookcloth.webp', import.meta.url).href);
-  // A neutral linear mask tints each cover without changing its catalogue colour.
-  cloth.wrapS = cloth.wrapT = THREE.RepeatWrapping;
-  cloth.flipY = false;
-  cloth.repeat.set(2, 3);
-  const clothNormal = surfaceRelief(cloth.image).normal;
-  clothNormal.repeat.copy(cloth.repeat);
-  const plasterNormal = plasterNormalMap();
-  const woodMaterial = room.getObjectsByProperty('isMesh', true)
-    .flatMap(mesh => Array.isArray(mesh.material) ? mesh.material : [mesh.material])
-    .find(material => material.name.startsWith('Oak') && material.map);
-  const oak = surfaceRelief(woodMaterial.map.image);
-  const materials = new Set();
-  room.traverse(object => {
-    if (!object.isMesh) return;
-    object.castShadow = true;
-    object.receiveShadow = true;
-    const list = Array.isArray(object.material) ? object.material : [object.material];
-    for (const material of list) {
-      if (materials.has(material)) continue;
-      materials.add(material);
-      if (material.name.startsWith('Cloth_') || material.name === 'BoxFabric') {
-        material.normalMap = clothNormal;
-        material.normalScale.set(.44, .44);
-        material.roughnessMap = cloth;
-        material.roughness = .91;
-        material.map = cloth;
-        material.color.multiplyScalar(.84);
-      }
-      if (material.name.startsWith('Plaster') || material.name.startsWith('Ceramic')) {
-        material.normalMap = plasterNormal;
-        material.normalScale.set(.07, .07);
-      }
-      if (material.name.startsWith('Oak')) {
-        material.normalMap = oak.normal;
-        material.normalScale.set(.28, .28);
-        material.roughnessMap = oak.rough;
-        material.roughness = 1;
-      }
-      if (material.name.startsWith('Leaves') || material.name.startsWith('LeafLight')) material.side = THREE.DoubleSide;
-      if (material.aoMap) material.aoMapIntensity = .65;
-      if (material.map) material.map.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-    }
-  });
+  const materials = await prepareMaterials(room, scene, renderer);
+  const reading = createReadingPages(document.querySelector('#project-detail'), [...materials].find(material => material.name === 'Paper'));
 
   const models = new Map();
   const motions = new Map();
@@ -192,6 +118,8 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   let lastWidth = 0;
   let lastHeight = 0;
   let presenting = false;
+  let phase = 'shelf';
+  let returnView;
   let ambientTimer;
   let contextLost = false;
   let controlsDirty = true;
@@ -200,12 +128,13 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     material.map = atmosphere.leafTexture;
     material.color.set('#b5ba8f');
     material.roughness = .68;
+    material.side = THREE.DoubleSide;
   }
 
   function addPlane(parent, size, position, texture, horizontal = false) {
     texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-    const material = new THREE.MeshBasicMaterial({
-      map: texture, side: THREE.DoubleSide, toneMapped: false,
+    const material = new THREE.MeshStandardMaterial({
+      map: texture, side: THREE.DoubleSide, roughness: .88, color: '#fffdf6',
       polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
     });
     const plane = new THREE.Mesh(new THREE.PlaneGeometry(...size), material);
@@ -223,16 +152,17 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     if (project.kind === 'binder') {
       addPlane(group, [.293, 1.41], [0, .12, .824], label);
       bounds = [[-.25, -1.06, .82], [.25, 1.06, 1.18]];
-      axis = 'y'; angle = -Math.PI;
+      axis = 'y'; angle = -Math.PI - .28;
     } else if (project.kind === 'box') {
       addPlane(group, [1.4, .26], [0, -.01, .731], label);
       bounds = [[-.96, -.34, .72], [.96, .4, .92]];
       axis = 'x'; angle = -Math.PI * .57;
-      if (project.preview) {
-        const image = await new THREE.TextureLoader().loadAsync(project.preview);
-        image.colorSpace = THREE.SRGBColorSpace;
-        addPlane(group, [1.63, 1.05], [0, -.217, 0], image, true);
-      }
+      const card = new THREE.Mesh(new THREE.BoxGeometry(1.51, .017, 2.08), [...materials].find(material => material.name === 'Paper'));
+      card.position.set(2.05, -.35, 0);
+      card.castShadow = card.receiveShadow = true;
+      card.visible = false;
+      card.name = 'ProjectCard';
+      group.add(card);
     } else {
       addPlane(lid, [1.37, .285], [.925, .051, -.81], label, true);
       addPlane(lid, [1.22, 1.13], [.925, .042, .2], folderPaper(project), true);
@@ -245,6 +175,11 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
       home: group.position.clone(), rotation: group.quaternion.clone(),
     });
   }
+  await Promise.all([...models.values()].map(async model => {
+    if (!model.project.preview) return;
+    model.previewTexture = await new THREE.TextureLoader().loadAsync(model.project.preview);
+    model.previewTexture.colorSpace = THREE.SRGBColorSpace;
+  }));
 
   function requestRender(geometryChanged = true) {
     if (geometryChanged) controlsDirty = true;
@@ -260,6 +195,7 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     scene.updateMatrixWorld();
     camera.updateMatrixWorld();
     if (controlsDirty) { updateControls(); controlsDirty = false; }
+    if (active) reading.project(camera, canvas.getBoundingClientRect());
     if ([...motions.keys()].some(key => key !== 'view')) renderer.shadowMap.needsUpdate = true;
     const living = !reducedMotion.matches && !document.hidden && !presenting && !contextLost && atmosphere.visible(camera);
     if (living) atmosphere.update(time);
@@ -287,6 +223,10 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     return { x: (projected.x + 1) * lastWidth / 2, y: (1 - projected.y) * lastHeight / 2, depth: projected.z };
   }
   function updateControls() {
+    if (active) {
+      for (const project of projects) { project.button.hidden = true; project.areaLabel.hidden = true; }
+      return;
+    }
     for (const model of models.values()) {
       const { project, bounds, home, rotation } = model;
       if (narrow.matches && project.area !== currentArea) {
@@ -334,10 +274,12 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     renderer.setSize(lastWidth, lastHeight, false);
     camera.aspect = lastWidth / lastHeight;
     camera.updateProjectionMatrix();
-    const view = initialView();
-    camera.position.copy(view.position);
-    navigation.target.copy(view.target);
-    navigation.update();
+    if (!active || phase === 'reading') {
+      const view = active ? readingView() : initialView();
+      camera.position.copy(view.position);
+      navigation.target.copy(view.target);
+      navigation.update();
+    }
     scene.updateMatrixWorld();
     camera.updateMatrixWorld();
     updateControls();
@@ -366,41 +308,106 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     highlight(null);
     active = models.get(id);
     navigation.enabled = false;
+    phase = 'opening';
+    canvas.parentElement.classList.add('is-reading');
+    returnView = { position: camera.position.clone(), target: navigation.target.clone(), rotation: camera.quaternion.clone(), aspect: camera.aspect };
     const model = active;
+    cancelMotion('hover-' + id);
+    reading.mount(model);
+    const card = model.group.getObjectByName('ProjectCard');
     const from = model.group.position.clone();
-    const lifted = model.home.clone().add(new THREE.Vector3(0, .2, 2));
-    await animate('flight', t => model.group.position.lerpVectors(from, lifted, t));
+    const lifted = model.home.clone().add(new THREE.Vector3(0, .3, 2.2));
     const flatRotation = model.project.kind === 'binder'
       ? new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
         new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(-1, 0, 0)))
       : new THREE.Quaternion();
-    const destination = new THREE.Vector3(THREE.MathUtils.clamp(navigation.target.x, -5.3, 5.3) + .5, model.project.kind === 'folder' ? -.48 : -.2, 3);
-    await animate('flight', t => {
+    const destination = new THREE.Vector3(model.project.kind === 'box' ? -.95 : .78, model.project.kind === 'folder' ? -.53 : model.project.kind === 'box' ? -.205 : -.34, 2.5);
+    // Fit the final open pages before the flight starts, then restore the pose.
+    model.group.position.copy(destination); model.group.quaternion.copy(flatRotation);
+    model.lid.rotation[model.axis] = model.angle;
+    const view = readingView();
+    model.group.position.copy(from); model.group.quaternion.copy(model.rotation); model.lid.rotation[model.axis] = 0;
+    const approach = { position: new THREE.Vector3(0, 3.5, 7.4), target: new THREE.Vector3(0, -.15, 2.5) };
+    await Promise.all([
+      animate('flight', t => model.group.position.lerpVectors(from, lifted, t)),
+      moveCamera(approach),
+    ]);
+    await Promise.all([animate('flight', t => {
       model.group.position.lerpVectors(lifted, destination, t);
       model.group.position.y += Math.sin(t * Math.PI) * .5;
       model.group.quaternion.slerpQuaternions(model.rotation, flatRotation, t);
+    }), moveCamera(view)]);
+    if (card) { card.visible = true; card.position.x = 0; }
+    await animate('lid', t => {
+      model.lid.rotation[model.axis] = model.angle * t;
+      if (card) card.position.x = 2.05 * t;
     });
-    await animate('lid', t => { model.lid.rotation[model.axis] = model.angle * t; });
+    phase = 'reading';
     canvas.dataset.selected = id;
+    canvas.dataset.presentation = 'table';
+    requestRender();
   }
   async function home() {
     if (!active) return;
+    phase = 'closing';
     const model = active;
-    await animate('lid', t => { model.lid.rotation[model.axis] = model.angle * (1 - t); });
+    const card = model.group.getObjectByName('ProjectCard');
+    await animate('lid', t => {
+      model.lid.rotation[model.axis] = model.angle * (1 - t);
+      if (card) card.position.x = 2.05 * (1 - t);
+    });
+    if (card) card.visible = false;
     const from = model.group.position.clone(), rotation = model.group.quaternion.clone();
-    const lifted = model.home.clone().add(new THREE.Vector3(0, .2, 2));
-    await animate('flight', t => {
+    const lifted = model.home.clone().add(new THREE.Vector3(0, .3, 2.2));
+    await Promise.all([animate('flight', t => {
       model.group.position.lerpVectors(from, lifted, t);
       model.group.quaternion.slerpQuaternions(rotation, model.rotation, t);
-    });
-    await animate('flight', t => model.group.position.lerpVectors(lifted, model.home, t));
+    }), moveCamera({ position: new THREE.Vector3(0, 3.5, 7.4), target: new THREE.Vector3(0, -.15, 2.5) })]);
+    const view = Math.abs(returnView.aspect - camera.aspect) < .01 ? returnView : initialView();
+    await Promise.all([
+      animate('flight', t => model.group.position.lerpVectors(lifted, model.home, t)), moveCamera(view),
+    ]);
     active = null; hovered = null;
+    phase = 'shelf';
     navigation.enabled = true;
+    navigation.update();
     delete canvas.dataset.selected;
+    delete canvas.dataset.presentation;
+    canvas.parentElement.classList.remove('is-reading');
+    scene.updateMatrixWorld(); camera.updateMatrixWorld(); updateControls(); requestRender();
+  }
+  function readingView() {
+    const points = reading.points(narrow.matches);
+    if (active.project.kind === 'box' && !narrow.matches) {
+      const bounds = new THREE.Box3().setFromObject(active.group);
+      for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+        points.push(new THREE.Vector3(x, y, z));
+      }
+    }
+    const target = new THREE.Box3().setFromPoints(points).getCenter(new THREE.Vector3());
+    const direction = new THREE.Vector3(0, .975, .22).normalize();
+    const right = new THREE.Vector3(1, 0, 0);
+    const up = new THREE.Vector3().crossVectors(direction, right);
+    const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    let distance = 0;
+    for (const point of points) {
+      const local = point.clone().sub(target);
+      distance = Math.max(distance, Math.abs(local.dot(right)) / (tangent * camera.aspect) + local.dot(direction), Math.abs(local.dot(up)) / tangent + local.dot(direction));
+    }
+    distance *= narrow.matches ? 1.09 : 1.15;
+    return { target, position: target.clone().addScaledVector(direction, distance) };
+  }
+  async function moveCamera(view) {
+    const position = camera.position.clone(), rotation = camera.quaternion.clone(), target = navigation.target.clone();
+    const preview = camera.clone(); preview.position.copy(view.position); preview.lookAt(view.target);
+    await animate('camera', t => {
+      camera.position.lerpVectors(position, view.position, t);
+      camera.quaternion.slerpQuaternions(rotation, preview.quaternion, t);
+      navigation.target.lerpVectors(target, view.target, t);
+    });
   }
   function setDetailVisible(visible) {
     presenting = visible;
-    if (active) active.group.visible = !visible;
     renderer.shadowMap.needsUpdate = true;
     requestRender();
   }
@@ -411,12 +418,12 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   }
   function setTheme(dark) {
     scene.background = new THREE.Color(dark ? '#42463e' : '#e7e1d3');
-    scene.environmentIntensity = dark ? .4 : .75;
-    daylight.intensity = dark ? 1.0 : 2.5;
-    ambient.intensity = dark ? .18 : .42;
-    fill.intensity = dark ? .18 : .45;
+    scene.environmentIntensity = dark ? .62 : 1.4;
+    daylight.intensity = dark ? .75 : 1.8;
+    ambient.intensity = dark ? .12 : .22;
+    fill.intensity = dark ? .1 : .2;
     bounce.intensity = dark ? 1.2 : 4;
-    renderer.toneMappingExposure = dark ? .85 : .95;
+    renderer.toneMappingExposure = dark ? .9 : 1.05;
     atmosphere.setTheme(dark);
     requestRender();
   }
@@ -450,6 +457,7 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     });
     navigation.enabled = !active;
     navigation.update();
+    scene.updateMatrixWorld(); camera.updateMatrixWorld(); updateControls(); requestRender();
   }
   new ResizeObserver(resize).observe(canvas.parentElement);
   narrow.addEventListener('change', resize);
@@ -472,7 +480,6 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   });
   canvas.addEventListener('webglcontextrestored', () => {
     contextLost = false;
-    if (active) active.group.visible = !presenting;
     document.querySelector('#desk-status').textContent = '';
     requestRender();
   });

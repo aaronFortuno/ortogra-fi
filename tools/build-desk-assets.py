@@ -43,7 +43,7 @@ def material(name, color, roughness=.7, metallic=0):
 
 
 wood = material('Oak', '#d1b187', .68)
-wood_image = bpy.data.images.load(str(DESTINATION / 'oak.webp'))
+wood_image = bpy.data.images.load(str(DESTINATION / 'pbr' / 'oak-color.webp'))
 wood_image.pack()
 wood_node = wood.node_tree.nodes.new('ShaderNodeTexImage')
 wood_node.image = wood_image
@@ -101,6 +101,19 @@ def box(name, dimensions, position, mat, parent=room, bevel=.015):
         normal = obj.modifiers.new('Weighted normals', 'WEIGHTED_NORMAL')
         normal.keep_sharp = True
         bpy.ops.object.modifier_apply(modifier=normal.name)
+    if mat and (mat.name == 'Oak' or mat.name.startswith('Cloth_') or mat.name == 'BoxFabric'):
+        # Physical scale, independent of each cube's original packed UV islands.
+        # The oak scan covers 1 x 2 m, the book cloth 0.3 x 0.3 m.
+        uv = obj.data.uv_layers.get('UVMap') or obj.data.uv_layers.new(name='UVMap')
+        scale = (6.5, 13) if mat.name == 'Oak' else (1.95, 1.95)
+        offset = (random.random(), random.random())
+        sizes = list(obj.dimensions)
+        for face in obj.data.polygons:
+            normal_axis = max(range(3), key=lambda axis: abs(face.normal[axis]))
+            axes = sorted((axis for axis in range(3) if axis != normal_axis), key=lambda axis: sizes[axis], reverse=True)
+            for loop_index in face.loop_indices:
+                point = obj.data.vertices[obj.data.loops[loop_index].vertex_index].co
+                uv.data[loop_index].uv = (point[axes[0]] / scale[0] + offset[0], point[axes[1]] / scale[1] + offset[1])
     return finish(obj, name, mat, position, parent)
 
 
@@ -174,26 +187,27 @@ def binder(identifier, color, x):
     group['kind'] = 'binder'
     cover = material('Cloth_' + identifier, color, .65)
     liner = material('Liner_' + identifier, '#a5ad92', .9)
-    box('Spine_' + identifier, (.45, 2.08, .075), (0, 0, .775), cover, group, .03)
-    box('BackCover', (.038, 2.08, 1.55), (-.225, 0, .02), cover, group, .014)
-    box('BackLiner', (.007, 2.015, 1.47), (-.201, 0, .012), liner, group, .002)
+    box('Spine_' + identifier, (.45, 2.08, .042), (0, 0, .796), cover, group, .009)
+    box('BackCover', (.018, 2.08, 1.55), (-.225, 0, .02), cover, group, .005)
+    box('BackLiner', (.005, 2.015, 1.47), (-.212, 0, .012), liner, group, .0015)
     pages = box('Pages_' + identifier, (.345, 1.955, 1.405), (0, 0, .0), paper_edge, group, .012)
     # Individual sheet edges are geometry, shared into the page mesh before export.
     for i in range(8):
         box('PageEdge', (.002, 1.944, 1.395), (-.145 + i * .041, -.002, .007), paper, group, .0008)
     lid = empty('Lid_' + identifier, (.225, 0, .775), group)
-    box('FrontCover', (.038, 2.08, 1.55), (0, 0, -.755), cover, lid, .014)
-    box('FrontLiner', (.006, 2.015, 1.47), (-.023, 0, -.754), liner, lid, .002)
+    box('FrontCover', (.018, 2.08, 1.55), (0, 0, -.755), cover, lid, .005)
+    box('FrontLiner', (.005, 2.015, 1.47), (-.013, 0, -.754), liner, lid, .0015)
+    box('LeftPaper', (.009, 1.94, 1.39), (-.023, 0, -.754), paper, lid, .002)
     box('Tape_' + identifier, (.303, 1.42, .008), (0, .12, .818), tape, group, .003)
     hole = cylinder('FingerHole', .066, .06, (0, -.8, .81), cavity, group)
     hole.rotation_euler.x = math.pi / 2
     torus('FingerRim', .074, .009, (0, -.8, .827), silver, group)
     torus('FingerLip', .067, .003, (0, -.8, .832), silver, group)
     box('BottomProtector', (.43, .018, .012), (0, -1.019, .818), silver, group, .004)
-    for y in [-.7, .0, .7]:
-        ring = torus('RingMechanism', .13, .012, (-.025, y, .59), silver, group, normal='y')
-        ring.scale.y = 1.15
-    box('RingRail', (.08, 1.73, .035), (-.16, 0, .64), silver, group, .012)
+    for y in [-.34, .34]:
+        ring = torus('RingMechanism', .145, .01, (.02, y, .665), silver, group, normal='y')
+        ring.scale.x = 1.4
+    box('RingRail', (.08, 1.12, .035), (-.18, 0, .61), silver, group, .009)
     return group
 
 
@@ -228,6 +242,7 @@ def folder(identifier, color, x, z, angle):
     box('FolderPaper', (1.67, .025, 2.13), (.015, -.008, 0), paper, group, .006)
     lid = empty('Lid_' + identifier, (-.925, 0, 0), group)
     box('FolderCover', (1.85, .025, 2.35), (.925, .025, 0), card, lid, .009)
+    box('FolderLeftPaper', (1.66, .008, 2.13), (.925, -.039, 0), paper, lid, .002)
     box('FolderTab', (.65, .02, .16), (.1, .025, -1.18), card, group, .012)
     box('Tape_' + identifier, (1.39, .009, .3), (.925, .044, -.81), tape, lid, .003)
     return group
@@ -268,21 +283,22 @@ for i in range(24):
     length = .5 + random.random() * .3
     for row in range(13):
         t = row / 12
-        width = math.sin(t * math.pi) * length * .39
-        for side in [-1, 0, 1]:
+        width = math.sin(t * math.pi) ** .7 * length * .34
+        for col in range(7):
+            side = col / 3 - 1
             leaf_vertices.append((side * width, -length * t,
-                math.sin(t * math.pi) * .1 + (1 - abs(side)) * .035))
+                math.sin(t * math.pi) * .1 + math.cos(side * math.pi / 2) * .015 - side ** 2 * .045))
     for row in range(12):
-        for col in range(2):
-            n = row * 3 + col
-            leaf_faces.append((n, n + 1, n + 4, n + 3))
+        for col in range(6):
+            n = row * 7 + col
+            leaf_faces.append((n, n + 1, n + 8, n + 7))
     mesh = bpy.data.meshes.new('Leaf')
     mesh.from_pydata(leaf_vertices, [], leaf_faces)
     uv = mesh.uv_layers.new(name='UVMap')
     for polygon in mesh.polygons:
         for loop_index in polygon.loop_indices:
             vertex_index = mesh.loops[loop_index].vertex_index
-            uv.data[loop_index].uv = (vertex_index % 3 / 2, vertex_index // 3 / 12)
+            uv.data[loop_index].uv = (vertex_index % 7 / 6, vertex_index // 7 / 12)
     leaf = bpy.data.objects.new('Leaf', mesh)
     bpy.context.collection.objects.link(leaf)
     leaf.parent = plant
@@ -326,6 +342,7 @@ def bake_ambient():
         slot.material.name += '_Room'
     uv = surface.data.uv_layers.new(name='AmbientUV')
     surface.data.uv_layers.active = uv
+    uv.active_render = True
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=.012)
@@ -338,13 +355,13 @@ def bake_ambient():
         mat.node_tree.nodes.active = node
     scene = bpy.context.scene
     scene.render.engine = 'CYCLES'
-    scene.cycles.samples = 16
+    scene.cycles.samples = 64
     scene.render.threads_mode = 'FIXED'
     scene.render.threads = 4
     scene.render.bake.margin = 8
     for obj in dynamic.children_recursive:
         obj.hide_render = True
-    bpy.ops.object.bake(type='AO')
+    bpy.ops.object.bake(type='AO', uv_layer='AmbientUV')
     image.filepath_raw = str(WORK / 'ambient.png')
     image.file_format = 'PNG'
     image.save()
@@ -365,6 +382,7 @@ def bake_ambient():
     for obj in dynamic.children_recursive:
         obj.hide_render = False
     surface.data.uv_layers.active_index = 0
+    surface.data.uv_layers[0].active_render = True
 
 
 bake_ambient()

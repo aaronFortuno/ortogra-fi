@@ -133,6 +133,7 @@ async function openProject(project, button) {
   try {
     await scene.select(project.id);
     detail.showModal();
+    detail.querySelector('.description-page').scrollTop = 0;
     scene.setDetailVisible(true);
     requestAnimationFrame(() => detail.classList.add('is-visible'));
     track('obre_fitxa_escriptori', { projecte: project.id });
@@ -211,7 +212,7 @@ async function start() {
   try {
     await loadProjects();
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.2.0');
+    const { createDesk } = await import('./scene.js?v=1.3.0');
     scene = await createDesk({
       canvas: document.querySelector('#desk-canvas'), projects: presentation,
       dark: document.documentElement.dataset.theme === 'dark',

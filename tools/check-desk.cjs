@@ -49,8 +49,10 @@ async function main() {
       console.log('PASS: touch swipe, two-finger pinch and first tap after each gesture.');
       return;
     }
-    for (const [width, height, theme] of [[1440, 960, 'light'], [1280, 800, 'dark'], [390, 844, 'light'], [320, 568, 'dark']]) {
-      const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme });
+    const readingOnly = process.argv.includes('--reading');
+    const layouts = readingOnly ? [[390, 844, 'light']] : [[1440, 960, 'light'], [1280, 800, 'dark'], [390, 844, 'light'], [320, 568, 'dark']];
+    for (const [width, height, theme] of layouts) {
+      const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme, reducedMotion: readingOnly ? 'reduce' : 'no-preference' });
       await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
       const page = await context.newPage();
       const errors = [];
@@ -108,12 +110,19 @@ async function main() {
       await page.screenshot({ path: path.join(output, 'hover-' + width + '.png') });
       await trama.click();
       await page.locator('#project-detail.is-visible').waitFor();
+      await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('.description-page')).opacity) === 1);
       assert.equal(await page.locator('#project-title').innerText(), 'Trama');
       assert.equal(await page.locator('#project-enter').getAttribute('href'), 'https://trama.ortogra.fi/');
       assert.equal(await page.locator('#desk-canvas').getAttribute('data-selected'), 'trama');
+      assert.equal(await page.locator('#desk-canvas').getAttribute('data-presentation'), 'table');
+      assert.equal(await page.locator('#project-detail').evaluate(dialog => getComputedStyle(dialog, '::backdrop').backgroundColor), 'rgba(0, 0, 0, 0)');
+      const paper = await page.locator('.description-page').boundingBox();
+      assert.ok(paper.x >= 0 && paper.y >= 64 && paper.x + paper.width <= width + 1 && paper.y + paper.height <= height - 50);
+      assert.ok(await page.locator('#project-enter').isVisible());
       await page.screenshot({ path: path.join(output, 'open-' + width + '-' + theme + '.png') });
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !document.querySelector('#project-detail').open && !document.querySelector('#shelf-controls').inert);
+      assert.equal(await page.locator('#desk-canvas').getAttribute('data-presentation'), null);
       assert.equal(await page.locator('#desk-canvas').getAttribute('data-selected'), null);
       if (width < 701) {
         await page.locator('[data-area=Utilitats]').click();
@@ -136,7 +145,7 @@ async function main() {
       assert.deepEqual(errors, []);
       await context.close();
     }
-    const context = await browser.newContext({ viewport: { width: 1024, height: 768 }, reducedMotion: 'reduce' });
+    const context = await browser.newContext({ viewport: readingOnly ? { width: 1440, height: 960 } : { width: 1024, height: 768 }, reducedMotion: 'reduce' });
     await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     const page = await context.newPage();
     await page.goto(origin + '/escriptori/');
@@ -169,14 +178,29 @@ async function main() {
     assert.ok(navigation.near < 8);
     // Repeat a full cycle to check that callbacks, focus and the selected object reset.
     for (const id of ['plec', 'pauta', 'sentit', 'relleu-obert']) {
+      if (id === 'plec') {
+        const initial = await page.locator('[data-project=plec]').boundingBox();
+        await page.locator('[data-view=left]').click();
+        await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=plec]').getBoundingClientRect().x - x) > 5, initial.x);
+      }
+      const previous = await page.locator('[data-project=' + id + ']').boundingBox();
       await page.locator('[data-project=' + id + ']').focus();
       await page.keyboard.press('Enter');
       await page.locator('#project-detail.is-visible').waitFor();
+      assert.equal(await page.locator('#desk-canvas').getAttribute('data-presentation'), 'table');
       if (id === 'relleu-obert') assert.equal(await page.locator('#project-detail').getAttribute('data-kind'), 'box');
+      await page.screenshot({ path: path.join(output, 'reading-' + id + '.png') });
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !document.querySelector('#project-detail').open && !document.querySelector('#shelf-controls').inert);
+      const restored = await page.locator('[data-project=' + id + ']').boundingBox();
+      assert.ok(Math.abs(previous.x - restored.x) < 1 && Math.abs(previous.width - restored.width) < 1);
+      if (id === 'plec') await page.locator('[data-view=home]').click();
     }
     await context.close();
+    if (process.argv.includes('--reading')) {
+      console.log('PASS: four table-reading cycles, three object types, printed surfaces and exact return to the previous viewpoint.');
+      return;
+    }
     const noScript = await browser.newContext({ javaScriptEnabled: false });
     const fallback = await noScript.newPage();
     await fallback.goto(origin + '/escriptori/');

@@ -1,0 +1,69 @@
+{
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "assets": [
+    {
+      "name": "Book Pattern",
+      "author": "Rob Tuytel",
+      "url": "https://polyhaven.com/a/book_pattern",
+      "files": [
+        {
+          "file": "book-color.webp",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/book_pattern/book_pattern_col1_1k.jpg",
+          "sourceMd5": "4f9551b538201ee44ba2f4d5c9492110",
+          "processing": "Desaturated, normalised at 1–99%, linear mask 0.36 + 163/255; WebP quality 87"
+        },
+        {
+          "file": "book-normal.webp",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/book_pattern/book_pattern_nor_gl_1k.png",
+          "sourceMd5": "68e59865d8be8b089ea1d605bafdc98c",
+          "processing": "Lossless WebP; original OpenGL tangent-space normal"
+        },
+        {
+          "file": "book-rough.webp",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/book_pattern/book_pattern_rough_1k.jpg",
+          "sourceMd5": "e73a3decc3fc793db0dbe9671fa434f3",
+          "processing": "Grayscale WebP quality 87"
+        }
+      ]
+    },
+    {
+      "name": "Oak Veneer 03",
+      "author": "Jenelle van Heerden",
+      "url": "https://polyhaven.com/a/oak_veneer_03",
+      "files": [
+        {
+          "file": "oak-color.webp",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/oak_veneer_03/oak_veneer_03_diff_2k.jpg",
+          "sourceMd5": "6840bcf7720c277139313b7f2397b509",
+          "processing": "WebP quality 87; original dimensions and colour"
+        },
+        {
+          "file": "oak-normal.webp",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/oak_veneer_03/oak_veneer_03_nor_gl_1k.png",
+          "sourceMd5": "685d6f22abeb95ac60589f7de3835228",
+          "processing": "Lossless WebP; original OpenGL tangent-space normal"
+        },
+        {
+          "file": "oak-rough.webp",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_03/oak_veneer_03_rough_1k.jpg",
+          "sourceMd5": "82a5dea41cd0f64b9f9de1109a2403f6",
+          "processing": "Grayscale WebP quality 87"
+        }
+      ]
+    },
+    {
+      "name": "Studio Small 09",
+      "author": "Sergej Majboroda",
+      "url": "https://polyhaven.com/a/studio_small_09",
+      "files": [
+        {
+          "file": "studio.hdr",
+          "source": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_09_1k.hdr",
+          "sourceMd5": "d5d7eb9d26d341d6aa4d11c1a54fd97c",
+          "processing": "Original RGBE HDR, unchanged"
+        }
+      ]
+    }
+  ]
+}
