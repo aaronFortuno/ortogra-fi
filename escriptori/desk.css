@@ -51,6 +51,15 @@
 #desk-canvas:active{
   cursor:grabbing
 }
+.binder-target{
+  touch-action:none
+}
+.workspace.is-navigating .binder-target{
+  cursor:grabbing
+}
+.workspace.is-navigating .hover-caption{
+  opacity:0
+}
 .desk-view-tools{
   position:absolute;
   left:26px;
@@ -98,6 +107,17 @@
   font-size:11px;
   white-space:nowrap;
   pointer-events:none
+}
+@media(min-width:701px) and (max-width:1200px){
+  .desk-view-help{
+    left:auto;
+    right:24px;
+    bottom:35px;
+    max-width:calc(100% - 390px);
+    white-space:normal;
+    text-align:right;
+    transform:none
+  }
 }
 [data-theme=dark] .desk-view-help{
   color:#d3cfbf

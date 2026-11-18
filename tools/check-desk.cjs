@@ -6,6 +6,37 @@ const { chromium } = require('playwright');
 const origin = 'http://127.0.0.1:4187';
 const output = path.resolve(__dirname, '../tmp/desk');
 
+async function checkTouch(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
+  try {
+    await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+    const page = await context.newPage();
+    await page.goto(origin + '/escriptori/');
+    await page.locator('#workspace[data-ready=true]').waitFor();
+    const target = page.locator('[data-project=trama]');
+    const initial = await target.boundingBox();
+    const cdp = await context.newCDPSession(page);
+    const x = initial.x + initial.width / 2, y = initial.y + initial.height / 2;
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 60, y: y + 10 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.equal(await page.locator('#project-detail').evaluate(dialog => dialog.open), false);
+    const home = await page.locator('[data-view=home]').boundingBox();
+    const reset = () => page.touchscreen.tap(home.x + home.width / 2, home.y + home.height / 2);
+    await reset();
+    await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) < 1, initial.x);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 170, y: 410 }, { x: 220, y: 410 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 140, y: 410 }, { x: 250, y: 410 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForFunction(width => document.querySelector('[data-project=trama]').getBoundingClientRect().width > width * 1.15, initial.width);
+    await reset();
+    await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) < 1, initial.x);
+    await target.tap();
+    await page.locator('#project-detail.is-visible').waitFor();
+    assert.equal(await page.locator('#project-title').innerText(), 'Trama');
+  } finally { await context.close(); }
+}
+
 async function main() {
   await fs.mkdir(output, { recursive: true });
   const browser = await chromium.launch({
@@ -13,6 +44,11 @@ async function main() {
     args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   });
   try {
+    if (process.argv.includes('--touch')) {
+      await checkTouch(browser);
+      console.log('PASS: touch swipe, two-finger pinch and first tap after each gesture.');
+      return;
+    }
     for (const [width, height, theme] of [[1440, 960, 'light'], [1280, 800, 'dark'], [390, 844, 'light'], [320, 568, 'dark']]) {
       const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme });
       await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
@@ -31,7 +67,34 @@ async function main() {
         const initial = await page.locator('[data-project=trama]').boundingBox();
         await page.locator('[data-view=left]').click();
         await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) > 5, initial.x);
+        await page.waitForFunction(() => document.querySelector('#desk-canvas').dataset.ambience === 'moving');
         await page.screenshot({ path: path.join(output, 'look-left.png') });
+        await page.locator('[data-view=home]').click();
+        await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) < 1, initial.x);
+        // Navigation also works on the object hit areas, without opening a card.
+        const center = { x: initial.x + initial.width / 2, y: initial.y + initial.height / 2 };
+        await page.mouse.move(center.x, center.y);
+        await page.mouse.down();
+        await page.mouse.move(center.x + 95, center.y + 20, { steps: 8 });
+        await page.mouse.up();
+        assert.equal(await page.locator('#project-detail').evaluate(dialog => dialog.open), false);
+        await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) > 20, initial.x);
+        await page.locator('[data-view=home]').click();
+        await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) < 1, initial.x);
+        await page.mouse.move(center.x, center.y);
+        await page.mouse.wheel(0, -600);
+        await page.waitForFunction(width => document.querySelector('[data-project=trama]').getBoundingClientRect().width > width * 1.65, initial.width);
+        assert.equal(await page.locator('#project-detail').evaluate(dialog => dialog.open), false);
+        await page.screenshot({ path: path.join(output, 'close-labels.png') });
+        await page.locator('[data-view=home]').click();
+        await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) < 1, initial.x);
+        await page.keyboard.down('Shift');
+        await page.mouse.move(center.x, center.y);
+        await page.mouse.down();
+        await page.mouse.move(center.x + 75, center.y, { steps: 6 });
+        await page.mouse.up();
+        await page.keyboard.up('Shift');
+        await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) > 30, initial.x);
         await page.locator('[data-view=home]').click();
         await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) < 1, initial.x);
         await page.locator('[data-view=in]').click();
@@ -78,6 +141,32 @@ async function main() {
     const page = await context.newPage();
     await page.goto(origin + '/escriptori/');
     await page.locator('#workspace[data-ready=true]').waitFor();
+    assert.equal(await page.locator('#desk-canvas').getAttribute('data-ambience'), 'still');
+    // Check the camera contract independently of screen projections: looking
+    // never moves the eye; translating and cursor zoom preserve its orientation.
+    const navigation = await page.evaluate(async () => {
+      const THREE = await import('three');
+      const { DeskNavigation } = await import('/escriptori/navigation.js?v=1.2.0');
+      const camera = new THREE.PerspectiveCamera(32, 1, .06, 75);
+      camera.position.set(0, 3, 12);
+      const navigation = new DeskNavigation(camera, document.createElement('div'), {
+        change() {}, start() {}, cancel() {}, animate: update => { update(1); return Promise.resolve(); },
+      });
+      navigation.target.set(0, 2, 0); navigation.update(); camera.updateMatrixWorld();
+      const position = camera.position.clone();
+      navigation.look(.4, .1);
+      const fixedEye = camera.position.equals(position);
+      const rotation = camera.quaternion.clone();
+      navigation.translate(80, 12);
+      const translated = !camera.position.equals(position) && camera.quaternion.equals(rotation);
+      await navigation.zoom(-400, null);
+      const near = camera.position.z;
+      for (let i = 0; i < 30; i++) await navigation.zoom(-500, null);
+      const bounded = navigation.bounds.containsPoint(camera.position);
+      return { fixedEye, translated, near, bounded, orientation: camera.quaternion.equals(rotation) };
+    });
+    assert.ok(navigation.fixedEye && navigation.translated && navigation.bounded && navigation.orientation);
+    assert.ok(navigation.near < 8);
     // Repeat a full cycle to check that callbacks, focus and the selected object reset.
     for (const id of ['plec', 'pauta', 'sentit', 'relleu-obert']) {
       await page.locator('[data-project=' + id + ']').focus();
@@ -94,7 +183,8 @@ async function main() {
     assert.ok(await fallback.locator('#projectes').isVisible());
     assert.equal(await fallback.locator('#projectes a').count(), 8);
     await noScript.close();
-    console.log('PASS: Blender models, 8 projects, binder/folder/box, viewpoint and zoom, hover, open/close, keyboard, mobile, themes, V4V and fallback.');
+    await checkTouch(browser);
+    console.log('PASS: fixed-eye look, lateral movement, cursor zoom, gesture/click separation, camera bounds, reduced-motion ambience, 8 projects, keyboard, mobile, themes and fallback.');
   } finally {
     await browser.close();
   }

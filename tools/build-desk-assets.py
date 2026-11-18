@@ -52,6 +52,7 @@ wood_uv.uv_map = 'UVMap'
 wood.node_tree.links.new(wood_uv.outputs['UV'], wood_node.inputs['Vector'])
 wood.node_tree.links.new(wood_node.outputs['Color'], wood.node_tree.nodes.get('Principled BSDF').inputs['Base Color'])
 plaster = material('Plaster', '#e9e2d2', .95)
+floor_mat = material('Floor', '#b6ad97', .95)
 ceramic = material('Ceramic', '#d8d1bd', .57)
 paper = material('Paper', '#f6f1e1', .88)
 paper_edge = material('PaperEdges', '#e6dfcf', .9)
@@ -63,9 +64,6 @@ leaf_green = material('Leaves', '#4a6435', .65)
 leaf_light = material('LeafLight', '#6c7a42', .67)
 stem_mat = material('Stems', '#626339', .8)
 soil = material('Soil', '#342b21', 1)
-glass = material('Daylight', '#eee9d8', .2)
-
-
 def empty(name, position=(0, 0, 0), parent=None):
     obj = bpy.data.objects.new(name, None)
     bpy.context.collection.objects.link(obj)
@@ -141,7 +139,14 @@ def curve(name, points, thickness, mat, parent=room):
 
 # Furniture is fully modelled so the viewpoint can move beyond the original crop.
 box('BackWall', (23, 12, .18), (0, 2, -1.8), plaster, bevel=.03)
-box('SideWall', (.18, 12, 12), (-8.1, 2, 3.8), plaster, bevel=.03)
+# Leave a real opening; the browser places the garden and moving foliage beyond it.
+box('SideWallBelow', (.18, 5.6, 40), (-8.1, -1.2, 17.8), plaster, bevel=.0008)
+box('SideWallAbove', (.18, 3.1, 40), (-8.1, 6.45, 17.8), plaster, bevel=.0008)
+box('SideWallBehind', (.18, 3.3, 1.75), (-8.1, 3.25, -1.325), plaster, bevel=.0008)
+box('SideWallAhead', (.18, 3.3, 35.35), (-8.1, 3.25, 20.125), plaster, bevel=.0008)
+box('RightWall', (.18, 12, 40), (8.1, 2, 17.8), plaster, bevel=.0008)
+box('Floor', (16.2, .15, 40), (0, -3.78, 17.8), floor_mat, bevel=.0008)
+box('Ceiling', (16.2, .15, 40), (0, 8.04, 17.8), plaster, bevel=.0008)
 box('Desktop', (15.5, .2, 6.6), (0, -.68, 1.65), wood, bevel=.065)
 box('DeskApron', (14.6, .44, .12), (0, -.96, 4.45), wood, bevel=.025)
 for x in [-6.8, 6.8]:
@@ -161,7 +166,6 @@ for y in [1.6, 4.9]:
     box('WindowFrame', (.18, .1, 3), (-7.92, y, 1), wood, bevel=.015)
 for z in [-.45, 1, 2.45]:
     box('WindowFrame', (.18, 3.35, .09), (-7.92, 3.25, z), wood, bevel=.014)
-box('WindowPane', (.04, 3.2, 2.8), (-7.99, 3.25, 1), glass, bevel=.003)
 box('WindowSill', (.55, .12, 3.25), (-7.75, 1.54, 1), wood, bevel=.025)
 
 
@@ -274,6 +278,11 @@ for i in range(24):
             leaf_faces.append((n, n + 1, n + 4, n + 3))
     mesh = bpy.data.meshes.new('Leaf')
     mesh.from_pydata(leaf_vertices, [], leaf_faces)
+    uv = mesh.uv_layers.new(name='UVMap')
+    for polygon in mesh.polygons:
+        for loop_index in polygon.loop_indices:
+            vertex_index = mesh.loops[loop_index].vertex_index
+            uv.data[loop_index].uv = (vertex_index % 3 / 2, vertex_index // 3 / 12)
     leaf = bpy.data.objects.new('Leaf', mesh)
     bpy.context.collection.objects.link(leaf)
     leaf.parent = plant

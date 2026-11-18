@@ -211,7 +211,7 @@ async function start() {
   try {
     await loadProjects();
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.1.0');
+    const { createDesk } = await import('./scene.js?v=1.2.0');
     scene = await createDesk({
       canvas: document.querySelector('#desk-canvas'), projects: presentation,
       dark: document.documentElement.dataset.theme === 'dark',
