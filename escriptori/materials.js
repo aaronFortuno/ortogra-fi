@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { HDRLoader } from '../assets/vendor/three/addons/loaders/HDRLoader.js';
 
-export async function prepareMaterials(room, scene, renderer) {
+export async function prepareMaterials(room, scene, renderer, resources) {
   const loader = new THREE.TextureLoader();
   const texture = async name => {
-    const map = await loader.loadAsync(new URL('../assets/desk/pbr/' + name + '.webp', import.meta.url).href);
+    const url = new URL('../assets/desk/pbr/' + name + '.webp', import.meta.url).href;
+    const map = await resources.load(url, objectURL => loader.loadAsync(objectURL));
     map.wrapS = map.wrapT = THREE.RepeatWrapping;
     map.flipY = false;
     map.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
@@ -12,7 +13,7 @@ export async function prepareMaterials(room, scene, renderer) {
   };
   const [cloth, clothNormal, clothRough, oak, oakNormal, oakRough, studio] = await Promise.all([
     ...['book-color', 'book-normal', 'book-rough', 'oak-color', 'oak-normal', 'oak-rough'].map(texture),
-    new HDRLoader().loadAsync(new URL('../assets/desk/pbr/studio.hdr', import.meta.url).href),
+    resources.load(new URL('../assets/desk/pbr/studio.hdr', import.meta.url).href, objectURL => new HDRLoader().loadAsync(objectURL)),
   ]);
   oak.colorSpace = THREE.SRGBColorSpace;
   const pmrem = new THREE.PMREMGenerator(renderer);

@@ -1,4 +1,6 @@
 import { createSampleBrowser } from './samples.js?v=1.5.0';
+import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.6.0';
+import { createLightControls } from './light-controls.js?v=1.6.0';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -15,6 +17,8 @@ let selected = null;
 let busy = false;
 let openingButton;
 const samples = createSampleBrowser({ getScene: () => scene, track });
+const loading = createLoadingIndicator(document.querySelector('#desk-loading'));
+const lightControls = createLightControls(() => scene);
 
 const presentation = [
   { id: 'plec', name: 'Plec', kind: 'binder', purpose: 'Dictats', color: '#36523c', area: 'Llengua',
@@ -227,21 +231,39 @@ areaButtons.forEach(button => button.addEventListener('click', () => {
 
 async function start() {
   try {
-    await loadProjects();
+    loading.update(0, 'Preparant l’escriptori…');
+    const [manifest] = await Promise.all([
+      fetch(new URL('assets/desk/loading.json?v=1.6.0', base)).then(response => {
+        if (!response.ok) throw new Error('No s’ha pogut carregar el pla de recursos.');
+        return response.json();
+      }),
+      loadProjects(),
+    ]);
+    loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.5.0');
+    const { createDesk } = await import('./scene.js?v=1.6.0');
+    loading.update(10, 'Carregant els models i les textures…');
+    const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({
       canvas: document.querySelector('#desk-canvas'), projects: presentation,
       dark: document.documentElement.dataset.theme === 'dark',
+      resources,
+      onStage: (percent, label) => loading.update(percent ?? 0, label),
+      onLightingChange: lightControls.update,
     });
     status.textContent = '';
     workspace.dataset.ready = 'true';
+    workspace.setAttribute('aria-busy', 'false');
+    for (const element of [controls, document.querySelector('.desk-view-tools'), document.querySelector('.mobile-areas')]) element.inert = false;
+    loading.finish();
     document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
       if (!busy && !selected) scene.moveView(button.dataset.view);
     }));
     new MutationObserver(() => scene.setTheme(document.documentElement.dataset.theme === 'dark'))
       .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   } catch (error) {
+    loading.fail();
+    workspace.setAttribute('aria-busy', 'false');
     workspace.classList.add('failed');
     status.textContent = 'Pots accedir a totes les eines des de la llista de projectes.';
     controls.replaceChildren();

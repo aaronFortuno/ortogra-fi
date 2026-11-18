@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
 import { DeskNavigation } from './navigation.js?v=1.2.0';
-import { createAtmosphere } from './atmosphere.js?v=1.4.0';
-import { prepareMaterials } from './materials.js?v=1.3.0';
+import { createAtmosphere } from './atmosphere.js?v=1.6.0';
+import { prepareMaterials } from './materials.js?v=1.6.0';
 import { createReadingPages } from './reading.js?v=1.5.0';
+import { createDaylight } from './daylight.js?v=1.6.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const narrow = matchMedia('(max-width: 700px)');
@@ -63,7 +64,7 @@ function folderPaper(project) {
   return texture;
 }
 
-export async function createDesk({ canvas, projects, dark: initialDark }) {
+export async function createDesk({ canvas, projects, dark: initialDark, resources, onStage = () => {}, onLightingChange }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
   renderer.shadowMap.enabled = true;
@@ -111,10 +112,13 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   let darkTheme = initialDark;
   const readingIntensity = () => darkTheme ? 2.4 : 1.8;
 
-  const asset = await new GLTFLoader().loadAsync(new URL('../assets/desk/escriptori.glb?v=1.4.0', import.meta.url).href);
+  const modelURL = new URL('../assets/desk/escriptori.glb?v=1.4.0', import.meta.url);
+  const modelBytes = await resources.buffer(modelURL.href);
+  onStage(null, 'Preparant els arxivadors…');
+  const asset = await new GLTFLoader().parseAsync(modelBytes, new URL('.', modelURL).href);
   const room = asset.scene;
   scene.add(room);
-  const materials = await prepareMaterials(room, scene, renderer);
+  const materials = await prepareMaterials(room, scene, renderer, resources);
   const reading = createReadingPages(document.querySelector('#project-detail'), [...materials].find(material => material.name === 'Paper'));
 
   const models = new Map();
@@ -132,8 +136,9 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   let contextLost = false;
   let controlsDirty = true;
   let ambientShadowTime = -Infinity;
+  let firstFrame;
   const outline = createHoverOutline(canvas.parentElement);
-  const atmosphere = await createAtmosphere(scene, room);
+  const atmosphere = await createAtmosphere(scene, room, resources);
   for (const material of materials) if (material.name.startsWith('Leaves') || material.name.startsWith('LeafLight')) {
     material.map = atmosphere.leafTexture;
     material.color.set('#b5ba8f');
@@ -187,9 +192,11 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   }
   await Promise.all([...models.values()].map(async model => {
     if (!model.project.preview) return;
-    model.previewTexture = await new THREE.TextureLoader().loadAsync(model.project.preview);
+    model.previewTexture = await resources.load(model.project.preview, objectURL => new THREE.TextureLoader().loadAsync(objectURL));
     model.previewTexture.colorSpace = THREE.SRGBColorSpace;
   }));
+  const lighting = createDaylight({ scene, renderer, canvas, atmosphere, ambient, daylight, fill, bounce,
+    animate: update => animate('daylight', update), requestRender, dark: initialDark, onChange: onLightingChange });
 
   function requestRender(geometryChanged = true) {
     if (geometryChanged) controlsDirty = true;
@@ -211,12 +218,13 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     const living = !reducedMotion.matches && !document.hidden && !presenting && !contextLost && atmosphere.visible(camera);
     if (living) {
       atmosphere.update(time);
-      if (time - ambientShadowTime > 250) {
+      if (daylight.intensity > .01 && time - ambientShadowTime > 250) {
         renderer.shadowMap.needsUpdate = true;
         ambientShadowTime = time;
       }
     }
     renderer.render(scene, camera);
+    if (firstFrame) { const resolve = firstFrame; firstFrame = null; requestAnimationFrame(resolve); }
     clearTimeout(ambientTimer);
     canvas.dataset.ambience = living ? 'moving' : 'still';
     if (living) ambientTimer = setTimeout(() => requestRender(false), 1000 / 24);
@@ -450,14 +458,7 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   function setTheme(dark) {
     darkTheme = dark;
     if (phase === 'reading') readingLight.intensity = readingIntensity();
-    scene.background = new THREE.Color(dark ? '#42463e' : '#e7e1d3');
-    scene.environmentIntensity = dark ? .62 : 1.4;
-    daylight.intensity = dark ? .75 : 1.8;
-    ambient.intensity = dark ? .12 : .22;
-    fill.intensity = dark ? .1 : .2;
-    bounce.intensity = dark ? 1.2 : 4;
-    renderer.toneMappingExposure = dark ? .9 : 1.05;
-    atmosphere.setTheme(dark);
+    lighting.setTheme(dark);
     requestRender();
   }
   async function moveView(action) {
@@ -517,9 +518,13 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     requestRender();
   });
   resize();
-  setTheme(initialDark);
+  onStage(94, 'Preparant la llum i els materials…');
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  await renderer.compileAsync(scene, camera);
+  onStage(98, 'Dibuixant l’escriptori…');
+  await new Promise(resolve => { firstFrame = resolve; requestRender(); });
   function setSample(index) { reading.setIndex(index); requestRender(); }
-  return { highlight, select, home, setTheme, setArea, setDetailVisible, moveView, setSample, sampleInfo: reading.info };
+  return { highlight, select, home, setTheme, setArea, setDetailVisible, moveView, setSample, sampleInfo: reading.info, setMoment: lighting.setMoment };
 }
 
 function localBounds(group) {

@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 
-export async function createAtmosphere(scene, room) {
+export async function createAtmosphere(scene, room, resources) {
   const window = new THREE.Group();
   window.position.set(-8.1, 3.25, 1);
   window.rotation.y = Math.PI / 2;
   scene.add(window);
-  const garden = await new THREE.TextureLoader().loadAsync(new URL('../assets/desk/garden.webp', import.meta.url).href);
+  const garden = await resources.load(new URL('../assets/desk/garden.webp', import.meta.url).href, objectURL => new THREE.TextureLoader().loadAsync(objectURL));
   garden.colorSpace = THREE.SRGBColorSpace;
   const view = new THREE.Mesh(new THREE.PlaneGeometry(2.94, 3.33), new THREE.MeshBasicMaterial({ map: garden, toneMapped: false }));
   view.position.z = -.27;
@@ -86,8 +86,12 @@ export async function createAtmosphere(scene, room) {
         mesh.quaternion.copy(home).multiply(sway);
       }
     },
-    setTheme(dark) {
-      view.material.color.setScalar(dark ? .28 : .95);
+    setLight(state) {
+      const tint = new THREE.Color('#16243e').lerp(new THREE.Color('#f1f7ff'), state.day);
+      tint.lerp(new THREE.Color('#f7cca1'), state.golden * .5);
+      view.material.color.copy(tint);
+      leafMaterial.color.setScalar(.14 + .86 * state.day);
+      stemMaterial.color.set('#635b3d').multiplyScalar(.2 + .8 * state.day);
     },
   };
 }

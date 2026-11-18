@@ -16,6 +16,12 @@ La fitxa i el solucionari de Trama, Fil i Compte i Sentit es mostren als dos cos
 
 Una llum direccional més freda s’encén en obrir i s’apaga en tancar, sense mapa d’ombres addicional. La cara impresa utilitza `MeshBasicMaterial` amb blanc `#fbfdff` i `toneMapped: false`: preserva la tinta del PDF i evita que la llum o els reflexos rentin les lletres. Les vores mantenen el material físic. Aquests fulls fins no reben autoombres que puguin deixar ratlles sobre el text; continuen projectant ombra sobre el suport. Les tapes, el paper de base i les anelles mantenen els materials físics. És una decisió de llegibilitat per al document, mentre la resta de l’objecte continua responent a la llum.
 
+## Cicle solar
+
+La llum directa ja segueix el sol amb SunCalc 1.9.0: referència 41,39° N / 2,17° E, finestra al sud-oest i un refresc per minut amb la pestanya visible. Les ombres de la finestra provenen de la mateixa geometria i del mapa d’ombres existent. El jardí, l’ambient i la llum de sala s’interpolen segons l’alçada del sol. El plafó de sostre es crea a `escriptori/daylight.js`; no requereix una nova exportació de Blender ni un segon mapa d’ombres. La llum de lectura continua protegint la llegibilitat del document.
+
+El càlcul astronòmic dona la posició del sol; el color i les intensitats interiors són decisions visuals. L’HDRI d’estudi continua aportant els reflexos de base, amb intensitat variable; la meteorologia i els núvols no es consulten. El control de data/hora permet comparar condicions amb la mateixa càmera. La prova manual no es desa entre visites. Les convencions angulars i la llicència de la versió emprada es documenten a [`assets/vendor/suncalc.README.md`](../assets/vendor/suncalc.README.md).
+
 ## Properes proves, per ordre
 
 1. **Coherència de la llum d’entorn.** L’HDRI actual, [Studio Small 09](https://polyhaven.com/a/studio_small_09), és d’estudi. Cal provar una orientació coherent amb la finestra i una intensitat de 0,8–1,0, reajustant l’exposició després. Si continuen apareixent reflexos d’estudi, comparar-lo amb un entorn de llum de dia. Canviar l’HDRI modifica els reflexos de tots els materials; convé comparar la vista de prestatge i la de lectura juntes. Three.js permet rotar i graduar l’entorn des de [Scene](https://github.com/mrdoob/three.js/blob/r180/docs/api/en/scenes/Scene.html).

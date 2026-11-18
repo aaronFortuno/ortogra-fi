@@ -8,6 +8,8 @@ El paper utilitza rugositat fina procedimental i els cantells dels fulls tenen l
 
 La font reproduïble és `tools/build-desk-assets.py`. Després de regenerar el GLB, el fitxer editable de Blender queda a `output/desk/escriptori.blend`, fora de Git. No cal Blender per servir ni utilitzar el web.
 
+El plafó de sostre i el cicle solar s’afegeixen al navegador des d’`escriptori/daylight.js`. `loading.json` és el pressupost de bytes dels recursos inicials, generat amb `node tools/prepare-desk-loading.cjs`; cal regenerar-lo si canvia el GLB, un mapa de materials, el jardí o una miniatura de la portada.
+
 Els arxivadors es col·loquen amb inclinacions i profunditats diferents, mantenint el cantell inferior sobre la balda. Un petit joc de fulls, un clip i un llapis afegeixen objectes quotidians a la taula. Les fulles `IndoorLeaf_*` del potos es conserven dins de `LivingDetails`, separades de la geometria estàtica, per poder-les moure suaument al navegador.
 
 Els [PDF i fulls complets de mostra](samples/README.md) es distribueixen a `samples/`, amb procedència i atribucions pròpies. El visor els carrega en obrir un objecte i els presenta com a paper físic i com a document ampliable. No es barregen amb les textures de materials.

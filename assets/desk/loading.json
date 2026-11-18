@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "assets": {
+    "assets/desk/escriptori.glb": 2490048,
+    "assets/desk/garden.webp": 183388,
+    "assets/desk/pbr/book-color.webp": 438620,
+    "assets/desk/pbr/book-normal.webp": 1521954,
+    "assets/desk/pbr/book-rough.webp": 563874,
+    "assets/desk/pbr/oak-color.webp": 417364,
+    "assets/desk/pbr/oak-normal.webp": 465116,
+    "assets/desk/pbr/oak-rough.webp": 307384,
+    "assets/desk/pbr/studio.hdr": 1615248,
+    "assets/project-previews/plec.png": 5086,
+    "assets/project-previews/trama.png": 22177,
+    "assets/project-previews/resso.png": 38544,
+    "assets/project-previews/fil-i-compte.png": 9556,
+    "assets/project-previews/relleu-obert.webp": 30764,
+    "assets/project-previews/pentagrama.png": 3343,
+    "assets/project-previews/pauta.png": 973
+  }
+}
