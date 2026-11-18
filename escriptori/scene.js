@@ -3,7 +3,7 @@ import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js'
 import { DeskNavigation } from './navigation.js?v=1.2.0';
 import { createAtmosphere } from './atmosphere.js?v=1.4.0';
 import { prepareMaterials } from './materials.js?v=1.3.0';
-import { createReadingPages } from './reading.js?v=1.4.0';
+import { createReadingPages } from './reading.js?v=1.5.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const narrow = matchMedia('(max-width: 700px)');
@@ -103,6 +103,13 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   const bounce = new THREE.PointLight('#ded0ad', 4, 18, 2);
   bounce.position.set(-5, 2, 3.5);
   scene.add(bounce);
+  // A neutral-cool desk light comes on for reading, without another shadow map.
+  const readingLight = new THREE.DirectionalLight('#e8f2ff', 0);
+  readingLight.position.set(-1.5, 6.5, 5);
+  readingLight.target.position.set(.4, -.4, 2.5);
+  scene.add(readingLight, readingLight.target);
+  let darkTheme = initialDark;
+  const readingIntensity = () => darkTheme ? 2.4 : 1.8;
 
   const asset = await new GLTFLoader().loadAsync(new URL('../assets/desk/escriptori.glb?v=1.4.0', import.meta.url).href);
   const room = asset.scene;
@@ -357,10 +364,10 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
       model.group.quaternion.slerpQuaternions(model.rotation, flatRotation, t);
     }), moveCamera(view)]);
     if (card) { card.visible = true; card.position.x = 0; }
-    await animate('lid', t => {
+    await Promise.all([animate('lid', t => {
       model.lid.rotation[model.axis] = model.angle * t;
       if (card) card.position.x = 2.05 * t;
-    });
+    }), animate('reading-light', t => { readingLight.intensity = readingIntensity() * t; }, 680)]);
     phase = 'reading';
     canvas.dataset.selected = id;
     canvas.dataset.presentation = 'table';
@@ -371,10 +378,11 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     phase = 'closing';
     const model = active;
     const card = model.group.getObjectByName('ProjectCard');
-    await animate('lid', t => {
+    const previousLight = readingLight.intensity;
+    await Promise.all([animate('lid', t => {
       model.lid.rotation[model.axis] = model.angle * (1 - t);
       if (card) card.position.x = 2.05 * (1 - t);
-    });
+    }), animate('reading-light', t => { readingLight.intensity = previousLight * (1 - t); }, 680)]);
     if (card) card.visible = false;
     const from = model.group.position.clone(), rotation = model.group.quaternion.clone();
     const lifted = model.home.clone().add(new THREE.Vector3(0, .3, 2.2));
@@ -408,12 +416,16 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     const right = new THREE.Vector3(1, 0, 0);
     const up = new THREE.Vector3().crossVectors(direction, right);
     const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const paired = reading.info().paired;
+    const reserved = paired ? (narrow.matches ? 132 : 96) : 0;
+    const verticalTangent = tangent * Math.max(.4, (lastHeight - reserved) / lastHeight);
     let distance = 0;
     for (const point of points) {
       const local = point.clone().sub(target);
-      distance = Math.max(distance, Math.abs(local.dot(right)) / (tangent * camera.aspect) + local.dot(direction), Math.abs(local.dot(up)) / tangent + local.dot(direction));
+      distance = Math.max(distance, Math.abs(local.dot(right)) / (tangent * camera.aspect) + local.dot(direction), Math.abs(local.dot(up)) / verticalTangent + local.dot(direction));
     }
-    distance *= narrow.matches ? 1.09 : 1.15;
+    distance *= narrow.matches ? 1.06 : paired ? 1.09 : 1.07;
+    target.addScaledVector(up, -reserved / lastHeight * distance * tangent);
     return { target, position: target.clone().addScaledVector(direction, distance) };
   }
   async function moveCamera(view) {
@@ -436,6 +448,8 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
     resize();
   }
   function setTheme(dark) {
+    darkTheme = dark;
+    if (phase === 'reading') readingLight.intensity = readingIntensity();
     scene.background = new THREE.Color(dark ? '#42463e' : '#e7e1d3');
     scene.environmentIntensity = dark ? .62 : 1.4;
     daylight.intensity = dark ? .75 : 1.8;
@@ -505,7 +519,7 @@ export async function createDesk({ canvas, projects, dark: initialDark }) {
   resize();
   setTheme(initialDark);
   function setSample(index) { reading.setIndex(index); requestRender(); }
-  return { highlight, select, home, setTheme, setArea, setDetailVisible, moveView, setSample, sampleInfo: reading.info, sampleProjection: reading.projection };
+  return { highlight, select, home, setTheme, setArea, setDetailVisible, moveView, setSample, sampleInfo: reading.info };
 }
 
 function localBounds(group) {

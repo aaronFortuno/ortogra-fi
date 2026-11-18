@@ -5,17 +5,22 @@ import * as THREE from 'three';
 export function createReadingPages(detail, paperMaterial) {
   const elements = [detail.querySelector('.sample-page'), detail.querySelector('.description-page')];
   const pages = elements.map(element => ({ element, anchor: new THREE.Object3D() }));
-  const sheet = name => {
-    const ink = paperMaterial.clone();
+  const sheet = (name, pageIndex = 0) => {
+    // Preserve the PDF's ink contrast; light still shades the physical paper edges.
+    const ink = new THREE.MeshBasicMaterial({ color: '#fbfdff', toneMapped: false });
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, .0015), [paperMaterial, paperMaterial, paperMaterial, paperMaterial, ink, paperMaterial]);
-    mesh.name = name; mesh.castShadow = mesh.receiveShadow = true;
-    pages[0].anchor.add(mesh);
+    mesh.name = name; mesh.castShadow = true;
+    // Millimetre-thin stacked sheets must not cast self-shadow stripes on ink.
+    mesh.receiveShadow = false;
+    pages[pageIndex].anchor.add(mesh);
     return { mesh, ink };
   };
   const front = sheet('PrintedSample'), back = sheet('SecondSample');
+  const answerFront = sheet('PrintedAnswer', 1), answerBack = sheet('SecondAnswer', 1);
   const hit = detail.querySelector('#sample-open');
+  const answerHit = detail.querySelector('#sample-open-answers');
   let kind;
-  let currentModel, currentIndex = 0, projection;
+  let currentModel, currentIndex = 0, paired = false, shown = [0, 0];
   function mount(model) {
     kind = model.project.kind;
     currentModel = model; currentIndex = 0;
@@ -41,23 +46,43 @@ export function createReadingPages(detail, paperMaterial) {
       page.element.style.height = page.height + 'px';
     });
     if (!model.sampleTextures?.length) model.sampleTextures = [{ texture: model.previewTexture ||= fallbackSample(detail), image: model.project.preview, title: 'Mostra de ' + model.project.name }];
+    paired = model.sampleTextures.some(sample => sample.role === 'answers');
+    shown = [0, Math.max(0, model.sampleTextures.findIndex(sample => sample.role === 'answers'))];
+    detail.dataset.paired = String(paired);
+    answerFront.mesh.visible = paired;
+    answerBack.mesh.visible = paired;
+    answerHit.hidden = !paired;
+    if (paired) drawPage(1);
     setIndex(0);
+  }
+  function drawPage(pageIndex) {
+    const samples = currentModel.sampleTextures;
+    const role = pageIndex ? 'answers' : 'worksheet';
+    const group = samples.filter(sample => (sample.role || 'worksheet') === role);
+    const selected = samples[shown[pageIndex]];
+    const next = group[(group.indexOf(selected) + 1) % group.length];
+    const [top, under] = pageIndex ? [answerFront, answerBack] : [front, back];
+    for (const [piece, sample] of [[top, selected], [under, next]]) {
+      piece.ink.map = sample.texture; piece.ink.needsUpdate = true;
+      const aspect = sample.texture.image.width / sample.texture.image.height;
+      const width = Math.min(pages[pageIndex].size[0] * .985, pages[pageIndex].size[1] * .995 * aspect);
+      piece.mesh.scale.set(width, width / aspect, 1);
+    }
+    under.mesh.visible = group.length > 1;
+    under.mesh.position.set(.012, .012, .004);
+    under.mesh.rotation.z = .012;
+    top.mesh.position.set(0, 0, .008);
+    top.mesh.rotation.z = -.004;
+    const button = pageIndex ? answerHit : hit;
+    button.setAttribute('aria-label', 'Amplia ' + (pageIndex ? 'el solucionari' : 'la fitxa') + ': ' + selected.title);
+    button.dataset.index = String(shown[pageIndex]);
   }
   function setIndex(index) {
     const samples = currentModel.sampleTextures;
     currentIndex = (index + samples.length) % samples.length;
-    for (const [piece, sample] of [[front, samples[currentIndex]], [back, samples[(currentIndex + 1) % samples.length]]]) {
-      piece.ink.map = sample.texture; piece.ink.needsUpdate = true;
-      const aspect = sample.texture.image.width / sample.texture.image.height;
-      const width = Math.min(pages[0].size[0] * .89, pages[0].size[1] * .90 * aspect);
-      piece.mesh.scale.set(width, width / aspect, 1);
-    }
-    back.mesh.visible = samples.length > 1;
-    back.mesh.position.set(.035, .035, .004);
-    back.mesh.rotation.z = .035;
-    front.mesh.position.set(-.012, -.006, .008);
-    front.mesh.rotation.z = -.012;
-    hit.setAttribute('aria-label', 'Amplia la mostra: ' + samples[currentIndex].title);
+    const pageIndex = samples[currentIndex].role === 'answers' ? 1 : 0;
+    shown[pageIndex] = currentIndex;
+    drawPage(pageIndex);
     detail.dataset.sampleCount = String(samples.length);
   }
   function corners(page) {
@@ -66,29 +91,32 @@ export function createReadingPages(detail, paperMaterial) {
       .map(([x, y]) => page.anchor.localToWorld(new THREE.Vector3(x, y, 0)));
   }
   function points(narrow) {
-    return (narrow ? pages.slice(1) : pages).flatMap(corners);
+    return (narrow ? (paired ? pages.slice(0, 1) : pages.slice(1)) : pages).flatMap(corners);
   }
   function project(camera, rect) {
     Object.assign(detail.style, { left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px', height: rect.height + 'px' });
-    for (const page of pages) {
+    for (const [index, page] of pages.entries()) {
       if (!page.size) continue;
+      if (paired && index === 1) continue;
       const quad = corners(page).map(point => {
         point.project(camera);
         return { x: (point.x + 1) * rect.width / 2, y: (1 - point.y) * rect.height / 2 };
       });
       page.element.style.transform = planeTransform(quad, page.width, page.height);
     }
-    const quad = [[-.5, .5], [.5, .5], [.5, -.5], [-.5, -.5]].map(([x, y]) => {
-      const point = front.mesh.localToWorld(new THREE.Vector3(x, y, .001)).project(camera);
-      return { x: (point.x + 1) * rect.width / 2, y: (1 - point.y) * rect.height / 2 };
-    });
-    const aspect = currentModel.sampleTextures[currentIndex].texture.image.width / currentModel.sampleTextures[currentIndex].texture.image.height;
-    hit.style.width = '400px'; hit.style.height = (400 / aspect) + 'px';
-    hit.style.transform = planeTransform(quad, 400, 400 / aspect);
-    projection = quad;
+    for (const [piece, button, role] of [[front, hit, 'worksheet'], [answerFront, answerHit, 'answers']]) {
+      if (role === 'answers' && !paired) continue;
+      const quad = [[-.5, .5], [.5, .5], [.5, -.5], [-.5, -.5]].map(([x, y]) => {
+        const point = piece.mesh.localToWorld(new THREE.Vector3(x, y, .001)).project(camera);
+        return { x: (point.x + 1) * rect.width / 2, y: (1 - point.y) * rect.height / 2 };
+      });
+      const aspect = piece.mesh.scale.x / piece.mesh.scale.y;
+      button.style.width = '400px'; button.style.height = (400 / aspect) + 'px';
+      button.style.transform = planeTransform(quad, 400, 400 / aspect);
+    }
     detail.dataset.surface = kind;
   }
-  return { mount, points, project, setIndex, projection: () => projection, info: () => ({ index: currentIndex, samples: currentModel?.sampleTextures || [] }) };
+  return { mount, points, project, setIndex, info: () => ({ index: currentIndex, paired, samples: currentModel?.sampleTextures || [] }) };
 }
 
 function fallbackSample(detail) {

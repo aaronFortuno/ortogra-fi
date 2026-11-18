@@ -1,4 +1,4 @@
-import { createSampleBrowser } from './samples.js?v=1.4.0';
+import { createSampleBrowser } from './samples.js?v=1.5.0';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -14,7 +14,7 @@ let scene;
 let selected = null;
 let busy = false;
 let openingButton;
-const samples = createSampleBrowser({ detail, getScene: () => scene, track });
+const samples = createSampleBrowser({ getScene: () => scene, track });
 
 const presentation = [
   { id: 'plec', name: 'Plec', kind: 'binder', purpose: 'Dictats', color: '#36523c', area: 'Llengua',
@@ -61,7 +61,7 @@ async function loadProjects() {
   if (!response.ok) throw new Error('No s’ha pogut carregar el catàleg.');
   const portal = new DOMParser().parseFromString(await response.text(), 'text/html');
   const sampleBase = new URL('assets/desk/samples/', base);
-  const sampleCatalogue = await fetch(new URL('catalogue.json', sampleBase)).then(response => {
+  const sampleCatalogue = await fetch(new URL('catalogue.json?v=1.5.0', sampleBase)).then(response => {
     if (!response.ok) throw new Error('No s’han pogut carregar les mostres.');
     return response.json();
   });
@@ -162,7 +162,6 @@ async function openProject(project, button) {
 async function closeProject() {
   if (busy || !detail.open) return;
   busy = true;
-  samples.hideLens();
   detail.classList.remove('is-visible');
   await new Promise(resolve => setTimeout(resolve, reduced.matches ? 0 : 220));
   detail.close();
@@ -230,7 +229,7 @@ async function start() {
   try {
     await loadProjects();
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.4.0');
+    const { createDesk } = await import('./scene.js?v=1.5.0');
     scene = await createDesk({
       canvas: document.querySelector('#desk-canvas'), projects: presentation,
       dark: document.documentElement.dataset.theme === 'dark',

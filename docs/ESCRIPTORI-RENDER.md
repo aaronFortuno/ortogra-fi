@@ -10,6 +10,12 @@ Revisió acotada del 18 de novembre de 2026. L’escena continua sent un GLB pre
 - El contorn de ressaltat es calcula projectant els límits de cada objecte i dibuixant-ne l’embolcall en SVG. No afegeix cap passada de postprocessament a WebGL.
 - Els PDF es mostren sobre fulls fins, amb vores i un petit desplaçament entre pàgines. La consulta ampliada utilitza les mateixes imatges completes, carregades en obrir l’objecte.
 
+## Ajust de lectura posterior
+
+La fitxa i el solucionari de Trama, Fil i Compte i Sentit es mostren als dos costats de l’arxivador. El paper aprofita gairebé tot el suport físic i l’enquadrament reserva només una barra inferior per a les accions. L’ampliació és directa en clicar el full, amb canvi de document al visor.
+
+Una llum direccional més freda s’encén en obrir i s’apaga en tancar, sense mapa d’ombres addicional. La cara impresa utilitza `MeshBasicMaterial` amb blanc `#fbfdff` i `toneMapped: false`: preserva la tinta del PDF i evita que la llum o els reflexos rentin les lletres. Les vores mantenen el material físic. Aquests fulls fins no reben autoombres que puguin deixar ratlles sobre el text; continuen projectant ombra sobre el suport. Les tapes, el paper de base i les anelles mantenen els materials físics. És una decisió de llegibilitat per al document, mentre la resta de l’objecte continua responent a la llum.
+
 ## Properes proves, per ordre
 
 1. **Coherència de la llum d’entorn.** L’HDRI actual, [Studio Small 09](https://polyhaven.com/a/studio_small_09), és d’estudi. Cal provar una orientació coherent amb la finestra i una intensitat de 0,8–1,0, reajustant l’exposició després. Si continuen apareixent reflexos d’estudi, comparar-lo amb un entorn de llum de dia. Canviar l’HDRI modifica els reflexos de tots els materials; convé comparar la vista de prestatge i la de lectura juntes. Three.js permet rotar i graduar l’entorn des de [Scene](https://github.com/mrdoob/three.js/blob/r180/docs/api/en/scenes/Scene.html).

@@ -52,7 +52,7 @@ async function main() {
       return;
     }
     const readingOnly = process.argv.includes('--reading');
-    const layouts = readingOnly ? [[390, 844, 'light']] : [[1440, 960, 'light'], [1280, 800, 'dark'], [390, 844, 'light'], [320, 568, 'dark']];
+    const layouts = readingOnly ? [[390, 844, 'light'], [320, 568, 'dark']] : [[1440, 960, 'light'], [1280, 800, 'dark'], [390, 844, 'light'], [320, 568, 'dark']];
     for (const [width, height, theme] of layouts) {
       const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme, reducedMotion: readingOnly ? 'reduce' : 'no-preference' });
       await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
