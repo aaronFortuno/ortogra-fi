@@ -27,6 +27,18 @@ async function main() {
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       assert.ok(await page.locator('footer').evaluate(element => element.getBoundingClientRect().bottom <= innerHeight));
       await page.screenshot({ path: path.join(output, 'shelf-' + width + '-' + theme + '.png') });
+      if (width === 1440) {
+        const initial = await page.locator('[data-project=trama]').boundingBox();
+        await page.locator('[data-view=left]').click();
+        await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) > 5, initial.x);
+        await page.screenshot({ path: path.join(output, 'look-left.png') });
+        await page.locator('[data-view=home]').click();
+        await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) < 1, initial.x);
+        await page.locator('[data-view=in]').click();
+        await page.waitForFunction(width => document.querySelector('[data-project=trama]').getBoundingClientRect().width > width * 1.1, initial.width);
+        await page.locator('[data-view=home]').click();
+        await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) < 1, initial.x);
+      }
       const trama = page.locator('[data-project=trama]');
       await trama.hover();
       await page.locator('#hover-caption.visible').waitFor();
@@ -46,6 +58,7 @@ async function main() {
         await page.locator('[data-project=pentagrama]').click();
         await page.locator('#project-detail.is-visible').waitFor();
         assert.equal(await page.locator('#project-title').innerText(), 'Pentagrama');
+        assert.equal(await page.locator('#project-detail').getAttribute('data-kind'), 'folder');
         await page.locator('.binder-close').click();
         await page.waitForFunction(() => !document.querySelector('#project-detail').open && !document.querySelector('#shelf-controls').inert);
       }
@@ -70,6 +83,7 @@ async function main() {
       await page.locator('[data-project=' + id + ']').focus();
       await page.keyboard.press('Enter');
       await page.locator('#project-detail.is-visible').waitFor();
+      if (id === 'relleu-obert') assert.equal(await page.locator('#project-detail').getAttribute('data-kind'), 'box');
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !document.querySelector('#project-detail').open && !document.querySelector('#shelf-controls').inert);
     }
@@ -80,7 +94,7 @@ async function main() {
     assert.ok(await fallback.locator('#projectes').isVisible());
     assert.equal(await fallback.locator('#projectes a').count(), 8);
     await noScript.close();
-    console.log('PASS: 8 projects, hover, 3D open/close, keyboard, mobile areas, dark theme, V4V, reduced motion and HTML fallback.');
+    console.log('PASS: Blender models, 8 projects, binder/folder/box, viewpoint and zoom, hover, open/close, keyboard, mobile, themes, V4V and fallback.');
   } finally {
     await browser.close();
   }

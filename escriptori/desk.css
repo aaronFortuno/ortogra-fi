@@ -45,7 +45,74 @@
   display:block;
   width:100%;
   height:100%;
-  touch-action:pan-y
+  touch-action:none;
+  cursor:grab
+}
+#desk-canvas:active{
+  cursor:grabbing
+}
+.desk-view-tools{
+  position:absolute;
+  left:26px;
+  bottom:24px;
+  display:flex;
+  align-items:center;
+  gap:3px;
+  padding:5px;
+  background:#f9f5ebeb;
+  border:1px solid #d6cbb5;
+  border-radius:7px;
+  box-shadow:0 3px 14px #32251915
+}
+.desk-view-tools button{
+  display:grid;
+  place-items:center;
+  width:32px;
+  height:32px;
+  padding:7px;
+  border:0;
+  border-radius:4px;
+  background:transparent;
+  color:#42513e
+}
+.desk-view-tools button:hover{
+  background:#e4e6d8
+}
+.desk-view-tools svg{
+  width:18px;
+  height:18px
+}
+.desk-view-tools>span{
+  width:1px;
+  height:20px;
+  background:#d6cbb5;
+  margin-inline:4px
+}
+.desk-view-help{
+  position:absolute;
+  bottom:10px;
+  left:50%;
+  transform:translateX(-50%);
+  margin:0;
+  color:#5f6556;
+  font-size:11px;
+  white-space:nowrap;
+  pointer-events:none
+}
+[data-theme=dark] .desk-view-help{
+  color:#d3cfbf
+}
+.desk-detail[data-kind=folder] .binder-rings,
+.desk-detail[data-kind=box] .binder-rings{
+  display:none
+}
+.desk-detail[data-kind=folder] .open-binder{
+  border-radius:2px;
+  gap:8px
+}
+.desk-detail[data-kind=box] .open-binder{
+  padding:24px;
+  box-shadow:inset 0 0 0 7px #ffffff15,0 22px 50px #1c150b5c
 }
 .desk-intro{
   position:absolute;
@@ -56,7 +123,12 @@
   text-align:center;
   pointer-events:none;
   white-space:nowrap;
-  color:#344035
+  color:#344035;
+  transition:opacity var(--motion),transform var(--motion)
+}
+.workspace.is-exploring .desk-intro{
+  opacity:0;
+  transform:translate(-50%,-8px)
 }
 .desk-intro h1{
   font-size:clamp(26px,3vw,39px);
@@ -412,6 +484,19 @@
   }
 }
 @media(max-width:700px){
+  .desk-view-tools{
+    left:50%;
+    bottom:79px;
+    transform:translateX(-50%);
+    padding:3px
+  }
+  .desk-view-tools button{
+    width:29px;
+    height:29px
+  }
+  .desk-view-help{
+    display:none
+  }
   .desk-page .bar{
     width:calc(100% - 32px)
   }
@@ -460,7 +545,7 @@
     color:#fffaf0
   }
   .hover-caption{
-    bottom:82px;
+    bottom:128px;
     font-size:12px
   }
   .desk-detail{
