@@ -9,6 +9,16 @@ Portada de **[ortogra.fi](https://ortogra.fi/)**, un espai de recursos oberts pe
 
 La pàgina inclou tema clar/fosc i un diàleg sobre l’autor i Value for Value. No hi ha comptes. La preferència de tema es desa al dispositiu amb `localStorage`.
 
+## Escriptori beta
+
+[Escriptori beta](https://ortogra.fi/escriptori/) és una prova de navegació en 3D, accessible des de la portada. Els vuit projectes tenen arxivadors amb el mateix gruix i etiquetes girades, agrupats per àrees. En passar-hi per sobre o enfocar-los amb el teclat, surten lleugerament del prestatge. En obrir-ne un, es trasllada a la taula i desplega una fitxa amb la descripció i l’enllaç al projecte. El botó de retorn i Escape el tornen al seu lloc.
+
+En mòbil, els botons d’àrea canvien el prestatge que es mostra. «Projectes» dona accés directe a les vuit eines i també serveix d’alternativa quan WebGL no està disponible. La fitxa utilitza HTML accessible sobre l’escena. Les animacions de cada fase duren 220 ms i respecten el moviment reduït.
+
+L’escena es construeix al navegador amb Three.js 0.180.0, distribuït localment a `assets/vendor/three/` amb llicència MIT. Dibuixa quan hi ha canvis o animacions. Les etiquetes, el teixit i el paper es generen localment. La textura de roure d’`assets/desk/oak.webp` s’ha generat amb imagegen per a aquest prototip i s’ha comprimit a WebP. És una aproximació del disseny visual, amb geometria paramètrica.
+
+`escriptori/desk.js` recupera els enllaços i les imatges de la portada. Si afegeixes un projecte, incorpora també la posició i la presentació a la llista `presentation`. La mostra de Sentit al prototip és il·lustrativa. El diàleg V4V es reutilitza de la portada. Umami compta l’entrada a l’escriptori, les obertures de fitxa i els accessos a l’eina, amb l’identificador públic del projecte.
+
 Les miniatures d’`assets/project-previews/` mostren fragments de les eines i de les previsualitzacions imprimibles. El render de Sant Maurici prové dels exemples de Relleu Obert.
 
 ## Analítica
