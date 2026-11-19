@@ -4,6 +4,33 @@ export function createLoadingIndicator(element) {
   const meter = element.querySelector('[role=progressbar]');
   const value = element.querySelector('.loading-value');
   const label = element.querySelector('.loading-label');
+  const message = element.querySelector('.loading-message');
+  const messages = [
+    'Traient la pols de sobre la taula…',
+    'Endreçant una mica els papers antics…',
+    'Revisant què hem de tornar a la canalla…',
+    'Fent lloc entre llibretes i arxivadors…',
+    'Buscant aquell bolígraf que sempre desapareix…',
+    'Comprovant que la grapadora encara té grapes…',
+    'Posant a mà els materials de demà…',
+    'Deixant un raconet de taula per a tu…',
+  ];
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let messageIndex = 0, swapTimer;
+  const changeMessage = () => {
+    messageIndex = (messageIndex + 1) % messages.length;
+    message.textContent = messages[messageIndex];
+    message.classList.remove('is-changing');
+  };
+  const messageTimer = message ? setInterval(() => {
+    if (document.hidden) return;
+    if (reduced.matches) changeMessage();
+    else {
+      message.classList.add('is-changing');
+      swapTimer = setTimeout(changeMessage, 220);
+    }
+  }, 5000) : null;
+  const stopMessages = () => { clearInterval(messageTimer); clearTimeout(swapTimer); };
   let current = 0;
   function update(percent, text) {
     current = Math.min(100, Math.max(current, Math.floor(percent)));
@@ -16,11 +43,12 @@ export function createLoadingIndicator(element) {
   return {
     update,
     finish() {
+      stopMessages();
       update(100, 'L’escriptori és a punt');
       element.classList.add('is-finished');
       setTimeout(() => { element.hidden = true; }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220);
     },
-    fail() { element.hidden = true; },
+    fail() { stopMessages(); element.hidden = true; },
   };
 }
 

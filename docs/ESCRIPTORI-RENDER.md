@@ -2,6 +2,10 @@
 
 Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Missatges de preparació · 1.15.2
+
+Sobre el cercle de càrrega apareix una frase en cursiva, més gran, amb el to d’un docent fent lloc a la taula. Vuit missatges roten cada cinc segons amb transicions de 220 ms; amb moviment reduït el text canvia directament. El percentatge i l’estat tècnic continuen reflectint el progrés real, sense afegir cap espera. La rotació s’atura en completar-se o fallar la càrrega i no canvia el text mentre la pestanya és oculta.
+
 ## Pes i suport entre arxivadors · 1.15.1
 
 La referència és la fotografia generada d’arxivadors en bon estat, lleugerament carregats, contra un lateral esquerre. Els cinc arxivadors comparteixen ara una inclinació cap al mateix costat: 5°, 7,5°, 10°, 12,5° i 15°. La geometria tancada determina la posició de cada peu sobre la taula i la separació mínima respecte del separador i de l’arxivador anterior. Es calcula una envolupant convexa en el pla vertical, conservadora respecte de la profunditat, amb un marge de 0,004 unitats per evitar interseccions. No hi ha un motor de física ni càlcul de contactes continu; els veïns romanen al seu lloc durant l’extracció.

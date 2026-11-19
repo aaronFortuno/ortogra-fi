@@ -1,5 +1,5 @@
 import { createSampleBrowser } from './samples.js?v=1.11.0';
-import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.6.0';
+import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.15.2';
 import { createLightControls } from './light-controls.js?v=1.11.0';
 import { createAmbientAudio } from './ambient-audio.js?v=1.15.0';
 
