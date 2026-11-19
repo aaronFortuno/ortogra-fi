@@ -1,6 +1,6 @@
 import { createSampleBrowser } from './samples.js?v=1.11.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.15.2';
-import { createLightControls } from './light-controls.js?v=1.11.0';
+import { createLightControls } from './light-controls.js?v=1.16.0';
 import { createAmbientAudio } from './ambient-audio.js?v=1.15.0';
 
 const workspace = document.querySelector('#workspace');
@@ -19,7 +19,7 @@ let busy = false;
 let openingButton;
 const samples = createSampleBrowser({ getScene: () => scene, track });
 const loading = createLoadingIndicator(document.querySelector('#desk-loading'));
-const lightControls = createLightControls(() => scene);
+const lightControls = createLightControls(() => scene,track);
 const ambience = createAmbientAudio(document.querySelector('#ambient-toggle'));
 
 const presentation = [
@@ -42,15 +42,23 @@ const presentation = [
 ];
 
 function track(name, data) {
-  if (location.protocol !== 'https:' || location.hostname !== 'ortogra.fi') return;
-  try { window.umami?.track?.(name, data)?.catch?.(() => {}); } catch { /* Analytics is optional. */ }
+  if (location.protocol !== 'https:' || location.hostname !== 'ortogra.fi' || navigator.webdriver) return;
+  const event='v2_'+name.replace(/_escriptori$/,'');
+  try { window.umami?.track?.(event, {interficie:'escriptori',...data})?.catch?.(() => {}); } catch { /* Analytics is optional. */ }
 }
 
 function setList(open) {
   list.classList.toggle('is-open', open);
   listToggle.setAttribute('aria-expanded', String(open));
 }
-listToggle.addEventListener('click', () => setList(!list.classList.contains('is-open')));
+listToggle.addEventListener('click', () => {setList(!list.classList.contains('is-open'));track('obre_llista',{oberta:list.classList.contains('is-open')});});
+list.addEventListener('click',event=>{
+  const link=event.target.closest('a[href]');if(!link)return;
+  const project=presentation.find(project=>project.href===link.href);
+  track('obre_projecte',{projecte:project?.id||new URL(link.href).hostname,origen:'llista'});
+});
+document.querySelector('#ambient-toggle').addEventListener('click',event=>track('so_ambient',{actiu:event.currentTarget.getAttribute('aria-pressed')==='true'}));
+document.addEventListener('click',event=>{if(event.target.closest('[data-theme-toggle]'))track('canvia_tema',{tema:document.documentElement.dataset.theme});});
 document.addEventListener('pointerdown', event => {
   if (!list.contains(event.target) && !listToggle.contains(event.target)) setList(false);
 });
@@ -128,14 +136,18 @@ async function loadProjects() {
         if (element.hasAttribute(attribute)) element.setAttribute(attribute, new URL(element.getAttribute(attribute), base).href);
       }
     });
+    about.querySelectorAll('[data-umami-event]').forEach(element=>{
+      element.dataset.umamiEvent='v2_'+element.dataset.umamiEvent;
+      element.dataset.umamiEventInterficie='escriptori';
+    });
     document.body.append(about);
     const script = document.createElement('script');
-    script.src = new URL('app.js?v=1.1.0', base).href;
+    script.src = new URL('app.js?v=1.16.0', base).href;
     document.body.append(script);
   }
-  if (location.hostname === 'ortogra.fi' && location.protocol === 'https:') {
+  if (location.hostname === 'ortogra.fi' && location.protocol === 'https:' && !navigator.webdriver) {
     const source = portal.querySelector('script[data-website-id]');
-    if (source) document.head.append(source.cloneNode(true));
+    if (source) {const tracker=source.cloneNode(true);tracker.dataset.tag='escriptori-v2';document.head.append(tracker);}
   }
 }
 
@@ -200,7 +212,7 @@ async function openProject(project, button) {
     if (detail.open) detail.close();
     await scene.home().catch(() => {});
     selected = null; controls.inert = false;
-    status.textContent = 'No s’ha pogut carregar la mostra. Torna-ho a provar.';
+    status.textContent = error.code==='TABLE_FULL' ? 'Fes una mica de lloc a la taula i torna a obrir el material.' : 'No s’ha pogut carregar la mostra. Torna-ho a provar.';
     console.error('Mostra:', error);
   } finally {
     delete detail.dataset.preparing;
@@ -212,6 +224,7 @@ async function closeProject() {
   if (busy || samples.isBusy() || !detail.open) return;
   if (samples.isInspecting()) { await samples.closeInspection(); return; }
   busy = true;
+  const projectId=selected?.id;
   detail.classList.remove('is-visible');
   await new Promise(resolve => setTimeout(resolve, reduced.matches ? 0 : 220));
   detail.close();
@@ -221,6 +234,7 @@ async function closeProject() {
   controls.inert = false;
   busy = false;
   openingButton?.focus({ preventScroll: true });
+  track('tanca_fitxa',{projecte:projectId});
 }
 detail.querySelector('.binder-close').addEventListener('click', closeProject);
 detail.addEventListener('cancel', event => { event.preventDefault(); closeProject(); });
@@ -273,6 +287,7 @@ areaButtons.forEach(button => button.addEventListener('click', () => {
   areaButtons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
   presentation.forEach(project => { project.button.tabIndex = area === 'Taula' || project.area === area ? 0 : -1; });
   scene.setArea(area);
+  track('tria_area',{area});
 }));
 
 async function start() {
@@ -287,7 +302,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.15.1');
+    const { createDesk } = await import('./scene.js?v=1.16.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({
@@ -298,6 +313,7 @@ async function start() {
       onLightingChange: lightControls.update,
       onWindowChange: ambience.setWindow,
       onObjectSound: ambience.playObject,
+      onAction:track,
     });
     status.textContent = '';
     workspace.dataset.ready = 'true';
@@ -309,7 +325,7 @@ async function start() {
     if (view === 'finestra') scene.moveView('window');
     else if (['fulls', 'estoig', 'potus'].includes(view)) scene.moveView(view);
     document.querySelectorAll('[data-view]').forEach(button => {
-      const activate = () => { if (!busy && !selected) scene.moveView(button.dataset.view); };
+      const activate = () => { if (!busy && !selected) {scene.moveView(button.dataset.view);track('mou_camara',{gest:'boto',accio:button.dataset.view});} };
       let touch = null, touchReturn = null;
       button.addEventListener('pointerdown', event => {
         if (event.pointerType !== 'mouse' && event.isPrimary) {

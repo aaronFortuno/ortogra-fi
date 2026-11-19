@@ -46,11 +46,12 @@ const probe = `
 (async()=>{
   const browser=await chromium.launch({channel:'chrome',headless:true});
   try {
-    for(const mobile of [false,true]){
+    for(const mobile of process.argv.includes('--desktop')?[false]:[false,true]){
       const context=await browser.newContext({viewport:mobile?{width:320,height:568}:{width:1440,height:960},
         reducedMotion:'reduce',colorScheme:mobile?'dark':'light',hasTouch:mobile,isMobile:mobile});
       await context.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());
       const page=await context.newPage(),errors=[];
+      await page.route('**/stationery.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('if(!route)return false;',"if(!route){window.blockedProp=item.node.name;return false;}")});});
       page.on('pageerror',e=>errors.push(e.message));
       page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
       await page.route('**/scene.js*',async r=>{
@@ -73,9 +74,12 @@ const probe = `
         }else assert.ok(Math.abs(b.left-(-5.936))<1e-5,'The first binder rests against the wooden cheek');
       }
       for(const id of mobile?['plec','sentit']:support.map(b=>b.id)){
+        const only=process.argv.find(a=>a.startsWith('--project='))?.split('=')[1];if(only&&id!==only)continue;
         const target=page.locator('[data-project="'+id+'"]');
         if(mobile) await target.tap(); else await target.click();
-        await page.waitForFunction(()=>binderCheck.phase()==='reading');
+        await page.waitForFunction(()=>binderCheck.phase()==='reading').catch(async error=>{
+          console.error(id,await page.evaluate(()=>({phase:binderCheck.phase(),blocked:window.blockedProp,status:document.querySelector('#desk-status').textContent})),errors);throw error;
+        });
         assert.equal(await page.locator('#desk-canvas').getAttribute('data-selected'),id,'Select the intended binder');
         await page.mouse.move(1,1);await page.keyboard.press('Escape');
         await page.waitForFunction(()=>binderCheck.phase()==='shelf');

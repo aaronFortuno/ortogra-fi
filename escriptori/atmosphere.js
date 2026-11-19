@@ -34,7 +34,19 @@ export async function createAtmosphere(scene, room, resources) {
   const movedBounds = new THREE.Box3(), shift = new THREE.Vector3();
   const leafNodes = [];
   plant?.traverse(node => { if (/^IndoorLeaf_\d+$/.test(node.name)) leafNodes.push(node); });
-  const indoor = leafNodes.map((mesh, index) => ({ mesh, home: mesh.quaternion.clone(), touched: -Infinity, impulse: 0, phase: index * 4.79, period: 19 + (index * 7 % 13) }));
+  const indoor = leafNodes.map((mesh, index) => {
+    // glTF leaves with separate veins can be groups of several meshes.
+    mesh.updateWorldMatrix(true,true);
+    const inverse=mesh.matrixWorld.clone().invert(),shape=new THREE.Box3();
+    mesh.traverse(part=>{
+      if(!part.isMesh)return;
+      if(!part.geometry.boundingBox)part.geometry.computeBoundingBox();
+      shape.union(part.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,part.matrixWorld)));
+    });
+    return {mesh,home:mesh.quaternion.clone(),center:shape.getCenter(new THREE.Vector3()),
+      bend:new THREE.Vector3(),velocity:new THREE.Vector3(),stiffness:42+(index*11%31),damping:5.6+(index%4)*.65,
+      phase:index*4.79,period:19+(index*7%13)};
+  });
   const skin = leafSkin();
   plant?.traverse(mesh => {
     if (!mesh.isMesh) return;
@@ -45,7 +57,8 @@ export async function createAtmosphere(scene, room, resources) {
     mesh.material.roughness = .94;
     mesh.material.needsUpdate = true;
   });
-  const sway = new THREE.Quaternion(), swayAxis = new THREE.Vector3(.3, .1, 1).normalize();
+  const sway = new THREE.Quaternion(), angles=new THREE.Euler();
+  let lastLeafTime;
   let windowVisible = false, plantVisible = false;
   return {
     leafTexture,
@@ -69,11 +82,23 @@ export async function createAtmosphere(scene, room, resources) {
       };
       view.material.customProgramCacheKey = () => 'garden-moving-sky-v1'; view.material.needsUpdate = true;
     },
-    brush(leaf, direction, seconds) {
+    brush(leaf, {direction,strength=1,point}={}) {
       if (!plant || !leaf) return;
+      const impact=point?.clone()||leaf.getWorldPosition(new THREE.Vector3());
       for (const item of indoor) {
-        const weight = Math.max(0, 1 - item.mesh.position.distanceTo(leaf.position) / .47);
-        if (weight > 0) { item.touched = seconds; item.impulse = (.09 + .16 * weight) * weight * direction; }
+        const mesh=item.mesh;
+        const lever=mesh===leaf&&point ? mesh.worldToLocal(point.clone()) : item.center.clone();
+        const center=mesh.localToWorld(item.center.clone());
+        const proximity=Math.max(0,1-center.distanceTo(impact)/.65);
+        const weight=mesh===leaf?1:.28*proximity*proximity;
+        if(!weight)continue;
+        const force=(direction||new THREE.Vector3(1,0,0)).clone()
+          .applyQuaternion(mesh.getWorldQuaternion(new THREE.Quaternion()).invert());
+        const torque=lever.clone().cross(force);
+        const reach=THREE.MathUtils.clamp(lever.length()/.45,.2,1);
+        if(torque.lengthSq()<1e-7)torque.set(.2,0,1);
+        torque.normalize().multiplyScalar(strength*weight*reach*2.4);
+        item.velocity.add(torque).clampLength(0,3.2);
       }
     },
     visible(camera) {
@@ -85,6 +110,7 @@ export async function createAtmosphere(scene, room, resources) {
     },
     update(time, sunlit) {
       const seconds = time / 1000;
+      const dt=lastLeafTime===undefined?0:Math.min(.06,Math.max(0,seconds-lastLeafTime));lastLeafTime=seconds;
       if (windowVisible || sunlit) for (const { group, leaves, phase } of branches) {
         const gustTime = (seconds + 2.4 - phase * .18 + 21) % 21;
         const gust = gustTime < 6 ? Math.sin(Math.PI * gustTime / 6) ** 2 : 0;
@@ -96,13 +122,19 @@ export async function createAtmosphere(scene, room, resources) {
           leaf.rotation.y = home.y + Math.sin(seconds * 1.43 + i * .91 + phase) * (.035 + .045 * gust);
         }
       }
-      if (plantVisible || sunlit) for (const { mesh, home, phase, period, touched, impulse } of indoor) {
+      if (plantVisible || sunlit) for (const { mesh, home, phase, period, bend, velocity, stiffness, damping } of indoor) {
         const moment = (seconds + phase) % period;
         const envelope = moment < 3.4 ? Math.sin(Math.PI * moment / 3.4) ** 2 : 0;
         const draught = opening * (.015 + .025 * Math.sin(seconds * .52 - phase * .06));
-        const age = seconds - touched;
-        const recoil = age < 1.6 ? impulse * Math.sin(age * 14) * Math.exp(-age * 3.1) : 0;
-        sway.setFromAxisAngle(swayAxis, recoil +  Math.sin(moment * 3.3 + phase) * envelope * (.046 + opening * .035) + Math.sin(seconds * .31 + phase) * .006 + draught);
+        const steps=Math.max(1,Math.ceil(dt/.012)),h=dt/steps;
+        for(let i=0;i<steps;i++){
+          velocity.addScaledVector(bend,-stiffness*h).multiplyScalar(Math.exp(-damping*h));
+          bend.addScaledVector(velocity,h);
+        }
+        if(bend.lengthSq()>.32*.32){bend.clampLength(0,.32);velocity.multiplyScalar(.5);}
+        const wind=Math.sin(moment*3.3+phase)*envelope*(.046+opening*.035)+Math.sin(seconds*.31+phase)*.006+draught;
+        angles.set(bend.x+wind*.3,bend.y+wind*.13,bend.z+wind);
+        sway.setFromEuler(angles);
         mesh.quaternion.copy(home).multiply(sway);
       }
     },

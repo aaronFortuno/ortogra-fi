@@ -1,19 +1,20 @@
 import { referenceTime, referenceDate } from './solar.js?v=1.6.0';
 
-export function createLightControls(getScene) {
+export function createLightControls(getScene,track=()=>{}) {
   const panel = document.querySelector('#light-panel'), button = document.querySelector('#light-toggle');
   const day = document.querySelector('#light-date'), time = document.querySelector('#light-time');
   const reset = document.querySelector('#light-now'), status = document.querySelector('#light-status');
   const roomSwitch = document.querySelector('#room-light-toggle'), automatic = document.querySelector('#room-light-auto');
-  roomSwitch.addEventListener('click', () => getScene()?.setRoomLight(roomSwitch.getAttribute('aria-pressed') !== 'true'));
-  automatic.addEventListener('click', () => getScene()?.setRoomLight(null));
+  roomSwitch.addEventListener('click', () => {const on=roomSwitch.getAttribute('aria-pressed')!=='true';getScene()?.setRoomLight(on);track('llum_sala',{encesa:on});});
+  automatic.addEventListener('click', () => {getScene()?.setRoomLight(null);track('llum_sala',{mode:'automatic'});});
   function choose() {
     const date = referenceDate(day.value, time.value);
     if (!date || !day.checkValidity() || !time.checkValidity()) { status.textContent = 'Tria una data i una hora vàlides. Aquesta hora pot no existir amb el canvi d’horari.'; return; }
     getScene()?.setMoment(date);
+    track('llum_solar',{mode:'manual'});
   }
   day.addEventListener('change', choose); time.addEventListener('change', choose);
-  reset.addEventListener('click', () => getScene()?.setMoment(null));
+  reset.addEventListener('click', () => {getScene()?.setMoment(null);track('llum_solar',{mode:'automatic'});});
   panel.querySelector('.light-close').addEventListener('click', () => { panel.hidePopover(); button.focus(); });
   return {
     update(state) {

@@ -4,7 +4,9 @@
   const opener = document.querySelector('#about-open');
   let closing = false;
   function trackEvent(name) {
-    try { window.umami?.track?.(name)?.catch?.(() => {}); } catch { /* Analytics is optional. */ }
+    if(location.protocol!=='https:'||location.hostname!=='ortogra.fi'||navigator.webdriver)return;
+    const desk=document.body.classList.contains('desk-page');
+    try { window.umami?.track?.(desk?'v2_'+name:name,desk?{interficie:'escriptori'}:undefined)?.catch?.(() => {}); } catch { /* Analytics is optional. */ }
   }
   opener.addEventListener('click', () => {
     if (dialog.open || closing) return;

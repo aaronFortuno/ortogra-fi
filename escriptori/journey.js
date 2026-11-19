@@ -9,7 +9,7 @@ export function createObjectJourney({ model, from, to, flatRotation, startView, 
   // A single quartic curve has no joins at which velocity could drop to zero.
   const controls = [
     from.clone(),
-    from.clone().add(new THREE.Vector3(0, folder ? .9 : .06, folder ? .4 : 3.5)),
+    from.clone().add(new THREE.Vector3(0, folder ? .9 : .32, folder ? .4 : 3.5)),
     from.clone().add(new THREE.Vector3(0, folder ? 1.25 : .65, folder ? 1 : 3.5)),
     to.clone().add(new THREE.Vector3(0, .8, .45)),
     to.clone(),

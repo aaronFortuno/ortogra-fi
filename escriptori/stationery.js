@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
+import { overlaps, solidBounds, routeOutside } from './table-space.js?v=1.16.0';
 
 const surface = deskLayout.table.surfaceY, floor = -3.705;
 const definitions = [
@@ -8,7 +9,7 @@ const definitions = [
   [/^OpenPencilCase$/, 'cloth'], [/^CaseBallpoint_\d+$|^LooseBallpoint$|^LoosePencil$/, 'pen'],
 ];
 
-export function createStationery({ room, canvas, camera, navigation, enabled, reduced, sound, brush, redraw, cancelView }) {
+export function createStationery({ room, canvas, camera, navigation, enabled, reduced, sound, brush, redraw, cancelView, animate, obstacles = () => [], action=()=>{} }) {
   const items = [], owners = new Map(), fallen = new Set();
   const recover = document.querySelector('#recover-stationery');
   room.updateWorldMatrix(true, true);
@@ -16,16 +17,76 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     const def = definitions.find(([pattern]) => pattern.test(node.name));
     if (!def) return;
     const item = { node, kind: def[1], parent: node.parent, home: node.position.clone(),
-      rotation: node.quaternion.clone(), bounds: new THREE.Box3(), pulse: null };
+      rotation: node.quaternion.clone(), bounds: new THREE.Box3(), solid: new THREE.Box3(), pulse: null,
+      velocity: new THREE.Vector3(), spin: 0, mass: {paper:.12,pen:.3,tape:1,cloth:1.4,metal:2,cup:5}[def[1]] };
     owners.set(node, item); items.push(item);
   });
   const ray = new THREE.Raycaster(), pointer = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0));
   const point = new THREE.Vector3(), center = new THREE.Vector3();
   const blockers = [room.getObjectByName('RoomSurfaces'), ...room.children.flatMap(group => group.children.filter(n => n.name.startsWith('Item_')))].filter(Boolean);
   const candidate = [], intersections = [];
-  let grip = null, hover = null, suppressClick = false, lastHover = -Infinity, lastBrush = -Infinity;
+  let grip = null, hover = null, suppressClick = false, lastHover = -Infinity, lastBrush = -Infinity, lastUpdate, fixedSolids=[];
+  const up = new THREE.Vector3(0,1,0);
+  function refreshItem(item) {
+    item.bounds.setFromObject(item.node);
+    solidBounds(item.node,item.solid);
+  }
   function refresh() {
-    for (const item of items) item.bounds.setFromObject(item.node, true);
+    for (const item of items) refreshItem(item);
+    fixedSolids=obstacles();
+  }
+  function roots() {
+    return items.filter(item=>{
+      for(let p=item.node.parent;p;p=p.parent)if(owners.has(p))return false;
+      return true;
+    });
+  }
+  const related = (a,b) => a.node.getObjectById(b.node.id) || b.node.getObjectById(a.node.id) ||
+    (grip?.item===a && b.node===grip.parent);
+  const collisionBox = item => {
+    const b=item.solid.clone();
+    if(!fallen.has(item)&&item.kind!=='paper') b.min.y=Math.min(b.min.y,surface+.001);
+    return b;
+  };
+  function collisions(item, box, ignored) {
+    const hits=roots().filter(other=>other!==item && other!==ignored && !fallen.has(other) && !related(item,other) &&
+      !(item.kind==='paper' && other.kind==='paper') && overlaps(box,collisionBox(other)));
+    return {hits,fixed:fixedSolids.some(b=>overlaps(box,b))};
+  }
+  function stepMove(item, delta, push, ignored) {
+    const old=item.node.getWorldPosition(new THREE.Vector3()), before=collisionBox(item);
+    setWorld(item.node,old.clone().add(delta));refreshItem(item);
+    const box=collisionBox(item), swept=before.clone().union(box), contacts=collisions(item,swept,ignored);
+    if(!contacts.fixed && !contacts.hits.length)return true;
+    let displaced=push && !contacts.fixed;
+    if(displaced) for(const other of contacts.hits){
+      if(other.mass>=item.mass || other.drop || other.slide){displaced=false;continue;}
+      finishPulse(other);refreshItem(other);
+      if(stepMove(other,delta.clone().multiplyScalar(1.05),false,item)){
+        other.velocity.addScaledVector(delta,3).clampLength(0,1.4);
+        other.spin=THREE.MathUtils.clamp(other.spin+.10*Math.sign(delta.x||delta.z),-2,2);
+      }else displaced=false;
+    }
+    const remaining=collisions(item,box,ignored);
+    // Also stop a small, fast-moving pen tunnelling through a thin obstacle.
+    if(!remaining.fixed && !remaining.hits.length && displaced && contacts.hits.length)return true;
+    setWorld(item.node,old);refreshItem(item);return false;
+  }
+  function moveItem(item, delta, push=false) {
+    const steps=Math.min(120,Math.max(1,Math.ceil(delta.length()/.06))), d=delta.clone().divideScalar(steps);
+    let blocked=false;
+    for(let i=0;i<steps;i++)if(!stepMove(item,d,push)){
+      blocked=true;
+      if(d.x)stepMove(item,new THREE.Vector3(d.x,0,0),push);
+      if(d.z)stepMove(item,new THREE.Vector3(0,0,d.z),push);
+    }
+    return !blocked;
+  }
+  function rotateItem(item, angle) {
+    const old=item.node.quaternion.clone();item.node.rotateOnWorldAxis(up,angle);refreshItem(item);
+    const c=collisions(item,collisionBox(item));
+    if(c.fixed||c.hits.length){item.node.quaternion.copy(old);refreshItem(item);return false;}
+    return true;
   }
   refresh();
   function aim(event) {
@@ -35,7 +96,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   }
   function hit(event) {
     aim(event); candidate.length = 0; intersections.length = 0;
-    for (const item of items) if (ray.ray.intersectsBox(item.bounds)) candidate.push(item.node);
+    for (const item of items) if (!fallen.has(item) && ray.ray.intersectsBox(item.bounds)) candidate.push(item.node);
     if (!candidate.length) return null;
     ray.intersectObjects(candidate, true, intersections);
     const first = intersections[0];
@@ -58,14 +119,28 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     item.node.position.copy(item.pulse.position); item.pulse = null;
   }
   function tickle(item, sign) {
-    if (reduced.matches) return;
+    if (reduced.matches || item.velocity.lengthSq()>1e-5 || Math.abs(item.spin)>.01) return;
     finishPulse(item);
-    item.pulse = { start: performance.now(), sign, rotation: item.node.quaternion.clone(), position: item.node.position.clone() };
+    item.pulse = { start: performance.now(), sign, frequency:15+Math.random()*8,
+      rotation: item.node.quaternion.clone(), position: item.node.position.clone() };
     redraw();
   }
-  function react(target, direction) {
-    if (target.leaf) { brush(target.leaf, direction); sound('touch', 'leaf'); }
+  function react(target, direction, event) {
+    if (target.leaf) {
+      const dx=event?.movementX||direction*2, dy=event?.movementY||0;
+      const force=new THREE.Vector3(dx,-dy,0).applyQuaternion(camera.quaternion).normalize();
+      brush(target.leaf,{direction:force,strength:THREE.MathUtils.clamp(Math.hypot(dx,dy)/18,.12,1.5),point:target.point});
+      if(!event || event.timeStamp-lastBrush>160)sound('touch', 'leaf');
+    }
     else if (target.item.kind === 'pen') { tickle(target.item, direction); sound('touch', 'pen'); }
+  }
+  function kick(item, direction, strength, hitPoint) {
+    if(item.kind==='cup'){tickle(item,Math.sign(direction.x)||1);return;}
+    item.velocity.addScaledVector(direction,strength/Math.sqrt(item.mass));
+    const center=item.solid.getCenter(new THREE.Vector3()), lever=hitPoint?.clone().sub(center);
+    item.spin=THREE.MathUtils.clamp(item.spin+(lever?lever.z*direction.x-lever.x*direction.z:.1)*strength*3,-1.8,1.8);
+    if(reduced.matches){moveItem(item,item.velocity.clone().multiplyScalar(.1),true);rotateItem(item,item.spin*.1);item.velocity.set(0,0,0);item.spin=0;}
+    redraw();
   }
   function rollback() {
     if (!grip) return;
@@ -80,14 +155,15 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     suppressClick = false;
     if (grip && event.pointerId !== grip.id) { rollback(); return; }
     if (!enabled() || !navigation.enabled || navigation.pointers.size || event.button !== 0 || event.shiftKey) return;
-    const target = hit(event); if (!target || target.item.drop) return;
+    const target = hit(event); if (!target || target.item.drop || target.item.slide) return;
     cancelView();
-    const { item } = target; finishPulse(item);
+    const { item } = target; finishPulse(item);item.velocity.set(0,0,0);item.spin=0;
     plane.constant = -target.point.y;
     if (!ray.ray.intersectPlane(plane, point)) return;
     grip = { ...target, id: event.pointerId, x: event.clientX, y: event.clientY, anchor: point.clone(),
       parent: item.node.parent, startPos: item.node.position.clone(), rotation: item.node.quaternion.clone(),
-      world: item.node.getWorldPosition(new THREE.Vector3()), moved: false, lastSound: -Infinity };
+      world: item.node.getWorldPosition(new THREE.Vector3()), localHit:item.node.worldToLocal(target.point.clone()),
+      lastPoint:point.clone(),lastTime:event.timeStamp,velocity:new THREE.Vector3(),spin:0,moved: false, lastSound: -Infinity };
     canvas.setPointerCapture(event.pointerId); event.preventDefault();
     canvas.style.cursor = 'grabbing';
   });
@@ -98,8 +174,8 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       lastHover = event.timeStamp;
       const target = hit(event), next = target?.leaf || target?.item;
       canvas.style.cursor = target ? 'grab' : '';
-      if (target && next !== hover && event.timeStamp-lastBrush > 95) {
-        react(target, event.movementX < 0 ? -1 : 1); lastBrush = event.timeStamp;
+      if (target && (target.leaf || next!==hover) && event.timeStamp-lastBrush > 75) {
+        react(target, event.movementX < 0 ? -1 : 1,event); lastBrush = event.timeStamp;
       }
       hover = next; return;
     }
@@ -110,6 +186,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     aim(event);
     if (!ray.ray.intersectPlane(plane, point)) return;
     const { item } = grip;
+    fixedSolids=obstacles();
     if (!grip.moved) {
       room.attach(item.node); grip.moved = true;
       item.bounds.getCenter(center);
@@ -119,12 +196,22 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       grip.halfWidth = (item.bounds.max.x-item.bounds.min.x)/2;
       sound('lift', item.kind);
     }
+    const dt=Math.max(.008,(event.timeStamp-grip.lastTime)/1000), travel=point.clone().sub(grip.lastPoint);
+    const lever=item.node.localToWorld(grip.localHit.clone()).sub(item.solid.getCenter(new THREE.Vector3()));
+    const torque=THREE.MathUtils.clamp((lever.z*travel.x-lever.x*travel.z)*.6/(.08+lever.lengthSq()),-.09,.09);
+    rotateItem(item,torque);
+    grip.velocity.lerp(travel.clone().divideScalar(dt),.35);grip.velocity.clampLength(0,4);
+    grip.spin=THREE.MathUtils.clamp(torque/dt,-1.5,1.5);
+    grip.lastPoint.copy(point);grip.lastTime=event.timeStamp;
     point.sub(grip.anchor).add(grip.world);
     const sideLimit = 8.00 - grip.halfWidth;
     const cx = THREE.MathUtils.clamp(point.x + grip.offset.x, -sideLimit, sideLimit);
     const cz = THREE.MathUtils.clamp(point.z + grip.offset.z, Math.abs(cx)<6.22 ? .26+grip.depth : -.9, 7.6);
     point.set(cx-grip.offset.x, Math.max(surface + grip.height, grip.world.y) + .12, cz-grip.offset.z);
-    setWorld(item.node, point);
+    // Lift first; then slide/push along solid footprints, without tunnelling.
+    const current=item.node.getWorldPosition(new THREE.Vector3());
+    setWorld(item.node,new THREE.Vector3(current.x,point.y,current.z));refreshItem(item);
+    moveItem(item,new THREE.Vector3(point.x-current.x,0,point.z-current.z),true);
     if (event.timeStamp-grip.lastSound > 380 && Math.hypot(event.movementX || 0, event.movementY || 0) > 0) {
       sound('slide', item.kind); grip.lastSound = event.timeStamp;
     }
@@ -150,7 +237,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     const { item, leaf, moved } = grip;
     suppressClick = true;
     if (moved) {
-      const box = new THREE.Box3().setFromObject(item.node, true);
+      const box = item.solid.clone();
       box.getCenter(center);
       const landOnFloor = center.z > deskLayout.table.bounds[3] || Math.abs(center.x) > deskLayout.table.bounds[1];
       let support = landOnFloor ? floor : surface;
@@ -165,9 +252,9 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
             grip = null; canvas.style.cursor = ''; refresh(); redraw(); return;
           }
         }
-        for (const other of items) {
-          if (other === item || other.drop || fallen.has(other) || item.node.getObjectById(other.node.id)) continue;
-          const b = other.bounds;
+        for (const other of roots()) {
+          if (other === item || other.drop || fallen.has(other) || related(item,other)) continue;
+          const b = other.solid;
           if (box.min.x < b.max.x-.008 && box.max.x > b.min.x+.008 && box.min.z < b.max.z-.008 && box.max.z > b.min.z+.008) {
             if (other.kind === 'paper') support = Math.max(support, b.max.y-.006);
             else { rollback(); return; }
@@ -176,12 +263,17 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
         // Keep the contact plane at the true lowest vertex of each prop.
       }
       drop(item, item.node.position.y + support - box.min.y + .001, landOnFloor);
-    } else if (leaf || item.kind === 'pen') react({item, leaf}, 1);
-    else if (item.kind === 'paper') {
-      item.nudge = item.nudge === 1 ? -1 : 1;
-      item.node.position.x += .036 * item.nudge; item.node.rotateY(.012 * item.nudge);
-      sound('touch', 'paper'); refresh(); redraw();
-    } else { tickle(item, 1); sound('touch', item.kind); }
+      item.velocity.copy(grip.velocity).multiplyScalar(item.kind==='pen'?.13:.055).clampLength(0,.5);
+      item.spin=grip.spin*(item.kind==='pen'?.5:.18);
+      if(reduced.matches){item.velocity.set(0,0,0);item.spin=0;}
+      const at=item.node.getWorldPosition(new THREE.Vector3());
+      if(Math.hypot(at.x-grip.world.x,at.z-grip.world.z)>.01)action('mou_objecte',{objecte:item.node.name,tipus:item.kind});
+    } else if (leaf) react({item,leaf,point:grip.point},1);
+    else {
+      const direction=camera.getWorldDirection(new THREE.Vector3());direction.y=0;direction.normalize();
+      kick(item,direction,item.kind==='pen'?.16:item.kind==='paper'?.035:.065,grip.point);
+      sound('touch',item.kind);
+    }
     grip = null; canvas.style.cursor = '';
   });
   for (const type of ['pointercancel','lostpointercapture']) canvas.addEventListener(type, e => { if (grip?.id === e.pointerId) rollback(); });
@@ -190,14 +282,60 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     if (suppressClick) { suppressClick = false; event.stopImmediatePropagation(); }
   }, true);
   recover.addEventListener('click', () => {
+    let count=0;
     for (const item of fallen) {
+      const previous={parent:item.node.parent,position:item.node.position.clone(),rotation:item.node.quaternion.clone()};
       item.parent.add(item.node); item.node.position.copy(item.home); item.node.quaternion.copy(item.rotation);
+      refresh();
+      const box=item.solid.clone(), center=box.getCenter(new THREE.Vector3());
+      const route=routeOutside(box,[...fixedSolids,...roots().filter(other=>other!==item&&!fallen.has(other)&&!related(item,other)&&
+        !(item.kind==='paper'&&(other.kind==='paper'||other.solid.max.y-other.solid.min.y<.04))).map(other=>other.solid)],[]);
+      if(route?.length){
+        const delta=route.at(-1).clone().sub(center);
+        setWorld(item.node,item.node.getWorldPosition(new THREE.Vector3()).add(delta));
+        fallen.delete(item);count++;
+      }else{
+        previous.parent.add(item.node);item.node.position.copy(previous.position);item.node.quaternion.copy(previous.rotation);
+      }
+      item.velocity.set(0,0,0);item.spin=0;
     }
-    fallen.clear(); recover.hidden = true; refresh(); redraw();
+    recover.hidden = !fallen.size; refresh(); redraw();
+    if(count)action('recull_objectes',{quantitat:count});
   });
+  async function clearSpace(regions) {
+    rollback();
+    for(const item of items){
+      finishPulse(item);if(item.drop)settle(item);item.velocity.set(0,0,0);item.spin=0;
+    }
+    refresh();
+    for(const item of roots()){
+      if(fallen.has(item)||!regions.some(b=>overlaps(item.solid,b)))continue;
+      const start=item.solid.getCenter(new THREE.Vector3()), origin=item.node.getWorldPosition(new THREE.Vector3());
+      const offset=start.clone().sub(origin), rest=item.solid.clone();
+      rest.translate(new THREE.Vector3(0,surface+.001-rest.min.y,0));
+      const others=[...fixedSolids,...roots().filter(other=>other!==item&&!fallen.has(other)).map(other=>other.solid.clone())];
+      const route=routeOutside(rest,others,regions);
+      if(!route)return false;
+      route[0].copy(start);
+      if(route.length===1)route.push(rest.getCenter(new THREE.Vector3()));
+      const lengths=[0];for(let i=1;i<route.length;i++)lengths.push(lengths[i-1]+route[i].distanceTo(route[i-1]));
+      const total=lengths.at(-1);
+      item.slide=true;sound('slide',item.kind);
+      await animate('make-room',t=>{
+        const d=t*total;let i=1;while(i<lengths.length-1&&lengths[i]<d)i++;
+        const fraction=(d-lengths[i-1])/Math.max(1e-9,lengths[i]-lengths[i-1]);
+        const p=route[i-1].clone().lerp(route[i],fraction).sub(offset);
+        setWorld(item.node,p);refreshItem(item);redraw();
+      },Math.min(700,320+total*90));
+      item.slide=false;refresh();
+    }
+    return true;
+  }
   return {
     cancel: rollback,
+    clearSpace,
     update(time) {
+      const dt=lastUpdate===undefined?0:Math.min(.033,Math.max(0,(time-lastUpdate)/1000));lastUpdate=time;
       let moving = false;
       for (const item of items) {
         if (item.drop) {
@@ -212,11 +350,27 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
           if (reduced.matches || item.node.position.y <= d.targetY) settle(item);
           moving = true;
         }
+        if((item.velocity.lengthSq()>1e-5||Math.abs(item.spin)>.01) &&
+          !item.drop&&!item.slide&&grip?.item!==item&&!fallen.has(item)&&roots().includes(item)){
+          fixedSolids=obstacles();
+          if(!rotateItem(item,item.spin*dt))item.spin*=.25;
+          if(!moveItem(item,item.velocity.clone().multiplyScalar(dt),true)){item.velocity.multiplyScalar(-.15);item.spin*=.4;}
+          const friction=item.kind==='pen'?3.4:6;
+          item.velocity.multiplyScalar(Math.exp(-friction*dt));item.spin*=Math.exp(-5*dt);
+          if(reduced.matches){item.velocity.set(0,0,0);item.spin=0;}
+          refreshItem(item);
+          const c=item.solid.getCenter(new THREE.Vector3());
+          if(c.z>deskLayout.table.bounds[3]||Math.abs(c.x)>deskLayout.table.bounds[1]){
+            const world=item.node.getWorldPosition(new THREE.Vector3());room.attach(item.node);
+            drop(item,world.y+floor-item.solid.min.y+.001,true);
+          }
+          moving=true;
+        }
         if (!item.pulse) continue;
         const age = Math.max(0, (time-item.pulse.start)/1000);
         if (age >= .68 || reduced.matches) finishPulse(item);
         else {
-          const wave = item.pulse.sign*Math.sin(age*20)*Math.exp(-age*6);
+          const wave = item.pulse.sign*Math.sin(age*item.pulse.frequency)*Math.exp(-age*6);
           item.node.quaternion.copy(item.pulse.rotation);
           item.node.rotateY(wave*(item.kind==='pen'?.10:.023));
           item.node.position.copy(item.pulse.position);

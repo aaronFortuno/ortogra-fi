@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
-import { DeskNavigation } from './navigation.js?v=1.15.0';
+import { DeskNavigation } from './navigation.js?v=1.16.0';
 import { prepareBinderLoad, arrangeBinderRow } from './binder-load.js?v=1.15.1';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
-import { createStationery } from './stationery.js?v=1.15.0';
-import { createAtmosphere } from './atmosphere.js?v=1.15.0';
+import { createStationery } from './stationery.js?v=1.16.0';
+import { createAtmosphere } from './atmosphere.js?v=1.16.0';
 import { prepareMaterials } from './materials.js?v=1.15.0';
 import { createReadingPages } from './reading.js?v=1.11.0';
 import { createDaylight } from './daylight.js?v=1.13.0';
@@ -13,7 +13,7 @@ import { createContactShadows } from './contact-shadows.js?v=1.11.0';
 import { createShelfOcclusion } from './shelf-occlusion.js?v=1.11.0';
 import { createLabelTexture } from './labels.js?v=1.11.0';
 import { createReliefs } from './reliefs.js?v=1.11.0';
-import { createObjectJourney } from './journey.js?v=1.11.0';
+import { createObjectJourney } from './journey.js?v=1.16.0';
 import { createCloudShadows } from './weather.js?v=1.13.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -27,7 +27,7 @@ const areas = {
 };
 const overview = { center: [-1.5, .12, .5], width: 9.3 };
 
-export async function createDesk({ canvas, projects, dark: initialDark, resources, onStage = () => {}, onLightingChange, onWindowChange, onObjectSound = () => {} }) {
+export async function createDesk({ canvas, projects, dark: initialDark, resources, onStage = () => {}, onLightingChange, onWindowChange, onObjectSound = () => {}, onAction=()=>{} }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
   renderer.shadowMap.enabled = true;
@@ -48,6 +48,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     },
     animate: update => animate('view', update),
     cancel: () => cancelMotion('view'),
+    end:gest=>onAction('mou_camara',{gest}),
   });
   const ambient = new THREE.HemisphereLight('#e6edf1', '#9b947c', .42);
   scene.add(ambient);
@@ -120,6 +121,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     windowButton.title = windowOpen ? 'Tanca la finestra' : 'Obre la finestra';
     windowButton.setAttribute('aria-label', windowButton.title);
     onWindowChange?.(windowOpen);
+    onAction('finestra',{oberta:windowOpen});
     const from = windowTravel, to = Number(windowOpen);
     animate('window', t => {
       windowTravel = THREE.MathUtils.lerp(from, to, t);
@@ -142,7 +144,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   });
   const wallSwitch = document.querySelector('#wall-light-switch');
   const switchNode = room.getObjectByName('RoomLightSwitch'), rocker = room.getObjectByName('SwitchRocker');
-  wallSwitch.addEventListener('click', () => lighting.setRoomLight(canvas.dataset.roomLightOn !== 'true'));
+  wallSwitch.addEventListener('click', () => {const on=canvas.dataset.roomLightOn!=='true';lighting.setRoomLight(on);onAction('llum_sala',{encesa:on});});
   for (const material of materials) if (material.name.startsWith('Leaves') || material.name.startsWith('LeafLight')) {
     material.map = atmosphere.leafTexture;
     material.color.set('#b5ba8f');
@@ -187,6 +189,17 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       bounds = [[-.96, -.34, .72], [.96, .4, .92]];
       axis = 'x'; angle = -Math.PI * .57;
     } else {
+      // Rest on the desk, and leave a real gap between the closed portfolios.
+      group.updateWorldMatrix(true,true);
+      group.position.y+=deskLayout.table.surfaceY+.001-new THREE.Box3().setFromObject(group).min.y;
+      group.updateWorldMatrix(true,true);
+      if(project.id==='pauta'){
+        const previous=models.get('pentagrama');
+        if(previous){
+          const a=new THREE.Box3().setFromObject(previous.group),b=new THREE.Box3().setFromObject(group);
+          if(a.intersectsBox(b))group.position.z+=a.max.z-b.min.z+.18;
+        }
+      }
       addPlane(lid, [1.37, .285], [.925, .051, -.81], label, true);
       bounds = [[-.93, -.03, -1.17], [.93, .08, 1.18]];
       axis = 'z'; angle = Math.PI;
@@ -217,7 +230,10 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }));
   const stationery = createStationery({ room, canvas, camera, navigation, reduced: reducedMotion,
     enabled: () => !active && !presenting && !contextLost, sound: onObjectSound,
-    brush: (leaf, sign) => { if (!reducedMotion.matches) { atmosphere.brush(leaf, sign, sceneryTime); requestRender(false); } },
+    brush: (leaf, impulse) => { if (!reducedMotion.matches) { atmosphere.brush(leaf, impulse); requestRender(false); } },
+    animate,
+    action:onAction,
+    obstacles:()=>[...models.values()].map(model=>new THREE.Box3().setFromObject(model.group)),
     cancelView: () => cancelMotion('view'),
     redraw: () => { renderer.shadowMap.needsUpdate = true; requestRender(false); } });
   const contactShadows = createContactShadows(room);
@@ -369,17 +385,39 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }
   function initialView() {
     const aspect = lastWidth / lastHeight;
+    if(currentArea==='Utilitats'){
+      const direction=new THREE.Vector3(),right=new THREE.Vector3(1,0,0),up=new THREE.Vector3(),points=[];
+      for(const model of models.values())if(model.project.kind==='folder'){
+        const b=model.outlineBounds;
+        for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])
+          points.push(new THREE.Vector3(x,y,z).applyQuaternion(model.rotation).add(model.home));
+      }
+      const focus=new THREE.Box3().setFromPoints(points).getCenter(new THREE.Vector3());
+      const tangent=Math.tan(THREE.MathUtils.degToRad(16));
+      const top=Math.min(70,lastHeight*.18),bottom=Math.min(lastWidth<=1050?128:90,lastHeight*.29);
+      const upper=1-2*top/lastHeight,lower=-1+2*bottom/lastHeight;
+      const shift=(bottom-top)/lastHeight,usable=(lastHeight-top-bottom)/lastHeight;
+      let pitch=.68,target,position;
+      for(let attempt=0;attempt<12;attempt++){
+        direction.set(0,pitch,Math.sqrt(1-pitch*pitch));up.crossVectors(direction,right);
+        let distance=5.5;
+        for(const point of points){
+          const relative=point.clone().sub(focus),depth=relative.dot(direction),y=relative.dot(up);
+          distance=Math.max(distance,depth+Math.abs(relative.x)/(tangent*aspect*.90),
+            (y/tangent+upper*depth)/usable,(-y/tangent-lower*depth)/usable);
+        }
+        target=focus.clone().addScaledVector(up,-shift*distance*tangent);
+        position=target.clone().addScaledVector(direction,distance);
+        if(position.y<=7.2)break;
+        pitch*=.82; // A tall viewport must not lift the eye through the ceiling.
+      }
+      return {target,position};
+    }
     const settings = currentArea === 'Taula' ? overview : areas[currentArea];
     const target = new THREE.Vector3(...settings.center);
     const width = settings.width;
     const distance = Math.max(narrow.matches ? 7 : 5.5, width / (2 * Math.tan(THREE.MathUtils.degToRad(16)) * aspect));
-    const direction = currentArea === 'Utilitats'
-      ? new THREE.Vector3(0, .68, .73).normalize()
-      : new THREE.Vector3(0, .21, .978).normalize();
-    if (currentArea === 'Utilitats') {
-      const up = new THREE.Vector3().crossVectors(direction, new THREE.Vector3(1, 0, 0));
-      target.addScaledVector(up, -(narrow.matches ? 128 : 80) / lastHeight * distance * Math.tan(THREE.MathUtils.degToRad(16)));
-    }
+    const direction = new THREE.Vector3(0, .21, .978).normalize();
     return { target, position: target.clone().addScaledVector(direction, distance) };
   }
   function resize() {
@@ -466,10 +504,17 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
         requestAnimationFrame(ready);
       });
     }
-    phase = 'opening';
-    canvas.parentElement.classList.add('is-reading');
+    phase = 'clearing';
     const from = model.group.position.clone();
     const journey = prepareJourney(model, from, returnView);
+    const space=openingSpace(journey,model);
+    if(!await stationery.clearSpace(space)){
+      reading.unmount();if(model.project.reliefs?.length)reliefs.unmount();
+      for(const texture of new Set((model.sampleTextures||[]).map(sample=>sample.texture)))texture.dispose();
+      model.sampleTextures=null;active=null;phase='shelf';navigation.enabled=true;requestRender();
+      throw Object.assign(new Error('No hi ha prou espai lliure a la taula.'),{code:'TABLE_FULL'});
+    }
+    phase='opening';canvas.parentElement.classList.add('is-reading');
     await animate('journey', journey, journeyDuration);
     shelfOcclusion.update(true);
     contactShadows.onTable(model.group);
@@ -477,6 +522,30 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     canvas.dataset.selected = id;
     canvas.dataset.presentation = 'table';
     requestRender();
+  }
+  function openingSpace(journey,model){
+    const position=camera.position.clone(),rotation=camera.quaternion.clone(),target=navigation.target.clone();
+    const from=model.group.position.clone(),pose=model.group.quaternion.clone(),lid=model.lid.rotation[model.axis];
+    const regions=[],paths=[journey];
+    // Hover can pull a book forwards before it is picked up. Reserve the
+    // return to its true shelf position as well as that slightly shorter exit.
+    if(from.distanceTo(model.home)>.001)paths.push(prepareJourney(model,model.home,{position,rotation,target,aspect:camera.aspect}));
+    for(const path of paths){
+      let previous;
+      for(let i=0;i<=64;i++){
+        path(i/64);
+        const box=new THREE.Box3().setFromObject(model.group);
+        if(previous)regions.push(previous.clone().union(box).expandByScalar(.055));
+        previous=box;
+      }
+    }
+    journey(0);
+    model.group.position.copy(from);model.group.quaternion.copy(pose);model.lid.rotation[model.axis]=lid;
+    camera.position.copy(position);camera.quaternion.copy(rotation);navigation.target.copy(target);
+    model.group.updateWorldMatrix(true,true);camera.updateMatrixWorld();
+    // Keep the landing strip clear for all three terrain samples too.
+    if(model.project.reliefs?.length)regions.push(new THREE.Box3(new THREE.Vector3(-2,-.60,3.65),new THREE.Vector3(-1,.6,4.7)));
+    return regions;
   }
   function prepareJourney(model, from, startView) {
     const saved = { position: model.group.position.clone(), rotation: model.group.quaternion.clone(), lid: model.lid.rotation[model.axis] };
@@ -739,7 +808,7 @@ function localBounds(group) {
   const bounds = new THREE.Box3();
   group.traverse(mesh => {
     if (!mesh.isMesh || !mesh.visible || mesh.name === 'ProjectCard') return;
-    mesh.geometry.computeBoundingBox();
+    if(!mesh.geometry.boundingBox)mesh.geometry.computeBoundingBox();
     bounds.union(mesh.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse, mesh.matrixWorld)));
   });
   return bounds;

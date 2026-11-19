@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // Look from the viewer's position; moving the eye and turning the head are
 // separate operations. No pointer lock is needed for a public catalogue.
 export class DeskNavigation {
-  constructor(camera, surface, { change, start, animate, cancel }) {
+  constructor(camera, surface, { change, start, animate, cancel, end=()=>{} }) {
     this.camera = camera;
     this.surface = surface;
     this.target = new THREE.Vector3();
@@ -53,7 +53,9 @@ export class DeskNavigation {
       this.change();
     });
     const release = event => {
+      const tracked=this.pointers.has(event.pointerId);
       this.pointers.delete(event.pointerId);
+      if(tracked&&event.type==='pointerup'&&!this.pointers.size&&this.dragged&&this.enabled)end(event.pointerType==='touch'?'tactil':'arrossega');
       if (event.type !== 'pointerup') this.dragged = false;
     };
     surface.addEventListener('pointerup', release);
@@ -72,6 +74,7 @@ export class DeskNavigation {
       this.start(event.type);
       const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? surface.clientHeight : 1);
       this.zoom(pixels, { x: event.clientX, y: event.clientY });
+      clearTimeout(this.wheelTracking);this.wheelTracking=setTimeout(()=>end('roda'),600);
     }, { passive: false });
   }
 

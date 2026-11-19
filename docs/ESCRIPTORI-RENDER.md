@@ -2,6 +2,18 @@
 
 Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Espai sòlid i resposta als gestos · 1.16
+
+Abans de treure un material se’n mostregen 65 posicions de cada recorregut de sortida i retorn, inclosa l’obertura de la tapa i la diferència de posició que introdueix el hover. L’envolupant entre cada parella de posicions, amb un marge de 0,055 unitats, reserva l’espai que ocuparà. Els estris que hi interfereixen s’aparten abans de començar el recorregut continu de 2.500 ms. Relleu Obert reserva també la zona frontal on es deixen les maquetes. Els materials s’aixequen una mica més en sortir per passar sobre els papers baixos. Els objectes apartats es queden a la nova posició, sense tornar automàticament al lloc anterior.
+
+`table-space.js` busca camins sobre la taula amb volums conservadors, una graella de 0,22 unitats i un màxim de 2.400 expansions. La cerca i el mostreig només s’executen quan cal fer lloc. Si un estri està encaixonat, es pot aixecar, passar sobre els altres i deixar en un espai lliure; si la taula no ofereix cap espai vàlid, el material no s’obre i es demana fer lloc. Pauta i Pentagrama s’assenten sobre la taula amb separació entre les seves petjades.
+
+Els arrossegaments avancen en passos curts i comproven el volum escombrat per evitar travessar obstacles prims. Un estri pesant pot empènyer-ne un de més lleuger; els obstacles aturen o desvien el moviment. Agafar un objecte fora del centre introdueix gir. En deixar-lo, una inèrcia curta i un fregament dependent del tipus d’objecte eviten acabar sempre amb la mateixa orientació. Les caigudes i la recollida continuen disponibles; la recollida busca un lloc lliure si l’original està ocupat.
+
+Les fulles tenen rigidesa, amortiment i velocitat angular pròpies. El contacte aporta impuls segons la direcció, la intensitat i la distància al pecíol, i es transmet suaument a les fulles properes. Un nou contacte modifica el moviment existent. Els grups glTF que separen làmina i nervis es tracten com una mateixa fulla. El test, no la capçada flexible, és el volum sòlid de la planta.
+
+És una aproximació guiada per a aquesta escena, amb volums envolupants i moviment principalment sobre la taula: no simula apilaments arbitraris, deformació dels papers per contacte ni bolcades completes dels recipients. No incorpora cap motor físic, textura, llum ni passada de renderitzat addicional. La inèrcia només manté el render actiu mentre hi ha moviment; la vegetació conserva el seu cicle de 24 Hz i la pausa amb moviment reduït o pestanya oculta. La vista inicial conserva 189 crides de dibuix, 57.965 triangles, 32 textures i 4.174.406 bytes d’atributs/índexs de geometria; el treball addicional és de CPU durant les interaccions. `tools/check-desk-solids.cjs` cobreix els estris davant de la capsa, la grapadora sota un arxivador, l’extracció de maquetes, el gir del llapis i els impulsos acumulats de les fulles. L’enquadrament d’Utilitats té en compte els dos portafolis i les barres inferiors, i redueix la inclinació de la mirada en pantalles molt verticals per mantenir la càmera dins de l’habitació.
+
 ## Missatges de preparació · 1.15.2
 
 Sobre el cercle de càrrega apareix una frase en cursiva, més gran, amb el to d’un docent fent lloc a la taula. Vuit missatges roten cada cinc segons amb transicions de 220 ms; amb moviment reduït el text canvia directament. El percentatge i l’estat tècnic continuen reflectint el progrés real, sense afegir cap espera. La rotació s’atura en completar-se o fallar la càrrega i no canvia el text mentre la pestanya és oculta.

@@ -74,6 +74,22 @@ La instància pròpia d’[Umami](https://docs.umami.is/docs/track-events) compt
 - `obre_portafoli`: clic a l’enllaç del portafoli.
 - `copia_lightning`: còpia confirmada al porta-retalls. L’esdeveniment no inclou el text de l’adreça; seleccionar-la perquè es copiï manualment no es compta.
 
+L’escriptori utilitza esdeveniments amb prefix **`v2_`**, la propietat `interficie: escriptori` i l’etiqueta de seguiment `escriptori-v2`. La portada clàssica conserva els noms anteriors. Les visites es distingeixen també pel camí `/escriptori/`; aquesta separació s’aplica a les dades noves, sense reetiquetar l’històric.
+
+| Esdeveniment de l’escriptori | Acció i dades |
+| --- | --- |
+| `v2_obre_fitxa`, `v2_tanca_fitxa` | Obre o desa el material; identificador del projecte. |
+| `v2_obre_projecte` | Accés a l’eina des de la fitxa o la llista; projecte i origen. |
+| `v2_amplia_mostra`, `v2_passa_mostra`, `v2_descarrega_mostra` | Consulta dels exemples i PDF; projecte i número de mostra quan correspon. |
+| `v2_tria_area`, `v2_obre_llista` | Navegació per àrees i obertura de la llista. |
+| `v2_mou_camara` | Un esdeveniment en acabar un arrossegament, una pinça, una sèrie de roda o un botó; tipus de gest. |
+| `v2_mou_objecte`, `v2_recull_objectes` | Arrossegament manual acceptat o recollida d’estris; tipus/nom de l’objecte o quantitat. |
+| `v2_so_ambient`, `v2_finestra`, `v2_canvia_tema` | Estat escollit per l’usuari. |
+| `v2_llum_sala`, `v2_llum_solar` | Canvi manual o retorn al mode automàtic; sense desar la data introduïda. |
+| `v2_obre_v4v`, `v2_obre_portafoli`, `v2_copia_lightning` | Les accions del quadre compartit, diferenciades de la portada. |
+
+No es compten els moviments de hover, cada fotograma, ni els desplaçaments automàtics per fer lloc. El codi de l’escriptori no carrega el tracker en local ni en navegadors identificats amb `navigator.webdriver`; les accions també comproven aquest límit. El tracker manté `data-domains="ortogra.fi"`, segons la [configuració d’Umami](https://docs.umami.is/docs/tracker-configuration). Les proves bloquegen totes les peticions externes i validen els noms amb un receptor simulat local (`node tools/check-desk-analytics.cjs`); no envien esdeveniments al servei real. Això evita comptar les nostres proves, sense garantir que qualsevol altra visita a producció sigui humana.
+
 ## Desenvolupament
 
 HTML, CSS i JavaScript estàtics; no cal compilar ni instal·lar dependències per servir el web. Amb Node.js:
