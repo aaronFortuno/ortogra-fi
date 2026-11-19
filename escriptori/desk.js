@@ -1,7 +1,7 @@
-import { createSampleBrowser } from './samples.js?v=1.10.0';
+import { createSampleBrowser } from './samples.js?v=1.11.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.6.0';
-import { createLightControls } from './light-controls.js?v=1.10.0';
-import { createAmbientAudio } from './ambient-audio.js?v=1.10.0';
+import { createLightControls } from './light-controls.js?v=1.11.0';
+import { createAmbientAudio } from './ambient-audio.js?v=1.11.0';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -67,12 +67,12 @@ async function loadProjects() {
   if (!response.ok) throw new Error('No s’ha pogut carregar el catàleg.');
   const portal = new DOMParser().parseFromString(await response.text(), 'text/html');
   const sampleBase = new URL('assets/desk/samples/', base);
-  const sampleCatalogue = await fetch(new URL('examples.json?v=1.10.0', sampleBase)).then(response => {
+  const sampleCatalogue = await fetch(new URL('examples.json?v=1.11.0', sampleBase)).then(response => {
     if (!response.ok) throw new Error('No s’han pogut carregar les mostres.');
     return response.json();
   });
   const reliefBase = new URL('assets/desk/reliefs/', base);
-  const reliefCatalogue = await fetch(new URL('manifest.json?v=1.10.0', reliefBase)).then(response => {
+  const reliefCatalogue = await fetch(new URL('manifest.json?v=1.11.0', reliefBase)).then(response => {
     if (!response.ok) throw new Error('No s’han pogut carregar les maquetes.');
     return response.json();
   });
@@ -103,12 +103,15 @@ async function loadProjects() {
       project.reliefs = reliefCatalogue.models.map(model => ({ ...model, url: new URL(model.url + '?v=' + model.sha256.slice(0, 12), reliefBase).href }));
       const byId = new Map(project.reliefs.map(model => [model.id, model]));
       const ids = ['agulles-montserrat', 'tamariu', 'sant-maurici'];
-      project.examples = [[ids[0], ids[1]], [ids[2], ids[0]], [ids[1], ids[2]]].map(pair => ({
-        title: pair.map(id => byId.get(id).title).join(' i '),
-        pages: pair.map(id => ({ title: byId.get(id).title, modelId: id, role: 'model', image: id.includes('montserrat') ? 'relleu-montserrat.webp' : 'relleu-' + id + '.webp' })),
-      }));
+      const shortTitles = ['Montserrat', 'Tamariu', 'Sant Maurici'];
+      project.examples = [{ title: 'Tres maquetes de Relleu Obert',
+        pages: ids.map((id, index) => ({ title: byId.get(id).title, shortTitle: shortTitles[index], modelId: id, role: 'model', image: id.includes('montserrat') ? 'relleu-montserrat.webp' : 'relleu-' + id + '.webp' })),
+      }];
     }
-    if (project.examples?.length !== 3 || project.examples.some(example => example.pages.length !== 2)) throw new Error('Falten exemples de ' + project.name);
+    const valid = project.reliefs?.length
+      ? project.examples.length === 1 && project.examples[0].pages.length === 3
+      : project.examples?.length === 3 && project.examples.every(example => example.pages.length === 2);
+    if (!valid) throw new Error('Falten exemples de ' + project.name);
     project.samples = project.examples.flatMap((example, exampleIndex) => example.pages.map((sample, pageIndex) => ({
       ...sample, exampleIndex, pageIndex, image: new URL(sample.image, sampleBase).href,
       pdf: sample.pdf ? new URL(sample.pdf, sampleBase).href : null,
@@ -276,7 +279,7 @@ async function start() {
   try {
     loading.update(0, 'Preparant l’escriptori…');
     const [manifest] = await Promise.all([
-      fetch(new URL('assets/desk/loading.json?v=1.10.0', base)).then(response => {
+      fetch(new URL('assets/desk/loading.json?v=1.11.0', base)).then(response => {
         if (!response.ok) throw new Error('No s’ha pogut carregar el pla de recursos.');
         return response.json();
       }),
@@ -284,7 +287,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.10.0');
+    const { createDesk } = await import('./scene.js?v=1.11.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({

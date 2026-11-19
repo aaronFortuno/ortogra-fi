@@ -1,16 +1,17 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
-import { DeskNavigation } from './navigation.js?v=1.10.0';
-import { createAtmosphere } from './atmosphere.js?v=1.10.0';
-import { prepareMaterials } from './materials.js?v=1.10.0';
-import { createReadingPages } from './reading.js?v=1.10.0';
-import { createDaylight } from './daylight.js?v=1.10.0';
-import { createPaperView } from './paper-view.js?v=1.10.0';
-import { createContactShadows } from './contact-shadows.js?v=1.10.0';
-import { createShelfOcclusion } from './shelf-occlusion.js?v=1.10.0';
-import { createLabelTexture } from './labels.js?v=1.10.0';
-import { createReliefs } from './reliefs.js?v=1.10.0';
-import { createObjectJourney } from './journey.js?v=1.10.0';
+import { DeskNavigation } from './navigation.js?v=1.11.0';
+import { createAtmosphere } from './atmosphere.js?v=1.11.0';
+import { prepareMaterials } from './materials.js?v=1.11.0';
+import { createReadingPages } from './reading.js?v=1.11.0';
+import { createDaylight } from './daylight.js?v=1.11.0';
+import { createPaperView } from './paper-view.js?v=1.11.0';
+import { createContactShadows } from './contact-shadows.js?v=1.11.0';
+import { createShelfOcclusion } from './shelf-occlusion.js?v=1.11.0';
+import { createLabelTexture } from './labels.js?v=1.11.0';
+import { createReliefs } from './reliefs.js?v=1.11.0';
+import { createObjectJourney } from './journey.js?v=1.11.0';
+import { createCloudShadows } from './weather.js?v=1.11.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const narrow = matchMedia('(max-width: 700px)');
@@ -73,7 +74,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   let darkTheme = initialDark, readingPower = 1, readingBlend = 0;
   const readingIntensity = () => (darkTheme ? 2.4 : 1.8) * 55 * readingPower;
 
-  const modelURL = new URL('../assets/desk/escriptori.glb?v=1.10.0', import.meta.url);
+  const modelURL = new URL('../assets/desk/escriptori.glb?v=1.11.0', import.meta.url);
   const modelBytes = await resources.buffer(modelURL.href);
   onStage(null, 'Preparant els arxivadors…');
   const asset = await new GLTFLoader().parseAsync(modelBytes, new URL('.', modelURL).href);
@@ -100,9 +101,10 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   let controlsDirty = true;
   let ambientShadowTime = -Infinity;
   let firstFrame;
+  let sceneryTime = 0, sceneryFrame = null;
   const paperView = createPaperView({ camera, target: navigation.target, reading,
     animate, requestRender, getSize: () => ({ width: lastWidth, height: lastHeight }) });
-  const reliefs = createReliefs({ scene, camera, target: navigation.target, animate, requestRender });
+  const reliefs = createReliefs({ scene, camera, target: navigation.target, animate, requestRender, onMaterial: material => weather.prepare(material) });
   const outline = createHoverOutline(canvas.parentElement);
   const atmosphere = await createAtmosphere(scene, room, resources);
   const wallSwitch = document.querySelector('#wall-light-switch');
@@ -149,12 +151,6 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       addPlane(group, [1.4, .26], [0, -.01, .731], label);
       bounds = [[-.96, -.34, .72], [.96, .4, .92]];
       axis = 'x'; angle = -Math.PI * .57;
-      const card = new THREE.Mesh(new THREE.BoxGeometry(1.75, .017, 1.17), [...materials].find(material => material.name === 'Paper'));
-      card.position.set(2.05, -.35, 0);
-      card.castShadow = card.receiveShadow = true;
-      card.visible = false;
-      card.name = 'ProjectCard';
-      group.add(card);
     } else {
       addPlane(lid, [1.37, .285], [.925, .051, -.81], label, true);
       bounds = [[-.93, -.03, -1.17], [.93, .08, 1.18]];
@@ -184,6 +180,8 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       }
     },
     onReadingPower: value => { readingPower = value; readingLight.intensity = readingIntensity() * readingBlend; } });
+  const weather = createCloudShadows(scene, daylight);
+  atmosphere.setWeather(weather.uniforms);
 
   function requestRender(geometryChanged = true) {
     if (geometryChanged) controlsDirty = true;
@@ -208,14 +206,18 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     }
     outline.update(active ? null : models.get(hovered), camera, lastWidth, lastHeight);
     if ([...motions.keys()].some(key => key !== 'view')) renderer.shadowMap.needsUpdate = true;
-    const living = !reducedMotion.matches && !document.hidden && !presenting && !contextLost && atmosphere.visible(camera);
-    if (living) {
-      atmosphere.update(time);
-      if (lighting.hasShadows() && time - ambientShadowTime > 250) {
+    const foliageVisible = atmosphere.visible(camera);
+    const living = !reducedMotion.matches && !document.hidden && !presenting && !active && !contextLost && (foliageVisible || weather.active());
+    if (living && (sceneryFrame === null || time - sceneryFrame >= 1000 / 24)) {
+      sceneryTime += sceneryFrame === null ? 0 : Math.min(.1, (time - sceneryFrame) / 1000);
+      sceneryFrame = time;
+      atmosphere.update(sceneryTime * 1000); weather.update(sceneryTime);
+      if (foliageVisible && lighting.hasShadows() && time - ambientShadowTime > 250) {
         renderer.shadowMap.needsUpdate = true;
         ambientShadowTime = time;
       }
     }
+    if (!living) sceneryFrame = null;
     renderer.render(scene, camera);
     if (firstFrame) { const resolve = firstFrame; firstFrame = null; requestAnimationFrame(resolve); }
     clearTimeout(ambientTimer);
@@ -423,13 +425,14 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     destination.x += -1.5 - spreadX;
     model.group.position.copy(destination); model.group.updateWorldMatrix(true, true);
     const view = readingView();
-    const endFocus = new THREE.Box3().setFromPoints(reading.points(narrow.matches)).getCenter(new THREE.Vector3());
+    const materialPoints = () => model.project.reliefs?.length ? reliefs.points(narrow.matches) : reading.points(narrow.matches);
+    const endFocus = new THREE.Box3().setFromPoints(materialPoints()).getCenter(new THREE.Vector3());
     model.group.position.copy(saved.position); model.group.quaternion.copy(saved.rotation); model.lid.rotation[model.axis] = saved.lid;
     if (card) { card.visible = savedCard.visible; card.position.x = savedCard.x; }
     model.group.updateWorldMatrix(true, true);
     return createObjectJourney({
       model, from, to: destination, flatRotation, startView, endView: view, endFocus,
-      camera, target: navigation.target, focusPoints: () => reading.points(narrow.matches),
+      camera, target: navigation.target, focusPoints: materialPoints,
       onLid: opening => { readingBlend = opening; readingLight.intensity = readingIntensity() * opening; },
     });
   }
@@ -551,7 +554,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   });
   document.addEventListener('visibilitychange', () => {
     clearTimeout(ambientTimer);
-    if (document.hidden) canvas.dataset.ambience = 'still';
+    if (document.hidden) { canvas.dataset.ambience = 'still'; sceneryFrame = null; }
     if (!document.hidden) requestRender();
   });
   canvas.addEventListener('webglcontextlost', event => {

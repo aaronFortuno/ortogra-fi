@@ -46,14 +46,15 @@ export function createReadingPages(detail, paperMaterial) {
     ];
     pages.forEach((page, index) => {
       const definition = definitions[index];
+      page.size = definition.size;
+      if (model.project.reliefs?.length) { page.anchor.removeFromParent(); return; }
       definition.parent.add(page.anchor);
       page.anchor.position.set(...definition.position); page.anchor.rotation.set(...definition.rotation);
-      page.size = definition.size;
     });
     detail.dataset.surface = kind;
     setIndex(currentIndex);
   }
-  const examplePages = index => currentModel.sampleTextures.filter(sample => sample.exampleIndex === index).slice(0, 2);
+  const examplePages = index => currentModel.sampleTextures.filter(sample => sample.exampleIndex === index).slice(0, currentModel.project.reliefs?.length ? 3 : 2);
   function paint(piece, sample, page) {
     piece.ink.map = sample.texture; piece.ink.needsUpdate = true;
     const aspect = sample.texture.image.width / sample.texture.image.height;
@@ -73,12 +74,14 @@ export function createReadingPages(detail, paperMaterial) {
       page.anchor.visible = Boolean(sample);
       if (!sample) continue;
       paint(page.top, sample, page); paint(page.under, sample, page);
-      page.under.mesh.position.set(.008, .008, .005); page.under.mesh.rotation.z = .009;
+      // Keep the printed layers aligned; startTurn raises the exposed page to
+      // the same visible surface as the sheet that is being lifted.
+      page.under.mesh.position.set(0, 0, .006); page.under.mesh.rotation.z = -.004;
       page.edge.scale.set(page.top.mesh.scale.x, page.top.mesh.scale.y, 1);
       resetLeaf(page);
       if (currentModel.project.reliefs?.length) {
         page.top.mesh.visible = page.under.mesh.visible = page.edge.visible = false;
-      } else page.edge.visible = true;
+      } else page.under.mesh.visible = page.edge.visible = true;
       const button = index ? secondHit : hit;
       button.setAttribute('aria-label', 'Amplia: ' + sample.title); button.dataset.index = String(index);
     }
@@ -153,6 +156,12 @@ export function createReadingPages(detail, paperMaterial) {
     }
     const normal = sheetView(source).normal;
     leaf = { mesh, starts, corrections, distances, hinge, axis, angle, inverse, normal, direction, progress: 0 };
+    // The exposed page uses the same surface as the sheet being lifted, above
+    // every cover/paper mesh. It is present from the very first turning frame.
+    pages[source].under.mesh.position.copy(pages[source].top.mesh.position);
+    pages[source].under.mesh.rotation.copy(pages[source].top.mesh.rotation);
+    pages[source].under.mesh.position.z -= .0001;
+    pages[source].under.mesh.visible = true;
     pages[source].top.mesh.visible = false;
     turn(0);
   }
@@ -180,6 +189,7 @@ export function createReadingPages(detail, paperMaterial) {
     return [[-.5, .5], [.5, .5], [.5, -.5], [-.5, -.5]].map(([x, y]) => mesh.localToWorld(new THREE.Vector3(x, y, .001)));
   }
   function points(narrow) {
+    if (currentModel?.project.reliefs?.length) return [];
     return (narrow ? pages.slice(0, 1) : pages).filter(page => page.anchor.visible).flatMap(corners);
   }
   function sheetView(index) {
@@ -190,6 +200,7 @@ export function createReadingPages(detail, paperMaterial) {
   }
   function project(camera, rect) {
     Object.assign(detail.style, { left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px', height: rect.height + 'px' });
+    if (currentModel?.project.reliefs?.length) return;
     const projectPoint = point => {
       point.project(camera);
       return { x: (point.x + 1) * rect.width / 2, y: (1 - point.y) * rect.height / 2 };

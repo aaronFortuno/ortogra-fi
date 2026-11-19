@@ -31,10 +31,10 @@ async function back(page) {
 }
 async function inspect(page, side, mobile, screenshot) {
   const before = await page.evaluate(() => window.deskSampleTest.pose());
-  await page.locator(side ? '#sample-open-second' : '#sample-open-inline').click();
+  await page.locator(['#sample-open-inline','#sample-open-second','#sample-open-third-inline'][side]).click();
   await page.waitForFunction(() => window.deskSampleTest.phase() === 'inspecting');
   assert.equal(await page.locator('dialog[open]').count(), 1, 'Camera inspection must not open a second modal');
-  const zoom = await page.evaluate(index => ({ pose:window.deskSampleTest.pose(),paper:window.deskSampleTest.paper(index) }), side);
+  const zoom = await page.evaluate(index => ({ pose:window.deskSampleTest.pose(),paper:window.deskSampleTest.relief().open?null:window.deskSampleTest.paper(index) }), side);
   assert.ok(distance(before.position, zoom.pose.position) > .2, 'Actually move the camera nearer the paper');
   const isRelief=await page.evaluate(()=>window.deskSampleTest.relief().open);
   if(!isRelief){
@@ -130,6 +130,13 @@ async function inspect(page, side, mobile, screenshot) {
       await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});
       for (const id of process.argv.find(a=>a.startsWith('--project=')) ? process.argv.find(a=>a.startsWith('--project=')).split('=')[1].split(',') : mobile ? ['trama','pauta'] : ['trama','pauta','pentagrama','plec','sentit','fil-i-compte','resso','relleu-obert']) {
         await open(page,id,mobile);
+        if(id==='relleu-obert'){
+          assert.equal((await page.evaluate(()=>window.deskSampleTest.relief())).models.length,3);
+          assert.ok(await page.locator('.sample-pager').isHidden());
+          await page.screenshot({path:path.join(output,`examples-${id}-${width}-${theme}.png`)});
+          for(const side of [0,1,2])await inspect(page,side,mobile,`zenith-${id}-${side}-${width}-${theme}.png`);
+          await back(page);console.log('OK '+id+' '+width+' '+theme);continue;
+        }
         assert.equal(await page.locator('#sample-counter').innerText(),'2 / 3','Always start at the middle example');
         const panel=await page.locator('.description-page').boundingBox();
         assert.ok(panel.x>=0 && panel.x+panel.width<=width && panel.y+panel.height<=height-40,'External panel stays in the viewport');

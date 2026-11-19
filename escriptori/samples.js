@@ -18,12 +18,16 @@ export function createSampleBrowser({ getScene, track }) {
     for (const button of [next, nextCorner, inspectionNext]) button.disabled = busy || index === count - 1;
     document.querySelector('#sample-open-inline').textContent = paired ? 'Amplia la fitxa' : 'Amplia el primer full';
     const second = document.querySelector('#sample-open-second');
+    const third = document.querySelector('#sample-open-third-inline'), thirdHit = document.querySelector('#sample-open-third');
+    third.hidden = thirdHit.hidden = !pages[2];
+    previous.parentElement.hidden = Boolean(project.reliefs?.length);
     second.textContent = paired ? 'Amplia el solucionari' : 'Amplia el segon full'; second.hidden = !pages[1];
     if (pages[0]?.modelId) {
-      document.querySelector('#sample-open-inline').textContent = 'Primera maqueta'; second.textContent = 'Segona maqueta';
-      document.querySelector('#sample-open-inline').setAttribute('aria-label', 'Agafa i examina: ' + pages[0].title);
-      second.setAttribute('aria-label', 'Agafa i examina: ' + pages[1].title);
-      for (const [i, id] of ['sample-open', 'sample-open-answers'].entries()) document.getElementById(id).setAttribute('aria-label', 'Agafa i examina: ' + pages[i].title);
+      for (const [i, button] of [document.querySelector('#sample-open-inline'), second, third].entries()) {
+        button.textContent = pages[i].shortTitle;
+        button.setAttribute('aria-label', 'Agafa i examina: ' + pages[i].title);
+      }
+      for (const [i, id] of ['sample-open', 'sample-open-answers', 'sample-open-third'].entries()) document.getElementById(id).setAttribute('aria-label', 'Agafa i examina: ' + pages[i].title);
     } else { document.querySelector('#sample-open-inline').removeAttribute('aria-label'); second.removeAttribute('aria-label'); }
   }
   async function show(index = 0) {
@@ -68,7 +72,7 @@ export function createSampleBrowser({ getScene, track }) {
     busy = false; update();
     track('passa_mostra_escriptori', { projecte: project.id, mostra: destination + 1 });
   }
-  for (const [id, index] of [['sample-open', 0], ['sample-open-answers', 1], ['sample-open-inline', 0], ['sample-open-second', 1]]) {
+  for (const [id, index] of [['sample-open', 0], ['sample-open-answers', 1], ['sample-open-third', 2], ['sample-open-inline', 0], ['sample-open-second', 1], ['sample-open-third-inline', 2]]) {
     document.getElementById(id).addEventListener('click', () => show(index));
   }
   for (const [button, direction] of [[previous, -1], [next, 1], [previousCorner, -1], [nextCorner, 1], [inspectionPrevious, -1], [inspectionNext, 1]]) {

@@ -3,7 +3,7 @@ import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js'
 
 // These are lightweight copies of the author's 3MFs, loaded only for the box.
 // Inspection takes the real mesh out of the box; it never opens a second canvas.
-export function createReliefs({ scene, camera, target, animate, requestRender }) {
+export function createReliefs({ scene, camera, target, animate, requestRender, onMaterial = () => {} }) {
   let assets = new Map(), box, pieces = [], selected = null, stored, yaw = .3, pitch = .85, distance = 3, radius = 1, center;
   const loader = new GLTFLoader();
   const clamp = THREE.MathUtils.clamp;
@@ -17,6 +17,7 @@ export function createReliefs({ scene, camera, target, animate, requestRender })
         mesh.castShadow = mesh.receiveShadow = true;
         for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
           material.metalness = 0; material.roughness = .87; material.envMapIntensity = .7;
+          onMaterial(material);
         }
       });
       assets.set(entry.id, { ...entry, object: asset.scene });
@@ -30,11 +31,10 @@ export function createReliefs({ scene, camera, target, animate, requestRender })
       const piece = new THREE.Group(); piece.name = 'ReliefSample_' + index; piece.userData.relief = entry;
       piece.add(entry.object.clone(true));
       const bounds = new THREE.Box3().setFromObject(piece), size = bounds.getSize(new THREE.Vector3());
-      const scale = Math.min((index ? 1.55 : 1.48) / size.x, (index ? 1.04 : .98) / size.z);
+      const scale = Math.min(.57 / size.x, .57 / size.z);
       piece.scale.setScalar(scale);
-      if (index) {
-        box.group.getObjectByName('ProjectCard').add(piece); piece.position.set(0, .015, 0);
-      } else { box.group.add(piece); piece.position.set(0, -.225, 0); }
+      const slots = [[-.47, -.29], [.47, -.29], [0, .32]];
+      box.group.add(piece); piece.position.set(slots[index][0], -.225, slots[index][1]);
       pieces.push(piece);
     });
   }
@@ -63,6 +63,7 @@ export function createReliefs({ scene, camera, target, animate, requestRender })
     stored.worldPosition = selected.position.clone();
     const startBounds = new THREE.Box3().setFromObject(selected);
     const offset = startBounds.getCenter(new THREE.Vector3()).sub(selected.position);
+    // The inspection is optical: preserve the physical model and its scale.
     radius = startBounds.getSize(new THREE.Vector3()).length() * .5;
     // The front of the table is clear of the box and the second sample.
     const bottomOffset = startBounds.min.y - selected.position.y;
@@ -130,7 +131,7 @@ export function createReliefs({ scene, camera, target, animate, requestRender })
   }
   function points(narrow) {
     const result = [];
-    for (const piece of narrow ? pieces.slice(0, 1) : pieces) {
+    for (const piece of pieces) {
       const bounds = new THREE.Box3().setFromObject(piece);
       for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) result.push(new THREE.Vector3(x, y, z));
     }
@@ -146,7 +147,7 @@ export function createReliefs({ scene, camera, target, animate, requestRender })
       const right = Math.max(...projected.map(p => (p.x + 1) * rect.width / 2));
       const top = Math.min(...projected.map(p => (1 - p.y) * rect.height / 2));
       const bottom = Math.max(...projected.map(p => (1 - p.y) * rect.height / 2));
-      const button = document.querySelector(index ? '#sample-open-answers' : '#sample-open');
+      const button = document.querySelector(['#sample-open', '#sample-open-answers', '#sample-open-third'][index]);
       button.style.width = right - left + 'px'; button.style.height = bottom - top + 'px';
       button.style.transform = `translate(${left}px,${top}px)`;
     });

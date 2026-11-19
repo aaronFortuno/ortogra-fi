@@ -8,6 +8,7 @@ export async function createAtmosphere(scene, room, resources) {
   const garden = await resources.load(new URL('../assets/desk/garden.webp', import.meta.url).href, objectURL => new THREE.TextureLoader().loadAsync(objectURL));
   garden.colorSpace = THREE.SRGBColorSpace;
   const view = new THREE.Mesh(new THREE.PlaneGeometry(4.94, 3.33), new THREE.MeshBasicMaterial({ map: garden, toneMapped: false }));
+  const skyTint = { value: new THREE.Color(1, 1, 1) };
   view.position.z = -.27;
   window.add(view);
 
@@ -38,6 +39,7 @@ export async function createAtmosphere(scene, room, resources) {
   const branches = [];
   for (let branch = 0; branch < 3; branch++) {
     const group = new THREE.Group();
+    group.name = 'ExteriorBranch_' + branch;
     group.position.set(-1.8 + branch * 1.3, -1.76 + branch * .17, -.13);
     const points = [new THREE.Vector3(), new THREE.Vector3(.14, .6, 0), new THREE.Vector3(-.06, 1.25, .015), new THREE.Vector3(.24, 1.95, 0)];
     const stem = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 20, .009, 5, false), stemMaterial);
@@ -46,13 +48,14 @@ export async function createAtmosphere(scene, room, resources) {
     const leaves = [];
     for (let i = 0; i < 13; i++) {
       const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+      leaf.name = 'ExteriorLeaf_' + branch + '_' + i;
       const side = i % 2 ? 1 : -1;
       leaf.position.set(.08 + side * .16, .22 + i * .126, Math.sin(i * 2.7) * .025);
       leaf.rotation.set(Math.sin(i * 4.1) * .38, Math.cos(i * 1.7) * .5, side * -.8);
       leaf.scale.setScalar(.65 + (Math.sin(i * 2.3) + 1) * .18);
       leaf.castShadow = true;
       group.add(leaf);
-      leaves.push({ leaf, angle: leaf.rotation.z });
+      leaves.push({ leaf, home: leaf.rotation.clone() });
     }
     window.add(group);
     branches.push({ group, leaves, phase: branch * 2.1 });
@@ -77,6 +80,17 @@ export async function createAtmosphere(scene, room, resources) {
   let windowVisible = false, plantVisible = false;
   return {
     leafTexture,
+    setWeather(uniforms) {
+      view.material.onBeforeCompile = shader => {
+        Object.assign(shader.uniforms, uniforms, { deskSkyTint: skyTint });
+        shader.fragmentShader = 'uniform sampler2D deskCloudMap;\nuniform vec2 deskCloudDrift;\nuniform vec3 deskSkyTint;\n' + shader.fragmentShader;
+        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+          float sky = smoothstep(.56, .8, vMapUv.y) * smoothstep(.13, .36, vMapUv.x);
+          float cloud = smoothstep(.3, .7, texture2D(deskCloudMap, vMapUv * vec2(.7,.45) + deskCloudDrift * .6).r);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.81,.86,.94) * deskSkyTint, sky * cloud * .28);`);
+      };
+      view.material.customProgramCacheKey = () => 'garden-moving-sky-v1'; view.material.needsUpdate = true;
+    },
     visible(camera) {
       projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
       frustum.setFromProjectionMatrix(projection);
@@ -87,9 +101,14 @@ export async function createAtmosphere(scene, room, resources) {
     update(time) {
       const seconds = time / 1000;
       if (windowVisible) for (const { group, leaves, phase } of branches) {
-        group.rotation.z = Math.sin(seconds * .62 + phase) * .018 + Math.sin(seconds * .21 + phase) * .008;
+        const gustTime = (seconds - phase * .18 + 28) % 28;
+        const gust = gustTime < 5.5 ? Math.sin(Math.PI * gustTime / 5.5) ** 2 : 0;
+        group.rotation.z = Math.sin(seconds * .62 + phase) * (.045 + .065 * gust) + Math.sin(seconds * .21 + phase) * .018;
+        group.rotation.y = Math.sin(seconds * .41 + phase) * (.015 + .025 * gust);
         for (let i = 0; i < leaves.length; i++) {
-          leaves[i].leaf.rotation.z = leaves[i].angle + Math.sin(seconds * .86 + i * .63 + phase) * .035;
+          const { leaf, home } = leaves[i];
+          leaf.rotation.z = home.z + Math.sin(seconds * 1.16 + i * .63 + phase) * (.075 + .09 * gust);
+          leaf.rotation.y = home.y + Math.sin(seconds * 1.43 + i * .91 + phase) * (.035 + .045 * gust);
         }
       }
       if (plantVisible) for (const { mesh, home, phase, period } of indoor) {
@@ -103,6 +122,7 @@ export async function createAtmosphere(scene, room, resources) {
       const tint = new THREE.Color('#16243e').lerp(new THREE.Color('#f1f7ff'), state.day);
       tint.lerp(new THREE.Color('#f7cca1'), state.golden * .5);
       view.material.color.copy(tint);
+      skyTint.value.copy(tint);
       leafMaterial.color.setScalar(.14 + .86 * state.day);
       stemMaterial.color.set('#635b3d').multiplyScalar(.2 + .8 * state.day);
     },

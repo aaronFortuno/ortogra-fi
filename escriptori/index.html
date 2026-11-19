@@ -10,9 +10,9 @@
   <title>Escriptori beta · ortogra.fi</title>
   <script src="../theme.js?v=1.0.0"></script>
   <link rel="stylesheet" href="../styles.css?v=1.6.0">
-  <link rel="stylesheet" href="desk.css?v=1.10.0">
+  <link rel="stylesheet" href="desk.css?v=1.11.0">
   <script type="importmap">{"imports":{"three":"../assets/vendor/three/three.module.min.js"}}</script>
-  <script type="module" src="desk.js?v=1.10.0"></script>
+  <script type="module" src="desk.js?v=1.11.0"></script>
 </head>
 <body class="desk-page">
   <a class="skip-link" href="#projectes">Ves als projectes</a>
@@ -103,6 +103,7 @@
       <div class="open-binder">
         <button class="sample-hit" id="sample-open" type="button" aria-label="Amplia la mostra"><span class="sample-magnify"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 7.5v6m-3-3h6"/></svg></span></button>
         <button class="sample-hit" id="sample-open-answers" type="button" aria-label="Amplia el solucionari" hidden><span class="sample-magnify"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 7.5v6m-3-3h6"/></svg></span></button>
+        <button class="sample-hit" id="sample-open-third" type="button" aria-label="Examina la tercera maqueta" hidden><span class="sample-magnify"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 7.5v6m-3-3h6"/></svg></span></button>
         <button class="page-corner" id="page-corner-previous" type="button" aria-label="Passa a la mostra anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
         <button class="page-corner" id="page-corner-next" type="button" aria-label="Passa a la mostra següent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
         <div class="sample-page">
@@ -117,7 +118,7 @@
           <div class="project-summary"><p class="project-area" id="project-area"></p><h2 id="project-title"></h2><p class="project-purpose" id="project-purpose"></p><p id="project-description"></p><details id="project-credits" hidden><summary>Fonts de les maquetes</summary><p>Dades: <a href="https://www.icgc.cat/" target="_blank" rel="noopener noreferrer">ICGC</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a> · <a href="https://doi.org/10.5281/zenodo.7254221" target="_blank" rel="noopener noreferrer">ESA WorldCover</a> · Roca Foradada — Open Place Models contributors (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>) · <a href="https://www.catastro.hacienda.gob.es/webinspire/documentos/Licencia.pdf" target="_blank" rel="noopener noreferrer">Catastro</a> · <a href="https://relleu.ortogra.fi/" target="_blank" rel="noopener noreferrer">Relleu Obert</a></p><p>Mostres de Relleu Obert adaptades per a la visualització. Les fonts i les llicències es conserven amb els models.</p></details></div>
           <div class="sample-actions">
             <div class="sample-pager" role="group" aria-label="Exemples de material"><button type="button" id="sample-previous" aria-label="Mostra anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><span id="sample-counter" aria-live="polite"></span><button type="button" id="sample-next" aria-label="Mostra següent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
-            <div class="sample-inspect-actions"><button class="sample-inline" id="sample-open-inline" type="button">Amplia la fitxa</button><button class="sample-inline" id="sample-open-second" type="button">Amplia el segon full</button></div>
+            <div class="sample-inspect-actions"><button class="sample-inline" id="sample-open-inline" type="button">Amplia la fitxa</button><button class="sample-inline" id="sample-open-second" type="button">Amplia el segon full</button><button class="sample-inline" id="sample-open-third-inline" type="button" hidden>Examina la tercera maqueta</button></div>
             <a class="project-enter" id="project-enter" href="../"><span class="project-entry-name">Obre el projecte</span><span class="project-entry-short" aria-hidden="true">Obre l’eina</span></a>
           </div>
         </div>
