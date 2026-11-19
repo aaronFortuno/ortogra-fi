@@ -357,17 +357,24 @@ cylinder('LoosePencilWood', .001, .12, (0, 1.02, 0), wood, loose_pencil, bottom=
 cylinder('LoosePencilGraphite', .001, .026, (0, 1.09, 0), dark_metal, loose_pencil, bottom=.006)
 
 
-stapler = empty('DeskStapler', (-6.8, -.57, .55), room)
-stapler.rotation_euler.z = -.24
-stapler_plastic = material('StaplerEnamel', '#344c49', .34)
+stapler = empty('DeskStapler', (-6.83, -.58, .61), room)
+stapler.rotation_euler.z = -.61
+stapler_plastic = material('StaplerEnamel', '#415b55', .37)
 rubber = material('StationeryRubber', '#30312d', .91)
 box('StaplerFoot', (.38, .028, .91), (0, .014, 0), rubber, stapler, .022)
 box('StaplerBase', (.355, .045, .88), (0, .043, 0), stapler_plastic, stapler, .025)
 box('StaplerAnvil', (.22, .009, .15), (0, .07, .315), silver, stapler, .007)
 for x in [-.035, .035]:
     curve('StapleGroove', [(x - .018, .075, .29), (x, .075, .315), (x + .018, .075, .29)], .0014, dark_metal, stapler)
-box('StapleMagazine', (.225, .045, .64), (0, .102, -.035), silver, stapler, .008)
-profile = [(-.42, .11), (-.41, .205), (-.32, .25), (.18, .23), (.34, .18), (.35, .13)]
+magazine = box('StapleMagazine', (.254, .041, .68), (0, .152, .005), silver, stapler, .007)
+magazine.rotation_euler.x = -.115
+# The hinge is carried by two folded ears on the base. The steel nose sits
+# directly over the anvil, leaving daylight through the throat.
+for side in [-.119, .119]:
+    box('StaplerPivotEar', (.026, .11, .105), (side, .112, -.345), silver, stapler, .012)
+box('StaplerDriver', (.225, .052, .043), (0, .177, .324), silver, stapler, .004)
+profile = [(-.405, .134), (-.411, .206), (-.372, .246), (-.27, .271), (-.08, .294),
+           (.13, .305), (.26, .299), (.343, .279), (.365, .247), (.365, .211), (.30, .204)]
 vertices = [xyz((side, height, depth)) for side in [-.162, .162] for depth, height in profile]
 faces = [tuple(reversed(range(len(profile)))), tuple(range(len(profile), len(profile) * 2))]
 for i in range(len(profile)):
@@ -379,7 +386,11 @@ bevel.width = .018
 bevel.segments = 3
 bpy.context.view_layer.objects.active = upper
 bpy.ops.object.modifier_apply(modifier=bevel.name)
-hinge = cylinder('StaplerHinge', .026, .35, (0, .12, -.345), silver, stapler)
+# Preserve planar cheeks and the straight mould line along the handle.
+normal = upper.modifiers.new('Planar moulded faces', 'WEIGHTED_NORMAL')
+normal.keep_sharp = True
+bpy.ops.object.modifier_apply(modifier=normal.name)
+hinge = cylinder('StaplerHinge', .024, .348, (0, .15, -.345), silver, stapler)
 hinge.rotation_euler.y = math.pi / 2
 
 
@@ -397,16 +408,32 @@ def annulus(name, outer, inner, height, mat, parent, y=0):
     return mesh_object(name, vertices, faces, mat, parent)
 
 
-adhesive = material('AdhesiveFilm', '#d4bb79', .24)
-cardboard = material('TapeCardboard', '#be9c6e', .92)
-tape_roll = empty('DeskTapeRoll', (-5, -.578, .7), room)
+adhesive = material('AdhesiveFilm', '#d9c797', .32)
+cardboard = material('TapeCardboard', '#ab8b69', .94)
+tape_roll = empty('DeskTapeRoll', (-6.78, -.58, 1.87), room)
 tape_roll.rotation_euler.z = .3
-annulus('TapeRoll', .235, .145, .145, adhesive, tape_roll)
-annulus('TapeCore', .146, .125, .148, cardboard, tape_roll, -.001)
-vertices = [xyz((side, .139 + .017 * math.sin(i * math.pi / 7), .19 + i * .026))
-            for i in range(8) for side in [-.052, .052]]
+roll = annulus('TapeRoll', .235, .145, .145, adhesive, tape_roll)
+core = annulus('TapeCore', .146, .125, .148, cardboard, tape_roll, 0)
+for ring in [roll, core]:
+    # Split the end faces from the barrel. Smooth normals across this right
+    # angle made the reel look inflated and rounded the hole in the core.
+    for polygon in ring.data.polygons:
+        polygon.use_smooth = abs(polygon.normal.z) < .5
+    for edge in ring.data.edges:
+        a, b = [ring.data.vertices[index].co for index in edge.vertices]
+        edge.use_edge_sharp = abs(a.z - b.z) < .0001
+    mesh = ring.data
+    radial_uv = mesh.uv_layers.new(name='UVMap')
+    for polygon in mesh.polygons:
+        for loop in polygon.loop_indices:
+            point = mesh.vertices[mesh.loops[loop].vertex_index].co
+            radial_uv.data[loop].uv = (.5 + point.x, .5 + point.y)
+# The free strip peels off the outside barrel tangentially at full roll width.
+tail = material('TapeFreeFilm', '#ebe1c5', .24)
+vertices = [xyz((.235 - .05 * (i / 7) ** 2, h + .009 * math.sin(i * math.pi / 7), .032 * i))
+            for i in range(8) for h in [.003, .145]]
 faces = [(i * 2, i * 2 + 1, i * 2 + 3, i * 2 + 2) for i in range(7)]
-mesh_object('TapeLooseEnd', vertices, faces, adhesive, tape_roll)
+mesh_object('TapeLooseEnd', vertices, faces, tail, tape_roll)
 
 
 case_cloth = material('Cloth_PencilCase', '#51616c', .92)

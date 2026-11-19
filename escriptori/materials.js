@@ -84,6 +84,29 @@ export async function prepareMaterials(room, scene, renderer, resources) {
       material.metalness = 1;
       material.envMapIntensity = 1;
     }
+    if (source.name.startsWith('AdhesiveFilm')) {
+      material.onBeforeCompile = shader => {
+        shader.vertexShader = 'varying vec2 tapeUv;\n' + shader.vertexShader;
+        shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\ntapeUv = uv - .5;');
+        shader.fragmentShader = 'varying vec2 tapeUv;\n' + shader.fragmentShader;
+        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+          float radius = length(tapeUv);
+          float turns = radius * 380.0;
+          float detail = 1.0 - smoothstep(.15, .55, fwidth(turns));
+          float layers = detail * sin(turns * 6.283) * smoothstep(.001, .006, .235 - radius);
+          diffuseColor.rgb *= 1.0 + .065 * layers;`);
+        shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>',
+          '#include <roughnessmap_fragment>\nroughnessFactor += .15 * smoothstep(.001, .006, .235 - radius) + .03 * layers;');
+      };
+      material.customProgramCacheKey = () => 'wound-tape-v1';
+    }
+    if (source.name.startsWith('TapeFreeFilm')) {
+      material.transparent = true;
+      material.opacity = .37;
+      material.depthWrite = false;
+      material.side = THREE.DoubleSide;
+      material.forceSinglePass = true;
+    }
     // The baked map contains only static geometry; mobile binders retain real shadows.
     if (material.aoMap) material.aoMapIntensity = source.name.startsWith('Plaster') ? .85 : .95;
     cache.set(source, material);

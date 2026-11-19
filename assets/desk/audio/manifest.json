@@ -1,8 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "prepared": "2026-11-19",
   "format": "MP3",
-  "sampleRate": 44100,
   "review": {
     "licenseChecked": true,
     "waveformAndSpectrumChecked": true,
@@ -10,6 +9,21 @@
     "speech": "No speech is intended; source descriptions and spectrum were checked. Human listening remains pending."
   },
   "clips": [
+    {
+      "id": "playground",
+      "file": "playground.mp3",
+      "title": "Joc al pati",
+      "kind": "playground",
+      "creator": "ortogra.fi",
+      "source": "tools/prepare-desk-playground.py",
+      "sourceFormat": "Original procedural sound design, wordless calls and a bouncing ball",
+      "duration": 17,
+      "sampleRate": 32000,
+      "channels": 1,
+      "bitrateKbps": 64,
+      "bytes": 136845,
+      "sha256": "75213cffccfe2d63d077170e32d51c9f109ce094f976dbdb71bceace57a1a769"
+    },
     {
       "id": "wind-leaves",
       "file": "wind-leaves.mp3",
@@ -217,5 +231,5 @@
       "review": "human-listening-pending"
     }
   ],
-  "totalBytes": 903415
+  "totalBytes": 1040260
 }

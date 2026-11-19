@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
 import { DeskNavigation } from './navigation.js?v=1.11.0';
-import { createAtmosphere } from './atmosphere.js?v=1.13.0';
-import { prepareMaterials } from './materials.js?v=1.13.0';
+import { createAtmosphere } from './atmosphere.js?v=1.14.0';
+import { prepareMaterials } from './materials.js?v=1.14.0';
 import { createReadingPages } from './reading.js?v=1.11.0';
 import { createDaylight } from './daylight.js?v=1.13.0';
 import { createPaperView } from './paper-view.js?v=1.11.0';
@@ -24,7 +24,7 @@ const areas = {
 };
 const overview = { center: [-1.5, .12, .5], width: 9.3 };
 
-export async function createDesk({ canvas, projects, dark: initialDark, resources, onStage = () => {}, onLightingChange }) {
+export async function createDesk({ canvas, projects, dark: initialDark, resources, onStage = () => {}, onLightingChange, onWindowChange }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
   renderer.shadowMap.enabled = true;
@@ -74,7 +74,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   let darkTheme = initialDark, readingPower = 1, readingBlend = 0;
   const readingIntensity = () => (darkTheme ? 2.4 : 1.8) * 55 * readingPower;
 
-  const modelURL = new URL('../assets/desk/escriptori.glb?v=1.11.0', import.meta.url);
+  const modelURL = new URL('../assets/desk/escriptori.glb?v=1.14.0', import.meta.url);
   const modelBytes = await resources.buffer(modelURL.href);
   onStage(null, 'Preparant els arxivadors…');
   const asset = await new GLTFLoader().parseAsync(modelBytes, new URL('.', modelURL).href);
@@ -107,6 +107,36 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   const reliefs = createReliefs({ scene, camera, target: navigation.target, animate, requestRender, onMaterial: material => weather.prepare(material) });
   const outline = createHoverOutline(canvas.parentElement);
   const atmosphere = await createAtmosphere(scene, room, resources);
+  const windowButton = document.querySelector('#window-latch');
+  const sash = atmosphere.sash;
+  let windowOpen = false, windowTravel = 0;
+  function toggleWindow() {
+    if (active || presenting) return;
+    windowOpen = !windowOpen;
+    windowButton.setAttribute('aria-pressed', String(windowOpen));
+    windowButton.title = windowOpen ? 'Tanca la finestra' : 'Obre la finestra';
+    windowButton.setAttribute('aria-label', windowButton.title);
+    onWindowChange?.(windowOpen);
+    const from = windowTravel, to = Number(windowOpen);
+    animate('window', t => {
+      windowTravel = THREE.MathUtils.lerp(from, to, t);
+      atmosphere.setOpening(windowTravel);
+      renderer.shadowMap.needsUpdate = true;
+    }, 540);
+  }
+  windowButton.addEventListener('click', toggleWindow);
+  const windowRay = new THREE.Raycaster();
+  canvas.addEventListener('click', event => {
+    if (active || presenting) return;
+    const rect = canvas.getBoundingClientRect();
+    windowRay.setFromCamera(new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,
+      1-(event.clientY-rect.top)/rect.height*2), camera);
+    if (!windowRay.intersectObject(sash.window).length) return;
+    const first = windowRay.intersectObjects(scene.children)[0];
+    for (let node = first?.object; node; node = node.parent) {
+      if (node === sash.window) { toggleWindow(); break; }
+    }
+  });
   const wallSwitch = document.querySelector('#wall-light-switch');
   const switchNode = room.getObjectByName('RoomLightSwitch'), rocker = room.getObjectByName('SwitchRocker');
   wallSwitch.addEventListener('click', () => lighting.setRoomLight(canvas.dataset.roomLightOn !== 'true'));
@@ -243,6 +273,13 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     return { x: (projected.x + 1) * lastWidth / 2, y: (1 - projected.y) * lastHeight / 2, depth: projected.z };
   }
   function updateControls() {
+    const latch = projectPoint(sash.handle.getWorldPosition(new THREE.Vector3()));
+    windowButton.hidden = Boolean(active) || Math.abs(latch.depth) >= 1 ||
+      latch.x < 0 || latch.x > lastWidth || latch.y < 0 || latch.y > lastHeight;
+    if (!windowButton.hidden) {
+      windowButton.style.left = latch.x + 'px';
+      windowButton.style.top = latch.y + 'px';
+    }
     wallSwitch.hidden = Boolean(active) || !switchNode;
     if (!wallSwitch.hidden) {
       const corners = [[-.16, -.22], [.16, .22]].map(([x, y]) => switchNode.localToWorld(new THREE.Vector3(x, y, .09)));
@@ -520,6 +557,9 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     const fromRotation = camera.quaternion.clone();
     if (action === 'home') {
       ({ target, position } = initialView());
+    } else if (action === 'window') {
+      target.set(-8.04, 2.97, 1.7);
+      position.set(narrow.matches ? -.5 : -3.25, 2.25, narrow.matches ? 5.9 : 5.25);
     } else {
       navigation.look(action === 'left' ? .2 : action === 'right' ? -.2 : 0,
         action === 'up' ? .12 : action === 'down' ? -.12 : 0);

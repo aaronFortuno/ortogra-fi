@@ -19,6 +19,7 @@
 .wall-switch-target{position:absolute;z-index:1;padding:0;border:1px solid transparent;border-radius:3px;background:transparent;touch-action:none;transition:border-color 220ms,box-shadow 220ms;cursor:pointer}
 .wall-switch-target:hover,.wall-switch-target:focus-visible{border-color:#d7bf88;box-shadow:0 0 9px #e8cf9f66;outline:none}
 .workspace.is-reading .wall-switch-target{pointer-events:none;opacity:0}
+#window-latch{width:44px;height:44px;transform:translate(-50%,-50%);border-radius:50%}
 .beta-label{
   font-size:10px;
   letter-spacing:.07em;
@@ -393,6 +394,10 @@
     opacity:1;
     transform:translateY(0)
   }
+}
+@media(max-width:380px){
+  .desk-view-tools{gap:1px}
+  .desk-view-tools>span{display:none}
 }
 @media(max-width:700px){
   [data-area=Taula]{display:none}

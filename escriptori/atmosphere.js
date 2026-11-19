@@ -12,6 +12,8 @@ export async function createAtmosphere(scene, room, resources) {
   const skyTint = { value: new THREE.Color(1, 1, 1) };
   view.position.z = -.27;
   window.add(view);
+  const sash = createCasement(window);
+  let opening = 0;
 
   const leafGeometry = branchLeaf();
   const leafTexture = canopyTexture();
@@ -43,6 +45,12 @@ export async function createAtmosphere(scene, room, resources) {
   let windowVisible = false, plantVisible = false;
   return {
     leafTexture,
+    sash,
+    setOpening(value) {
+      opening = value;
+      sash.pivot.rotation.y = value * 1.02;
+      sash.handle.rotation.z = -Math.min(1, value * 4) * Math.PI / 2;
+    },
     // xyz = opening centre in the room; w = squared radius of an equal-area disc.
     windowOpening: new THREE.Vector4(window.position.x, window.position.y, window.position.z,
       view.geometry.parameters.width * view.geometry.parameters.height / Math.PI),
@@ -67,9 +75,9 @@ export async function createAtmosphere(scene, room, resources) {
     update(time) {
       const seconds = time / 1000;
       if (windowVisible) for (const { group, leaves, phase } of branches) {
-        const gustTime = (seconds - phase * .18 + 28) % 28;
-        const gust = gustTime < 5.5 ? Math.sin(Math.PI * gustTime / 5.5) ** 2 : 0;
-        group.rotation.z = Math.sin(seconds * .62 + phase) * (.045 + .065 * gust) + Math.sin(seconds * .21 + phase) * .018;
+        const gustTime = (seconds + 2.4 - phase * .18 + 21) % 21;
+        const gust = gustTime < 6 ? Math.sin(Math.PI * gustTime / 6) ** 2 : 0;
+        group.rotation.z = Math.sin(seconds * .72 + phase * .36) * (.053 + .083 * gust) + Math.sin(seconds * .21 + phase) * .019;
         group.rotation.y = Math.sin(seconds * .41 + phase) * (.015 + .025 * gust);
         for (let i = 0; i < leaves.length; i++) {
           const { leaf, home } = leaves[i];
@@ -80,7 +88,8 @@ export async function createAtmosphere(scene, room, resources) {
       if (plantVisible) for (const { mesh, home, phase, period } of indoor) {
         const moment = (seconds + phase) % period;
         const envelope = moment < 3.4 ? Math.sin(Math.PI * moment / 3.4) ** 2 : 0;
-        sway.setFromAxisAngle(swayAxis, Math.sin(moment * 3.3 + phase) * envelope * .035 + Math.sin(seconds * .23 + phase) * .002);
+        const draught = opening * (.015 + .025 * Math.sin(seconds * .52 - phase * .06));
+        sway.setFromAxisAngle(swayAxis, Math.sin(moment * 3.3 + phase) * envelope * (.046 + opening * .035) + Math.sin(seconds * .31 + phase) * .006 + draught);
         mesh.quaternion.copy(home).multiply(sway);
       }
     },
@@ -93,6 +102,32 @@ export async function createAtmosphere(scene, room, resources) {
       stemMaterial.color.set('#634f34').multiplyScalar(.2 + .8 * state.day);
     },
   };
+}
+
+function createCasement(window) {
+  const pivot = new THREE.Group();
+  pivot.position.set(2.405, 0, .19);
+  window.add(pivot);
+  function rails(parts, color, roughness, metalness) {
+    const boxes = parts.map(([w,h,d,x,y,z]) => new THREE.BoxGeometry(w,h,d).translate(x,y,z));
+    const mesh = new THREE.Mesh(mergeGeometries(boxes), new THREE.MeshStandardMaterial({ color, roughness, metalness }));
+    boxes.forEach(box => box.dispose());
+    mesh.castShadow = mesh.receiveShadow = true;
+    return mesh;
+  }
+  const width = 2.34, height = 3.19, edge = .075;
+  const frame = rails([[edge,height,.085,0,0,0],[edge,height,.085,-width,0,0],
+    [width-edge,edge,.085,-width/2,(height-edge)/2,0],[width-edge,edge,.085,-width/2,-(height-edge)/2,0]],
+    '#b4a98c', .62, .06);
+  const pane = new THREE.Mesh(new THREE.PlaneGeometry(width-edge,height-2*edge),
+    new THREE.MeshStandardMaterial({ color:'#d7e4e4', roughness:.16, transparent:true,
+      opacity:.075, depthWrite:false, side:THREE.DoubleSide, forceSinglePass:true }));
+  pane.position.x = -width/2;
+  const handle = rails([[.075,.075,.115,0,0,.052],[.047,.205,.045,0,-.085,.116]],
+    '#645d4e', .34, .66);
+  handle.position.set(-width,.01,.045);
+  pivot.add(frame,pane,handle);
+  return { pivot, handle, pane, window };
 }
 
 // The narrow first section is the petiole. Its end stays on the sampled twig

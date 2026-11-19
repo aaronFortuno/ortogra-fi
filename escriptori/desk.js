@@ -1,7 +1,7 @@
 import { createSampleBrowser } from './samples.js?v=1.11.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.6.0';
 import { createLightControls } from './light-controls.js?v=1.11.0';
-import { createAmbientAudio } from './ambient-audio.js?v=1.11.0';
+import { createAmbientAudio } from './ambient-audio.js?v=1.14.0';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -121,7 +121,7 @@ async function loadProjects() {
   if (about) {
     const credits = document.createElement('p');
     credits.className = 'ambient-credits';
-    credits.innerHTML = 'So ambient: <a href="https://freesound.org/people/ecfike/sounds/183496/" target="_blank" rel="noopener noreferrer">ecfike</a>, <a href="https://freesound.org/people/ValentinPetiteau/sounds/563547/" target="_blank" rel="noopener noreferrer">ValentinPetiteau</a>, <a href="https://freesound.org/people/WhisperingEarth/sounds/798842/" target="_blank" rel="noopener noreferrer">WhisperingEarth</a> i <a href="https://freesound.org/people/TSP-Talk/sounds/846301/" target="_blank" rel="noopener noreferrer">TSP-Talk</a> · <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener noreferrer">CC0</a>.';
+    credits.innerHTML = 'Enregistraments d’ambient de <a href="https://freesound.org/people/ecfike/sounds/183496/" target="_blank" rel="noopener noreferrer">ecfike</a>, <a href="https://freesound.org/people/ValentinPetiteau/sounds/563547/" target="_blank" rel="noopener noreferrer">ValentinPetiteau</a>, <a href="https://freesound.org/people/WhisperingEarth/sounds/798842/" target="_blank" rel="noopener noreferrer">WhisperingEarth</a> i <a href="https://freesound.org/people/TSP-Talk/sounds/846301/" target="_blank" rel="noopener noreferrer">TSP-Talk</a> · <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener noreferrer">CC0</a>. Ambient de pati recreat per ortogra.fi.';
     (about.querySelector('.credits') || about.querySelector('.dialog-content') || about).append(credits);
     about.querySelectorAll('[src],[href]').forEach(element => {
       for (const attribute of ['src', 'href']) {
@@ -279,7 +279,7 @@ async function start() {
   try {
     loading.update(0, 'Preparant l’escriptori…');
     const [manifest] = await Promise.all([
-      fetch(new URL('assets/desk/loading.json?v=1.13.0', base)).then(response => {
+      fetch(new URL('assets/desk/loading.json?v=1.14.0', base)).then(response => {
         if (!response.ok) throw new Error('No s’ha pogut carregar el pla de recursos.');
         return response.json();
       }),
@@ -287,7 +287,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.13.0');
+    const { createDesk } = await import('./scene.js?v=1.14.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({
@@ -296,12 +296,15 @@ async function start() {
       resources,
       onStage: (percent, label) => loading.update(percent ?? 0, label),
       onLightingChange: lightControls.update,
+      onWindowChange: ambience.setWindow,
     });
     status.textContent = '';
     workspace.dataset.ready = 'true';
     workspace.setAttribute('aria-busy', 'false');
-    for (const element of [controls, document.querySelector('#wall-light-switch'), document.querySelector('.desk-view-tools'), document.querySelector('.mobile-areas')]) element.inert = false;
+    for (const element of [controls, document.querySelector('#wall-light-switch'), document.querySelector('#window-latch'), document.querySelector('.desk-view-tools'), document.querySelector('.mobile-areas')]) element.inert = false;
+    ambience.start();
     loading.finish();
+    if (new URLSearchParams(location.search).get('vista') === 'finestra') scene.moveView('window');
     document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
       if (!busy && !selected) scene.moveView(button.dataset.view);
     }));

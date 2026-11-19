@@ -2,6 +2,16 @@
 
 Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Finestra, ambient i material de taula · 1.14
+
+La maneta i el vidre obren una fulla practicable. La claror arriba pel mateix buit tant amb el vidre tancat com obert. Les branques a fora comparteixen la fase de la ràfega i l’obertura de la fulla augmenta el moviment del potos a dins. El cicle ambiental continua limitat a 24 Hz i les ombres de la vegetació a 4 Hz. Amb moviment reduït la finestra passa directament a la posició final.
+
+L’ambient comença tan aviat com el navegador permet la reproducció. El silenci es recorda. El filtre del vidre passa progressivament de 1.500 a 7.200 Hz en obrir i el guany de la mescla passa de 0,24 a 0,42. La lectura multiplica el nivell per 0,43. El vent s’encadena i les entrades d’ocells, del vehicle i del pati tenen pauses variables. El fragment de pati és una recreació original de 17 segons amb crides de joc i bots de pilota. Els sis MP3 es carreguen quan pot començar l’àudio i ocupen 1.040.260 bytes.
+
+La cinta es guarda a l’esquerra de Plec, al costat de la grapadora. El rodet té cares planes, capes concèntriques i una punta translúcida que surt tangent a la bobina. La grapadora té dues orelles de suport a la frontissa, guia metàl·lica inclinada, boca alineada amb l’enclusa i espai lliure per al paper. S’ha recalculat l’oclusió ambiental estàtica amb els objectes al seu lloc.
+
+Respecte de `598ff68`, el manifest passa de 10.416.185 a 10.446.713 bytes, repartits en 16 recursos. A la vista general es mesuren 186 crides de dibuix, 79.473 triangles i 32 textures. A l’enquadrament de la finestra les crides passen de 67 a 70. Les captures i el clip local són a `output/desk/finestra-pati/`. La comprovació de recorregut mostreja 81 posicions per arxivador i hi troba separació amb la cinta en totes cinc trajectòries.
+
 ## Tela i llum de finestra · 1.13
 
 La referència d’aquesta passada és `fe44a97`. La tela dels lloms i de la capsa utilitza els escaneigs originals de Book Pattern. El tint de la coberta queda visible entre els fils. La trama és més fina, el relleu de la normal és més suau i la rugositat mínima és més alta. Les transformacions estan registrades a `assets/desk/pbr/sources.json`. Els dos WebP junts ocupen 58.730 bytes menys. El manifest inicial suma 10.416.185 bytes en 16 recursos.

@@ -1,6 +1,6 @@
 # Ambient exterior de l’escriptori
 
-Cinc fragments d’enregistraments de camp reals, preparats el 19 de novembre de 2026. Tots els fitxers són **CC0 1.0**, segons la llicència comprovada a la pàgina concreta de cada enregistrament. No s’hi han afegit veus, música ni cap capa sintetitzada.
+Els cinc fragments de camp provenen d’enregistraments CC0. El pati és una recreació pròpia amb crides sense paraules i bots de pilota. Tots sis fragments se serveixen des d’ortogra.fi.
 
 | Fitxer | Contingut | Durada descodificada | Canals | Pes |
 | --- | --- | ---: | ---: | ---: |
@@ -8,9 +8,10 @@ Cinc fragments d’enregistraments de camp reals, preparats el 19 de novembre de
 | `birds-park-a.mp3` | Primera frase d’ocells de parc | 7,4 s | Mono | 89.857 B |
 | `birds-park-b.mp3` | Una altra frase del mateix parc | 7,4 s | Mono | 89.856 B |
 | `birds-garden.mp3` | Ocells de jardí | 7,4 s | Mono | 89.839 B |
-| `distant-car.mp3` | Pas d’un cotxe enregistrat a uns 20 m | 10 s | Mono | 120.855 B |
+| `distant-car.mp3` | Pas d'un cotxe enregistrat a uns 20 m | 10 s | Mono | 120.855 B |
+| `playground.mp3` | Crides de joc i bots de pilota | 17 s | Mono | 136.845 B |
 
-**Total dels cinc MP3: 903.415 bytes, aproximadament 882 KiB.** Tots a 44.100 Hz; vent a 128 kbit/s, fragments puntuals a 96 kbit/s.
+**Total dels sis MP3 · 1.040.260 bytes.** Els cinc enregistraments de camp sumen 903.415 bytes a 44.100 Hz. El pati es genera amb `tools/prepare-desk-playground.py` a 32.000 Hz i es codifica a 64 kbit/s. Només entra amb llum de dia. El filtre de la finestra canvia progressivament entre 1,5 i 7,2 kHz.
 
 ## Fonts i llicències
 

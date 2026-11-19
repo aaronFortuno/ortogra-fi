@@ -10,9 +10,9 @@
   <title>Escriptori beta · ortogra.fi</title>
   <script src="../theme.js?v=1.0.0"></script>
   <link rel="stylesheet" href="../styles.css?v=1.6.0">
-  <link rel="stylesheet" href="desk.css?v=1.11.0">
+  <link rel="stylesheet" href="desk.css?v=1.14.0">
   <script type="importmap">{"imports":{"three":"../assets/vendor/three/three.module.min.js"}}</script>
-  <script type="module" src="desk.js?v=1.13.0"></script>
+  <script type="module" src="desk.js?v=1.14.0"></script>
 </head>
 <body class="desk-page">
   <a class="skip-link" href="#projectes">Ves als projectes</a>
@@ -26,7 +26,7 @@
         <p class="header-note">Escriptori <span class="beta-label">beta</span></p>
       </div>
       <div class="desk-actions">
-        <button class="icon-button" id="ambient-toggle" type="button" aria-label="Activa el so ambient" aria-pressed="false" title="Activa el so ambient">
+        <button class="icon-button" id="ambient-toggle" type="button" aria-label="Apaga el so ambient" aria-pressed="true" title="Apaga el so ambient">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 5-6 4H2v6h3l6 4Z"/><path class="ambient-waves" d="M15.5 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"/><path class="ambient-muted" d="m16 9 6 6m0-6-6 6"/></svg>
         </button>
         <span id="ambient-status" class="sr-label" role="status"></span>
@@ -46,6 +46,7 @@
       <div class="desk-intro"><h1>Les eines, a mà<span>.</span></h1><p>Tria una eina i obre-la damunt la taula.</p></div>
       <canvas id="desk-canvas" aria-hidden="true"></canvas>
       <div id="shelf-controls" inert></div>
+      <button id="window-latch" class="wall-switch-target" type="button" aria-label="Obre la finestra" title="Obre la finestra" aria-pressed="false" hidden inert></button>
       <button id="wall-light-switch" class="wall-switch-target" type="button" aria-label="Apaga el llum de la sala" aria-pressed="true" hidden inert></button>
       <div id="desk-loading" class="desk-loading" style="--loaded:0">
         <div class="loading-meter" role="progressbar" aria-label="Càrrega de l’escriptori" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -67,7 +68,8 @@
         <button type="button" data-view="out" aria-label="Allunya la mirada" title="Allunya la mirada"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
         <span aria-hidden="true"></span>
         <button type="button" id="room-light-toggle" aria-label="Apaga el llum de la sala" aria-pressed="true" title="Apaga el llum de la sala"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6m-5 3h4M9 15v-1a6 6 0 1 1 6 0v1"/><path class="bulb-rays" d="M12 1v1M3 10H1m22 0h-2M4 3l1 1m15-1-1 1"/><path class="bulb-slash" d="m3 3 18 18"/></svg></button>
-        <button type="button" id="light-toggle" popovertarget="light-panel" aria-label="Ajusta la llum de l’escriptori" title="Llum segons l’hora del dia"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
+        <button type="button" data-view="window" aria-label="Mira la finestra" title="Mira la finestra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM12 4v16M6 17V7l5-2v14z"/></svg></button>
+        <button type="button" id="light-toggle" popovertarget="light-panel" aria-label="Ajusta la llum de l'escriptori" title="Llum segons l'hora del dia"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
       </div>
       <div id="light-panel" class="light-panel" popover>
         <div class="light-heading"><h2>Llum de l’escriptori</h2><button type="button" class="light-close" aria-label="Tanca els ajustos de llum"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
