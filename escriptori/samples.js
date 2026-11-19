@@ -7,14 +7,15 @@ export function createSampleBrowser({ getScene, track }) {
   const next = document.querySelector('#sample-next');
   const previousCorner = document.querySelector('#page-corner-previous');
   const nextCorner = document.querySelector('#page-corner-next');
+  const inspectionPrevious = document.querySelector('#inspection-previous'), inspectionNext = document.querySelector('#inspection-next');
   let project, inspecting = false, busy = false, previousFocus, drag, suppressClick = false, touchReturn;
 
   function update() {
     const { index, count, pages, paired } = getScene().sampleInfo();
     document.querySelector('#sample-counter').textContent = `${index + 1} / ${count}`;
     document.querySelector('#sample-counter').title = project.examples[index].title;
-    for (const button of [previous, previousCorner]) button.disabled = busy || index === 0;
-    for (const button of [next, nextCorner]) button.disabled = busy || index === count - 1;
+    for (const button of [previous, previousCorner, inspectionPrevious]) button.disabled = busy || index === 0;
+    for (const button of [next, nextCorner, inspectionNext]) button.disabled = busy || index === count - 1;
     document.querySelector('#sample-open-inline').textContent = paired ? 'Amplia la fitxa' : 'Amplia el primer full';
     const second = document.querySelector('#sample-open-second');
     second.textContent = paired ? 'Amplia el solucionari' : 'Amplia el segon full'; second.hidden = !pages[1];
@@ -33,13 +34,14 @@ export function createSampleBrowser({ getScene, track }) {
     const isRelief = Boolean(sample.modelId);
     detail.dataset.inspectionKind = isRelief ? 'relief' : 'paper';
     detail.querySelector('#relief-controls').hidden = !isRelief;
-    detail.querySelector('.inspection-hint').textContent = isRelief ? 'Arrossega per girar · Roda per acostar · Clic per tornar' : 'Mou el ratolí o arrossega · Clic per tornar';
-    inspection.setAttribute('aria-label', isRelief ? 'Maqueta 3D. Arrossega per girar, utilitza la roda o els botons per acostar-te. Fes clic o prem Escape per tornar a la caixa.' : 'Full ampliat. Mou el ratolí o arrossega per recórrer el full. Fes clic o prem Escape per tornar a l’arxivador.');
+    detail.querySelector('#inspection-pager').hidden = isRelief;
+    detail.querySelector('.inspection-hint').textContent = isRelief ? 'Arrossega per girar · Roda per acostar · Clic per tornar' : 'Roda per desplaçar · ← → per passar pàgina · Clic per tornar';
+    inspection.setAttribute('aria-label', isRelief ? 'Maqueta 3D. Arrossega per girar, utilitza la roda o els botons per acostar-te. Fes clic o prem Escape per tornar a la caixa.' : 'Full ampliat. Roda o arrossega per recórrer el full. Fletxes esquerra i dreta per passar pàgina. Fes clic o prem Escape per tornar a l’arxivador.');
     document.querySelector('#inspection-title').textContent = sample.title;
     download.hidden = !sample.pdf;
     if (sample.pdf) download.href = sample.pdf; else download.removeAttribute('href');
     await getScene().inspectSheet(index);
-    inspection.focus({ preventScroll: true }); busy = false;
+    inspection.focus({ preventScroll: true }); busy = false; update();
     track('amplia_mostra_escriptori', { projecte: project.id });
   }
   async function closeInspection() {
@@ -51,19 +53,25 @@ export function createSampleBrowser({ getScene, track }) {
     previousFocus?.focus({ preventScroll: true }); update();
   }
   async function step(direction) {
-    if (busy || inspecting) return;
+    if (busy || (inspecting && getScene().inspectionInfo().kind === 'relief')) return;
     const { index, count } = getScene().sampleInfo();
     const destination = index + direction;
     if (destination < 0 || destination >= count) return;
     busy = true; update();
     await getScene().setSample(destination);
+    if (inspecting) {
+      const sample = getScene().sampleInfo().pages[getScene().inspectionInfo().index];
+      document.querySelector('#inspection-title').textContent = sample.title;
+      download.hidden = !sample.pdf;
+      if (sample.pdf) download.href = sample.pdf; else download.removeAttribute('href');
+    }
     busy = false; update();
     track('passa_mostra_escriptori', { projecte: project.id, mostra: destination + 1 });
   }
   for (const [id, index] of [['sample-open', 0], ['sample-open-answers', 1], ['sample-open-inline', 0], ['sample-open-second', 1]]) {
     document.getElementById(id).addEventListener('click', () => show(index));
   }
-  for (const [button, direction] of [[previous, -1], [next, 1], [previousCorner, -1], [nextCorner, 1]]) {
+  for (const [button, direction] of [[previous, -1], [next, 1], [previousCorner, -1], [nextCorner, 1], [inspectionPrevious, -1], [inspectionNext, 1]]) {
     button.addEventListener('click', () => step(direction));
   }
   for (const [button, direction] of [[previousCorner, -1], [nextCorner, 1]]) {
@@ -91,10 +99,6 @@ export function createSampleBrowser({ getScene, track }) {
         else getScene().panInspection(drag.panX - dx * 3 / rect.width, drag.panY + dy * 3 / rect.height);
       }
       drag.lastX = event.clientX; drag.lastY = event.clientY;
-    } else if (event.pointerType === 'mouse' || event.pointerType === 'pen') {
-      if (getScene().inspectionInfo().kind === 'relief') return;
-      const edge = value => Math.abs(value) < .2 ? 0 : Math.sign(value) * Math.min(1, (Math.abs(value) - .2) / .65);
-      getScene().panInspection(edge((event.clientX - rect.left) / rect.width * 2 - 1), edge(1 - (event.clientY - rect.top) / rect.height * 2));
     }
   });
   inspection.addEventListener('pointerup', event => {
@@ -128,7 +132,8 @@ export function createSampleBrowser({ getScene, track }) {
       const x = event.key === 'ArrowLeft' ? -50 : event.key === 'ArrowRight' ? 50 : 0;
       const y = event.key === 'ArrowUp' ? -50 : event.key === 'ArrowDown' ? 50 : 0;
       if (getScene().inspectionInfo().kind === 'relief') getScene().orbitInspection(x, y);
-      else getScene().scrollInspection(x * 2, y * 2);
+      else if (x) step(x < 0 ? -1 : 1);
+      else getScene().scrollInspection(0, y * 2);
     } else if (!inspecting && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
       event.preventDefault(); step(event.key === 'ArrowLeft' ? -1 : 1);
     }

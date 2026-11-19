@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 import sys
 import time
+import struct
+import zlib
 import xml.parsers.expat
 import zipfile
 
@@ -130,24 +132,58 @@ def material(properties):
     return mat
 
 
-def surface_preview(source_instances, palettes, normalise, width, depth):
-    """Sample the actual highest coloured 3MF surfaces into a closed preview.
+def write_colour_png(path, labels, colours, resolution):
+    """Encode original sRGB palette bytes without another colour conversion."""
+    palette = [bytes.fromhex(properties['displaycolor'][1:7]) for properties in colours]
+    scanlines = bytearray()
+    # Source rows increase northwards; PNG rows start at the top of the image.
+    for row in range(resolution - 1, -1, -1):
+        scanlines.append(0)
+        for column in range(resolution):
+            scanlines.extend(palette[labels[row * resolution + column]])
+    def chunk(kind, data):
+        return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
+    data = b'\x89PNG\r\n\x1a\n'
+    data += chunk(b'IHDR', struct.pack('>IIBBBBB', resolution, resolution, 8, 2, 0, 0, 0))
+    data += chunk(b'sRGB', b'\x00')
+    data += chunk(b'IDAT', zlib.compress(scanlines, 9)) + chunk(b'IEND', b'')
+    path.write_bytes(data)
 
-    The original vegetation consists of very many tiny solids. Resampling makes
-    rendering cost predictable and preserves the macro relief/colour footprint,
-    without claiming to retain overhangs or fine printable topology.
+
+def surface_material(image_path):
+    mat = material({'name': 'Original surface colours', 'displaycolor': '#FFFFFFFF'})
+    nodes = mat.node_tree.nodes
+    image = bpy.data.images.load(str(image_path), check_existing=False)
+    image.colorspace_settings.name = 'sRGB'
+    image.pack()
+    texture = nodes.new('ShaderNodeTexImage')
+    texture.image = image
+    texture.interpolation = 'Linear'
+    texture.extension = 'EXTEND'
+    mat.node_tree.links.new(texture.outputs['Color'], nodes.get('Principled BSDF').inputs['Base Color'])
+    return mat
+
+
+def surface_preview(identifier, source_instances, palettes, normalise, width, depth, height):
+    """Separate geometric detail from the original surface colour footprint.
+
+    Geometry has 192x192 cells and shared normals; a 512px source-sampled colour
+    map keeps coastlines, paths and vegetation independent of triangle edges.
+    Fine printable topology and overhangs are intentionally not reconstructed.
     """
-    nx = nz = 128
+    nx = nz = 192
+    colour_resolution = 512
     stride = nx + 1
     vertices_count = (nx + 1) * (nz + 1)
     heights = array('f', [-math.inf]) * vertices_count
-    labels = array('B', [0]) * vertices_count
-    centre_heights = array('f', [-math.inf]) * (nx * nz)
-    centre_labels = array('B', [0]) * (nx * nz)
+    colour_heights = array('f', [-math.inf]) * (colour_resolution * colour_resolution)
+    colour_labels = array('B', [0]) * (colour_resolution * colour_resolution)
     material_values, material_indices = [], {}
     part_records = []
     original_triangles = 0
     downward = Vector((0, 0, -1))
+    ray_top = height + max(width, depth)
+    ray_length = height + 2 * max(width, depth)
     for source, transform in source_instances:
         started = time.perf_counter()
         key = (source['pid'], source.get('pindex', '0'))
@@ -171,33 +207,38 @@ def surface_preview(source_instances, palettes, normalise, width, depth):
             for column in range(nx + 1):
                 x = (column / nx - .5) * width
                 sample_x = max(-width / 2 + 1e-7, min(width / 2 - 1e-7, x))
-                point, _, _, _ = tree.ray_cast(Vector((sample_x, sample_y, 2)), downward, 3)
+                point, _, _, _ = tree.ray_cast(Vector((sample_x, sample_y, ray_top)), downward, ray_length)
                 index = row * stride + column
-                if point is not None and point.z >= heights[index] - 1e-7:
-                    heights[index] = point.z; labels[index] = colour_index
-        for row in range(nz):
-            for column in range(nx):
-                point, _, _, _ = tree.ray_cast(Vector((((column + .5) / nx - .5) * width, ((row + .5) / nz - .5) * depth, 2)), downward, 3)
-                index = row * nx + column
-                if point is not None and point.z >= centre_heights[index] - 1e-7:
-                    centre_heights[index] = point.z; centre_labels[index] = colour_index
-        part_records.append({'name': source.get('name', source['id']), 'color': material_values[colour_index]['displaycolor'], 'sourceTriangles': face_count, 'materialIndex': colour_index})
+                if point is not None and point.z > heights[index]:
+                    heights[index] = point.z
+        for row in range(colour_resolution):
+            y = ((row + .5) / colour_resolution - .5) * depth
+            for column in range(colour_resolution):
+                x = ((column + .5) / colour_resolution - .5) * width
+                point, _, _, _ = tree.ray_cast(Vector((x, y, ray_top)), downward, ray_length)
+                index = row * colour_resolution + column
+                if point is not None and point.z >= colour_heights[index] - 1e-7:
+                    colour_heights[index] = point.z; colour_labels[index] = colour_index
+        part_records.append({'name': source.get('name', source['id']), 'color': material_values[colour_index]['displaycolor'], 'sourceTriangles': face_count, 'sourceMaterialIndex': colour_index})
         del tree
         gc.collect()
         print(f"  Sampled {source.get('name', source['id'])}: {face_count:,} source triangles ({time.perf_counter() - started:.1f}s)", flush=True)
     missing = sum(not math.isfinite(height) for height in heights)
-    if missing:
-        raise ValueError(f'{missing} surface samples had no source geometry')
+    missing_colour = sum(not math.isfinite(height) for height in colour_heights)
+    if missing or missing_colour:
+        raise ValueError(f'{missing} height / {missing_colour} colour samples had no source geometry')
     vertices = [((column / nx - .5) * width, (row / nz - .5) * depth, heights[row * stride + column]) for row in range(nz + 1) for column in range(nx + 1)]
     faces, face_materials, smooth = [], [], []
     for row in range(nz):
         for column in range(nx):
             a = row * stride + column
-            faces.extend(((a, a + 1, a + stride + 1), (a, a + stride + 1, a + stride)))
-            colour = centre_labels[row * nx + column]
-            face_materials.extend((colour, colour)); smooth.extend((True, True))
-    # Duplicate the perimeter for hard top/base edges, while top normals remain
-    # shared. Walls and the underside close the model at the original base.
+            # Alternate the diagonal to avoid one visually dominant grid direction.
+            if (row + column) % 2:
+                faces.extend(((a, a + 1, a + stride), (a + 1, a + stride + 1, a + stride)))
+            else:
+                faces.extend(((a, a + 1, a + stride + 1), (a, a + stride + 1, a + stride)))
+            face_materials.extend((0, 0)); smooth.extend((True, True))
+    # Hard base/side edges have separate vertices; the top surface shares normals.
     boundaries = [
         [column for column in range(nx, -1, -1)],
         [row * stride for row in range(nz + 1)],
@@ -212,25 +253,32 @@ def surface_preview(source_instances, palettes, normalise, width, depth):
         for index in range(len(boundary) - 1):
             a = wall_start + index * 2
             faces.extend(((a, a + 3, a + 1), (a, a + 2, a + 3)))
-            face_materials.extend((0, 0)); smooth.extend((False, False))
+            face_materials.extend((1, 1)); smooth.extend((False, False))
     bottom = len(vertices)
     vertices.extend(((-width / 2, -depth / 2, 0), (-width / 2, depth / 2, 0), (width / 2, depth / 2, 0), (width / 2, -depth / 2, 0)))
     faces.extend(((bottom, bottom + 1, bottom + 2), (bottom, bottom + 2, bottom + 3)))
-    face_materials.extend((0, 0)); smooth.extend((False, False))
-    mesh = bpy.data.meshes.new('Resampled relief surface')
+    face_materials.extend((1, 1)); smooth.extend((False, False))
+    mesh = bpy.data.meshes.new('Source relief preview')
     mesh.from_pydata(vertices, [], faces)
     if mesh.validate(verbose=True):
         raise ValueError('The reconstructed surface required geometry repairs')
     mesh.update()
-    for properties in material_values:
-        mesh.materials.append(material(properties))
+    image_path = WORK / (identifier + '-source-colours.png')
+    write_colour_png(image_path, colour_labels, material_values, colour_resolution)
+    mesh.materials.append(surface_material(image_path))
+    base_properties = {**material_values[0], 'name': 'Relief base and sides'}
+    mesh.materials.append(material(base_properties))
+    uv = mesh.uv_layers.new(name='SourceSurfaceUV')
     for index, polygon in enumerate(mesh.polygons):
         polygon.material_index = face_materials[index]
         polygon.use_smooth = smooth[index]
+        for loop_index in polygon.loop_indices:
+            coordinate = mesh.vertices[mesh.loops[loop_index].vertex_index].co
+            uv.data[loop_index].uv = (coordinate.x / width + .5, coordinate.y / depth + .5)
     obj = bpy.data.objects.new('Preview surface', mesh)
     bpy.context.collection.objects.link(obj)
     for record in part_records:
-        record['triangles'] = face_materials.count(record['materialIndex'])
+        record['texturePixels'] = colour_labels.count(record['sourceMaterialIndex'])
     obj.data.calc_loop_triangles()
     return obj, part_records, original_triangles, len(obj.data.loop_triangles), max(heights), missing
 
@@ -312,7 +360,7 @@ def build(identifier, title):
     normalise = Matrix.Diagonal((scale, scale, scale, 1)) @ Matrix.Translation(-origin)
     root = bpy.data.objects.new(title, None)
     bpy.context.collection.objects.link(root)
-    obj, parts, original_triangles, triangles, sampled_height, missing = surface_preview(source_instances, palettes, normalise, dimensions.x * scale, dimensions.y * scale)
+    obj, parts, original_triangles, triangles, sampled_height, missing = surface_preview(identifier, source_instances, palettes, normalise, dimensions.x * scale, dimensions.y * scale, dimensions.z * scale)
     obj.parent = root
     root['source'] = path.name
     root['source_units'] = 'millimeter'
@@ -325,18 +373,19 @@ def build(identifier, title):
     destination = DESTINATION / (identifier + '.glb')
     bpy.ops.export_scene.gltf(filepath=str(destination), export_format='GLB', use_selection=True,
                               export_animations=False, export_cameras=False, export_lights=False,
-                              export_yup=True, export_normals=True, export_texcoords=False,
+                              export_yup=True, export_normals=True, export_texcoords=True,
                               export_attributes=False, export_extras=True)
     record = {
         'id': identifier, 'title': title, 'url': destination.name,
         'width': round(dimensions.x * scale, 7), 'height': round(sampled_height, 7), 'depth': round(dimensions.y * scale, 7),
         'triangles': triangles, 'sourceTriangles': original_triangles, 'bytes': destination.stat().st_size,
+        'sha256': hashlib.sha256(destination.read_bytes()).hexdigest(),
         'source': path.name, 'sourceSHA256': hashlib.sha256(path.read_bytes()).hexdigest(),
         'sourceSizeMM': [round(value, 6) for value in dimensions], 'normalisationScale': scale,
         'parts': parts, 'provenance': provenance_summary(provenance),
-        'strategy': 'highest-source-surface-heightfield', 'resolution': [128, 128], 'missingSurfaceSamples': missing,
+        'strategy': 'source-heightfield-with-independent-source-colour-map', 'resolution': [192, 192], 'colourResolution': [512, 512], 'materialCount': 2, 'missingSurfaceSamples': missing, 'missingColourSamples': 0,
     }
-    (WORK / (identifier + '.json')).write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    (WORK / (identifier + '.json')).write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
     print('Finished ' + identifier + ': ' + str(record['bytes']) + ' bytes', flush=True)
     if '--render' in requested:
         render_preview(identifier, sampled_height)
@@ -358,9 +407,9 @@ for identifier, title in MODELS:
             # partial regeneration must not restore a stale credit summary.
             with zipfile.ZipFile(source) as archive:
                 record['provenance'] = provenance_summary(json.loads(archive.read('Metadata/provenance.json')))
-            existing.write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+            existing.write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
             records.append(record)
         continue
     records.append(build(identifier, title))
-(DESTINATION / 'manifest.json').write_text(json.dumps({'version': 1, 'models': records}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+(DESTINATION / 'manifest.json').write_text(json.dumps({'version': 1, 'models': records}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
 print('Relief manifest complete.', flush=True)

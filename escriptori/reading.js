@@ -8,7 +8,7 @@ export function createReadingPages(detail, paperMaterial) {
   const secondHit = detail.querySelector('#sample-open-answers');
   const previous = detail.querySelector('#page-corner-previous');
   const next = detail.querySelector('#page-corner-next');
-  let currentModel, currentIndex = 1, shown = [], turning = false;
+  let currentModel, currentIndex = 1, shown = [], turning = false, leaf;
   const sheet = (name, pageIndex, curved) => {
     const ink = new THREE.MeshBasicMaterial({ color: '#fbfdff', toneMapped: false, side: THREE.DoubleSide, transparent: true });
     ink.onBeforeCompile = shader => {
@@ -110,21 +110,71 @@ export function createReadingPages(detail, paperMaterial) {
     turning = true;
     const incoming = examplePages(index);
     pages.forEach((page, i) => { if (incoming[i]) paint(page.under, incoming[i], page); });
-  }
-  function turn(progress, direction, narrow) {
-    for (const [i, page] of pages.entries()) {
-      if (!page.anchor.visible) continue;
-      const lead = narrow ? 0 : direction > 0 ? 1 : 0;
-      if (i === lead) {
-        bend(page.top, Math.sin(progress * Math.PI) * 1.4, direction);
-        page.top.mesh.rotation.y = direction * progress * 1.6;
-        page.top.mesh.position.z = .009 + Math.sin(progress * Math.PI) * .2;
-        page.top.mesh.position.x = -direction * progress * .22;
-      }
-      page.top.ink.opacity = 1 - progress;
+    if (currentModel.project.reliefs?.length) return;
+    // A sheet is attached to the binding throughout its journey. Work in world
+    // coordinates because the two covers have different parents and rotations.
+    pages.forEach(resetLeaf);
+    currentModel.group.updateWorldMatrix(true, true);
+    const direction = Math.sign(index - currentIndex), source = direction > 0 ? 1 : 0, destination = 1 - source;
+    const quads = pages.map(corners), from = quads[source], to = quads[destination];
+    const midpoint = (a, b) => a.clone().add(b).multiplyScalar(.5);
+    const spineTop = midpoint(quads[0][1], quads[1][0]);
+    const spineBottom = midpoint(quads[0][2], quads[1][3]);
+    const hinge = midpoint(spineTop, spineBottom), axis = spineTop.clone().sub(spineBottom).normalize();
+    const outward = (quad, side) => midpoint(quad[side ? 1 : 0], quad[side ? 2 : 3])
+      .sub(midpoint(quad[side ? 0 : 1], quad[side ? 3 : 2])).normalize();
+    const startOut = outward(from, source), endOut = outward(to, destination);
+    let angle = Math.atan2(axis.dot(new THREE.Vector3().crossVectors(startOut, endOut)), startOut.dot(endOut));
+    // Right-to-left rises over the rings; the reverse follows the same arc.
+    if (direction > 0 && angle >= 0) angle -= Math.PI * 2;
+    if (direction < 0 && angle <= 0) angle += Math.PI * 2;
+    const geometry = new THREE.PlaneGeometry(1, 1, 32, 40);
+    const material = new THREE.MeshBasicMaterial({ map: shown[source].texture, side: THREE.DoubleSide, toneMapped: false });
+    material.onBeforeCompile = shader => {
+      shader.uniforms.leafBack = { value: incoming[destination].texture };
+      shader.fragmentShader = 'uniform sampler2D leafBack;\n' + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\nif (!gl_FrontFacing) diffuseColor *= texture2D(leafBack, vec2(1.0 - vMapUv.x, vMapUv.y));');
+      // Replace, rather than multiply by, the front print on the reverse.
+      shader.fragmentShader = shader.fragmentShader.replace('diffuseColor *= texture2D(leafBack,', 'diffuseColor = vec4(diffuse, opacity) * texture2D(leafBack,');
+    };
+    material.customProgramCacheKey = () => 'bound-leaf-front-back-v1';
+    const mesh = new THREE.Mesh(geometry, material); mesh.name = 'TurningLeaf'; mesh.castShadow = true;
+    currentModel.group.add(mesh);
+    const inverse = currentModel.group.matrixWorld.clone().invert();
+    const vertices = geometry.attributes.position, starts = [], corrections = [], distances = [];
+    const fullRotation = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+    for (let i = 0; i < vertices.count; i++) {
+      const x = vertices.getX(i), y = vertices.getY(i);
+      const start = pages[source].top.mesh.localToWorld(new THREE.Vector3(x, y, .002));
+      const end = pages[destination].top.mesh.localToWorld(new THREE.Vector3(-x, y, .002));
+      starts.push(start.clone().sub(hinge));
+      corrections.push(end.sub(start.clone().sub(hinge).applyQuaternion(fullRotation).add(hinge)));
+      distances.push(source ? x + .5 : .5 - x);
     }
+    const normal = sheetView(source).normal;
+    leaf = { mesh, starts, corrections, distances, hinge, axis, angle, inverse, normal, direction, progress: 0 };
+    pages[source].top.mesh.visible = false;
+    turn(0);
   }
-  function finishTurn(index) { turning = false; setIndex(index); detail.dataset.curl = ''; }
+  function turn(progress) {
+    if (!leaf) return;
+    const rotation = new THREE.Quaternion().setFromAxisAngle(leaf.axis, leaf.angle * progress);
+    const normal = leaf.normal.clone().applyQuaternion(rotation), vertices = leaf.mesh.geometry.attributes.position;
+    const settle = THREE.MathUtils.smoothstep(progress, .6, 1);
+    for (let i = 0; i < vertices.count; i++) {
+      const flex = Math.sin(Math.PI * progress) * Math.sin(Math.PI * leaf.distances[i]) * .105;
+      const point = leaf.starts[i].clone().applyQuaternion(rotation).add(leaf.hinge)
+        .addScaledVector(leaf.corrections[i], settle).addScaledVector(normal, flex).applyMatrix4(leaf.inverse);
+      vertices.setXYZ(i, point.x, point.y, point.z);
+    }
+    vertices.needsUpdate = true; leaf.mesh.geometry.computeVertexNormals(); leaf.mesh.geometry.computeBoundingSphere();
+    leaf.progress = progress;
+  }
+  function discardLeaf() {
+    if (!leaf) return;
+    leaf.mesh.removeFromParent(); leaf.mesh.geometry.dispose(); leaf.mesh.material.dispose(); leaf = null;
+  }
+  function finishTurn(index) { discardLeaf(); turning = false; setIndex(index); detail.dataset.curl = ''; }
   function corners(page) {
     const mesh = page.top.mesh;
     return [[-.5, .5], [.5, .5], [.5, -.5], [-.5, -.5]].map(([x, y]) => mesh.localToWorld(new THREE.Vector3(x, y, .001)));
@@ -161,6 +211,7 @@ export function createReadingPages(detail, paperMaterial) {
     }
   }
   function unmount() {
+    discardLeaf();
     for (const page of pages) {
       page.anchor.removeFromParent();
       for (const piece of [page.top, page.under]) { piece.ink.map = null; piece.ink.needsUpdate = true; }
@@ -168,7 +219,8 @@ export function createReadingPages(detail, paperMaterial) {
     currentModel = null; shown = [];
   }
   return { mount, unmount, points, project, setIndex, sheetView, curl, startTurn, turn, finishTurn,
-    info: () => ({ index: currentIndex, count: currentModel?.project.examples.length || 0, pages: shown, paired: shown[1]?.role === 'answers' }) };
+    info: () => ({ index: currentIndex, count: currentModel?.project.examples.length || 0, pages: shown, paired: shown[1]?.role === 'answers',
+      turn: leaf ? { progress: leaf.progress, direction: leaf.direction, hinge: leaf.hinge.toArray(), angle: leaf.angle, opacity: leaf.mesh.material.opacity } : null }) };
 }
 
 function planeTransform([p0, p1, p2, p3], width, height) {

@@ -63,7 +63,7 @@ async function main() {
       await page.goto(origin + '/escriptori/');
       await page.locator('#workspace[data-ready=true]').waitFor({ timeout: 20000 });
       assert.equal(await page.locator('.binder-target').count(), 8);
-      assert.equal(await page.locator('.binder-target:visible').count(), 4);
+      assert.equal(await page.locator('.binder-target:visible').count(), width<=700?4:8);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       assert.ok(await page.locator('footer').evaluate(element => element.getBoundingClientRect().bottom <= innerHeight));
       await page.screenshot({ path: path.join(output, 'shelf-' + width + '-' + theme + '.png') });

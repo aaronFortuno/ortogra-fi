@@ -18,7 +18,7 @@ export class DeskNavigation {
     this.zoomGoal = null;
     this.euler = new THREE.Euler(0, 0, 0, 'YXZ');
     this.bounds = new THREE.Box3(new THREE.Vector3(-7.15, .25, 1.05), new THREE.Vector3(7.15, 6.8, 36));
-    const navigable = event => event.target === surface.querySelector('canvas') || event.target.closest('.binder-target');
+    const navigable = event => event.target === surface.querySelector('canvas') || event.target.closest('.binder-target,.wall-switch-target');
     surface.addEventListener('pointerdown', event => {
       if (!this.pointers.size) this.dragged = false;
       if (!this.enabled || !navigable(event) || (event.pointerType === 'mouse' && ![0, 2].includes(event.button))) return;

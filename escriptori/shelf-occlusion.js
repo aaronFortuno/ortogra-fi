@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { deskLayout } from './desk-layout.js?v=1.9.0';
+import { deskLayout } from './desk-layout.js?v=1.10.0';
 
 const dimensions = [64, 16, 8];
 const organizer = deskLayout.organizer;

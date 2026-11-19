@@ -1,26 +1,27 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
-import { DeskNavigation } from './navigation.js?v=1.2.0';
-import { createAtmosphere } from './atmosphere.js?v=1.9.0';
-import { prepareMaterials } from './materials.js?v=1.8.0';
-import { createReadingPages } from './reading.js?v=1.9.0';
-import { createDaylight } from './daylight.js?v=1.9.0';
-import { createPaperView } from './paper-view.js?v=1.8.0';
-import { createContactShadows } from './contact-shadows.js?v=1.9.0';
-import { createShelfOcclusion } from './shelf-occlusion.js?v=1.9.0';
-import { createLabelTexture } from './labels.js?v=1.9.0';
-import { createReliefs } from './reliefs.js?v=1.9.0';
-import { createObjectJourney } from './journey.js?v=1.9.0';
+import { DeskNavigation } from './navigation.js?v=1.10.0';
+import { createAtmosphere } from './atmosphere.js?v=1.10.0';
+import { prepareMaterials } from './materials.js?v=1.10.0';
+import { createReadingPages } from './reading.js?v=1.10.0';
+import { createDaylight } from './daylight.js?v=1.10.0';
+import { createPaperView } from './paper-view.js?v=1.10.0';
+import { createContactShadows } from './contact-shadows.js?v=1.10.0';
+import { createShelfOcclusion } from './shelf-occlusion.js?v=1.10.0';
+import { createLabelTexture } from './labels.js?v=1.10.0';
+import { createReliefs } from './reliefs.js?v=1.10.0';
+import { createObjectJourney } from './journey.js?v=1.10.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const narrow = matchMedia('(max-width: 700px)');
 const journeyDuration = 2500;
 const areas = {
   Llengua: { center: [-4.48, .25, -.2], width: 3.8, label: [-3.92, 2.19, .0] },
-  Matemàtiques: { center: [-.6, .25, -.2], width: 3.15, label: [-.6, 2.19, .0] },
-  Medi: { center: [1.93, .0, -.2], width: 3.15, label: [1.93, 2.19, .0] },
-  Utilitats: { center: [4.5, -.5, 1.15], width: 3.3, label: [4.5, .25, 1.25] },
+  Matemàtiques: { center: [-2.55, .25, -.2], width: 2.1, label: [-2.55, 2.19, .0] },
+  Medi: { center: [-.6, .0, -.2], width: 2.6, label: [-.6, 1.3, .0] },
+  Utilitats: { center: [2.5, -.5, .7], width: 3.1, label: [2.5, .25, 1.25] },
 };
+const overview = { center: [-1.5, .12, .5], width: 9.3 };
 
 export async function createDesk({ canvas, projects, dark: initialDark, resources, onStage = () => {}, onLightingChange }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'low-power' });
@@ -67,12 +68,12 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   // A soft desk cone protects reading without lighting every recess behind it.
   const readingLight = new THREE.SpotLight('#e8f2ff', 0, 15, Math.PI / 7.5, .65, 2);
   readingLight.position.set(-1.5, 6.5, 5);
-  readingLight.target.position.set(.4, -.4, 2.5);
+  readingLight.target.position.set(-1.5, -.4, 2.5);
   scene.add(readingLight, readingLight.target);
   let darkTheme = initialDark, readingPower = 1, readingBlend = 0;
   const readingIntensity = () => (darkTheme ? 2.4 : 1.8) * 55 * readingPower;
 
-  const modelURL = new URL('../assets/desk/escriptori.glb?v=1.9.0', import.meta.url);
+  const modelURL = new URL('../assets/desk/escriptori.glb?v=1.10.0', import.meta.url);
   const modelBytes = await resources.buffer(modelURL.href);
   onStage(null, 'Preparant els arxivadors…');
   const asset = await new GLTFLoader().parseAsync(modelBytes, new URL('.', modelURL).href);
@@ -88,7 +89,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   let frame = 0;
   let active = null;
   let hovered = null;
-  let currentArea = 'Llengua';
+  let currentArea = matchMedia('(max-width: 1050px)').matches ? 'Llengua' : 'Taula';
   let lastWidth = 0;
   let lastHeight = 0;
   let presenting = false;
@@ -104,6 +105,9 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   const reliefs = createReliefs({ scene, camera, target: navigation.target, animate, requestRender });
   const outline = createHoverOutline(canvas.parentElement);
   const atmosphere = await createAtmosphere(scene, room, resources);
+  const wallSwitch = document.querySelector('#wall-light-switch');
+  const switchNode = room.getObjectByName('RoomLightSwitch'), rocker = room.getObjectByName('SwitchRocker');
+  wallSwitch.addEventListener('click', () => lighting.setRoomLight(canvas.dataset.roomLightOn !== 'true'));
   for (const material of materials) if (material.name.startsWith('Leaves') || material.name.startsWith('LeafLight')) {
     material.map = atmosphere.leafTexture;
     material.color.set('#b5ba8f');
@@ -168,7 +172,17 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }));
   const contactShadows = createContactShadows(room);
   const lighting = createDaylight({ scene, renderer, canvas, atmosphere, ambient, daylight, fill, bounce,
-    animate: update => animate('daylight', update), requestRender, dark: initialDark, onChange: onLightingChange,
+    animate: update => animate('daylight', update), requestRender, dark: initialDark,
+    onChange: state => {
+      onLightingChange?.(state);
+      wallSwitch.setAttribute('aria-pressed', String(state.roomLightOn));
+      wallSwitch.setAttribute('aria-label', (state.roomLightOn ? 'Apaga' : 'Encén') + ' el llum de la sala');
+      wallSwitch.title = wallSwitch.getAttribute('aria-label');
+      if (rocker) {
+        const from = rocker.rotation.x, to = state.roomLightOn ? -.045 : .045;
+        animate('switch', t => { rocker.rotation.x = THREE.MathUtils.lerp(from, to, t); });
+      }
+    },
     onReadingPower: value => { readingPower = value; readingLight.intensity = readingIntensity() * readingBlend; } });
 
   function requestRender(geometryChanged = true) {
@@ -179,7 +193,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     frame = 0;
     for (const [key, motion] of motions) {
       if (motion.start === null) motion.start = time;
-      const ratio = Math.min(1, (time - motion.start) / motion.duration);
+      const ratio = THREE.MathUtils.clamp((time - motion.start) / motion.duration, 0, 1);
       motion.update(ratio * ratio * (3 - 2 * ratio));
       if (ratio === 1) { motions.delete(key); motion.resolve(); }
     }
@@ -218,7 +232,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     cancelMotion(key);
     if (reducedMotion.matches) { update(1); requestRender(); return Promise.resolve(); }
     return new Promise(resolve => {
-      motions.set(key, { start: key === 'journey' ? null : performance.now(), update, resolve, duration });
+      motions.set(key, { start: null, update, resolve, duration });
       requestRender();
     });
   }
@@ -227,13 +241,22 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     return { x: (projected.x + 1) * lastWidth / 2, y: (1 - projected.y) * lastHeight / 2, depth: projected.z };
   }
   function updateControls() {
+    wallSwitch.hidden = Boolean(active) || !switchNode;
+    if (!wallSwitch.hidden) {
+      const corners = [[-.16, -.22], [.16, .22]].map(([x, y]) => switchNode.localToWorld(new THREE.Vector3(x, y, .09)));
+      const points = corners.map(projectPoint);
+      const left = Math.min(...points.map(p => p.x)), top = Math.min(...points.map(p => p.y));
+      const width = Math.abs(points[1].x - points[0].x), height = Math.abs(points[1].y - points[0].y);
+      wallSwitch.hidden = corners.some(p => p.applyMatrix4(camera.matrixWorldInverse).z > -camera.near) || points.some(p => Math.abs(p.depth) > 1) || left + width < 0 || left > lastWidth || top + height < 0 || top > lastHeight;
+      Object.assign(wallSwitch.style, { left: left + 'px', top: top + 'px', width: Math.max(28, width) + 'px', height: Math.max(32, height) + 'px' });
+    }
     if (active) {
       for (const project of projects) { project.button.hidden = true; project.areaLabel.hidden = true; }
       return;
     }
     for (const model of models.values()) {
       const { project, bounds, home, rotation } = model;
-      if (narrow.matches && project.area !== currentArea) {
+      if (narrow.matches && currentArea !== 'Taula' && project.area !== currentArea) {
         project.button.hidden = true;
         continue;
       }
@@ -271,8 +294,9 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }
   function initialView() {
     const aspect = lastWidth / lastHeight;
-    const target = new THREE.Vector3(...areas[currentArea].center);
-    const width = areas[currentArea].width;
+    const settings = currentArea === 'Taula' ? overview : areas[currentArea];
+    const target = new THREE.Vector3(...settings.center);
+    const width = settings.width;
     const distance = Math.max(narrow.matches ? 7 : 5.5, width / (2 * Math.tan(THREE.MathUtils.degToRad(16)) * aspect));
     const direction = currentArea === 'Utilitats'
       ? new THREE.Vector3(0, .68, .73).normalize()
@@ -386,12 +410,18 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       ? new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
         new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(-1, 0, 0)))
       : new THREE.Quaternion();
-    const destination = new THREE.Vector3(model.project.kind === 'box' ? -.95 : .78, model.project.kind === 'folder' ? -.53 : model.project.kind === 'box' ? -.205 : -.34, 2.5);
+    const destination = new THREE.Vector3(-1.5, model.project.kind === 'folder' ? -.53 : model.project.kind === 'box' ? -.205 : -.34, 2.5);
     // Measure the final reading pose, then restore the actual pose before moving.
     model.group.position.copy(destination); model.group.quaternion.copy(flatRotation);
     model.lid.rotation[model.axis] = model.angle;
     if (card) { card.visible = true; card.position.x = 2.05; }
     model.group.updateWorldMatrix(true, true);
+    // The spread, rather than the cover's hinge, is centred on the workspace.
+    const spread = reading.points(false);
+    if (model.project.reliefs?.length) spread.push(...reliefs.points(false));
+    const spreadX = new THREE.Box3().setFromPoints(spread).getCenter(new THREE.Vector3()).x;
+    destination.x += -1.5 - spreadX;
+    model.group.position.copy(destination); model.group.updateWorldMatrix(true, true);
     const view = readingView();
     const endFocus = new THREE.Box3().setFromPoints(reading.points(narrow.matches)).getCenter(new THREE.Vector3());
     model.group.position.copy(saved.position); model.group.quaternion.copy(saved.rotation); model.lid.rotation[model.axis] = saved.lid;
@@ -508,7 +538,13 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     scene.updateMatrixWorld(); camera.updateMatrixWorld(); updateControls(); requestRender();
   }
   new ResizeObserver(resize).observe(canvas.parentElement);
-  narrow.addEventListener('change', resize);
+  narrow.addEventListener('change', () => {
+    if (narrow.matches && currentArea === 'Taula') {
+      currentArea = 'Llengua';
+      document.querySelectorAll('[data-area]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.area === currentArea)));
+    }
+    resize();
+  });
   reducedMotion.addEventListener('change', () => {
     for (const motion of motions.values()) { motion.update(1); motion.resolve(); }
     motions.clear(); requestRender();
@@ -532,6 +568,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     requestRender();
   });
   resize();
+  document.querySelectorAll('[data-area]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.area === currentArea)));
   onStage(94, 'Preparant la llum i els materials…');
   await new Promise(resolve => requestAnimationFrame(resolve));
   await renderer.compileAsync(scene, camera);
@@ -539,15 +576,16 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   await new Promise(resolve => { firstFrame = resolve; requestRender(); });
   async function setSample(index) {
     const info = reading.info();
-    if (phase !== 'reading' || index === info.index || index < 0 || index >= info.count) return;
+    const inspectingPaper = phase === 'inspecting' && paperView.info().open;
+    if ((phase !== 'reading' && !inspectingPaper) || index === info.index || index < 0 || index >= info.count) return;
     phase = 'turning';
     for (const direction of [-1, 1]) { cancelMotion('curl-' + direction); curlAmounts.set(direction, 0); }
     const direction = Math.sign(index - info.index);
     reading.startTurn(index);
-    await animate('pages', t => { if (!active.project.reliefs?.length) reading.turn(t, direction, narrow.matches); });
+    await animate('pages', t => { if (!active.project.reliefs?.length) reading.turn(t); }, active.project.reliefs?.length ? 220 : 820);
     reading.finishTurn(index);
     if (active.project.reliefs?.length) reliefs.setSamples(reading.info().pages);
-    phase = 'reading'; resize();
+    phase = inspectingPaper ? 'inspecting' : 'reading'; resize();
   }
   function curlSample(direction, amount) {
     if (phase !== 'reading') return;

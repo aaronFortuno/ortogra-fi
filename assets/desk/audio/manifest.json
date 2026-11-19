@@ -1,0 +1,221 @@
+{
+  "version": 1,
+  "prepared": "2026-11-19",
+  "format": "MP3",
+  "sampleRate": 44100,
+  "review": {
+    "licenseChecked": true,
+    "waveformAndSpectrumChecked": true,
+    "humanListening": "pending",
+    "speech": "No speech is intended; source descriptions and spectrum were checked. Human listening remains pending."
+  },
+  "clips": [
+    {
+      "id": "wind-leaves",
+      "file": "wind-leaves.mp3",
+      "title": "Vent entre les fulles",
+      "kind": "wind",
+      "creator": "ecfike",
+      "source": "https://freesound.org/people/ecfike/sounds/183496/",
+      "sourceTitle": "Wind and Leaves.wav",
+      "previewSource": "https://cdn.freesound.org/previews/183/183496_2337290-hq.mp3",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseChecked": "2026-11-19",
+      "sourceFormat": "Public Freesound HQ MP3 preview",
+      "sourceSha256": "a804e75f0c57acd77488a63b8452d8de8593a7f8ed1c0a5b546d0b41d770b8fa",
+      "sourceSegment": {
+        "start": 200,
+        "duration": 32
+      },
+      "duration": 32.0,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bitrateKbps": 128,
+      "bytes": 513008,
+      "sha256": "e35d2684be66c3c5993fd0ec222f4ddbd93e468fe39ed40522db28642cf8ea1f",
+      "measurements": {
+        "decodedRmsDbFS": -31.35,
+        "decodedPeakDbFS": -11.44,
+        "dcMean": 1.708e-06,
+        "decodedFrames": 1411200
+      },
+      "processing": {
+        "filters": "highpass=f=110,lowpass=f=6000",
+        "gainDb": 29.9492,
+        "fadeIn": 0.18,
+        "fadeOut": 0.18,
+        "padStart": 0,
+        "padEnd": 0,
+        "dynamics": "No limiter, compressor, gate, denoiser or synthetic layer"
+      },
+      "review": "human-listening-pending",
+      "recommendedLoopCrossfade": 2.5
+    },
+    {
+      "id": "birds-park-a",
+      "file": "birds-park-a.mp3",
+      "title": "Ocells del parc · primera frase",
+      "kind": "birds",
+      "creator": "ValentinPetiteau",
+      "source": "https://freesound.org/people/ValentinPetiteau/sounds/563547/",
+      "sourceTitle": "European city park, morning birds",
+      "previewSource": "https://cdn.freesound.org/previews/563/563547_10443988-hq.mp3",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseChecked": "2026-11-19",
+      "sourceFormat": "Public Freesound HQ MP3 preview",
+      "sourceSha256": "96784c0c48b8f9607268a7cf83167edcb343c602dff2015b188aff8d8497055f",
+      "sourceSegment": {
+        "start": 16,
+        "duration": 6.7
+      },
+      "duration": 7.4,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bitrateKbps": 96,
+      "bytes": 89857,
+      "sha256": "3dc1eb7d5bd236a2a4a40375df75ddb884ed2bb49a8337f60250bee3109d4722",
+      "measurements": {
+        "decodedRmsDbFS": -27.87,
+        "decodedPeakDbFS": -8.48,
+        "dcMean": 1.93e-07,
+        "decodedFrames": 326340
+      },
+      "processing": {
+        "filters": "highpass=f=500,lowpass=f=9000",
+        "gainDb": 21.2255,
+        "fadeIn": 0.16,
+        "fadeOut": 0.35,
+        "padStart": 0.25,
+        "padEnd": 0.45,
+        "dynamics": "No limiter, compressor, gate, denoiser or synthetic layer"
+      },
+      "review": "human-listening-pending"
+    },
+    {
+      "id": "birds-park-b",
+      "file": "birds-park-b.mp3",
+      "title": "Ocells del parc · segona frase",
+      "kind": "birds",
+      "creator": "ValentinPetiteau",
+      "source": "https://freesound.org/people/ValentinPetiteau/sounds/563547/",
+      "sourceTitle": "European city park, morning birds",
+      "previewSource": "https://cdn.freesound.org/previews/563/563547_10443988-hq.mp3",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseChecked": "2026-11-19",
+      "sourceFormat": "Public Freesound HQ MP3 preview",
+      "sourceSha256": "96784c0c48b8f9607268a7cf83167edcb343c602dff2015b188aff8d8497055f",
+      "sourceSegment": {
+        "start": 24.5,
+        "duration": 6.7
+      },
+      "duration": 7.4,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bitrateKbps": 96,
+      "bytes": 89856,
+      "sha256": "b2669b0801c0d7ce8df8b0396cccf27c5db34e29a8cfd90d9c1f558b972fdd40",
+      "measurements": {
+        "decodedRmsDbFS": -30.31,
+        "decodedPeakDbFS": -8.5,
+        "dcMean": 2.99e-07,
+        "decodedFrames": 326340
+      },
+      "processing": {
+        "filters": "highpass=f=500,lowpass=f=9000",
+        "gainDb": 18.7657,
+        "fadeIn": 0.16,
+        "fadeOut": 0.35,
+        "padStart": 0.25,
+        "padEnd": 0.45,
+        "dynamics": "No limiter, compressor, gate, denoiser or synthetic layer"
+      },
+      "review": "human-listening-pending"
+    },
+    {
+      "id": "birds-garden",
+      "file": "birds-garden.mp3",
+      "title": "Ocells de jardí",
+      "kind": "birds",
+      "creator": "WhisperingEarth",
+      "source": "https://freesound.org/people/WhisperingEarth/sounds/798842/",
+      "sourceTitle": "Morning Birds in a Quiet Urban Garden",
+      "previewSource": "https://cdn.freesound.org/previews/798/798842_17200815-hq.mp3",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseChecked": "2026-11-19",
+      "sourceFormat": "Public Freesound HQ MP3 preview",
+      "sourceSha256": "1839c3ffb2da81d02ae5bb354999f55b61515508c319e720a9b5c57d2e24bca9",
+      "sourceSegment": {
+        "start": 4.3,
+        "duration": 6.7
+      },
+      "duration": 7.4,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bitrateKbps": 96,
+      "bytes": 89839,
+      "sha256": "58870da3a4792472b38034f3fe6bd884a4ec3612c926e75326db3450e78e8a42",
+      "measurements": {
+        "decodedRmsDbFS": -27.87,
+        "decodedPeakDbFS": -8.65,
+        "dcMean": 3.39e-07,
+        "decodedFrames": 326340
+      },
+      "processing": {
+        "filters": "highpass=f=350,lowpass=f=9000",
+        "gainDb": 23.2253,
+        "fadeIn": 0.16,
+        "fadeOut": 0.35,
+        "padStart": 0.25,
+        "padEnd": 0.45,
+        "dynamics": "No limiter, compressor, gate, denoiser or synthetic layer"
+      },
+      "review": "human-listening-pending"
+    },
+    {
+      "id": "distant-car",
+      "file": "distant-car.mp3",
+      "title": "Cotxe llunyà",
+      "kind": "vehicle",
+      "creator": "TSP-Talk",
+      "source": "https://freesound.org/people/TSP-Talk/sounds/846301/",
+      "sourceTitle": "Passing Car on Wet Road",
+      "previewSource": "https://cdn.freesound.org/previews/846/846301_14079354-hq.mp3",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseChecked": "2026-11-19",
+      "sourceFormat": "Public Freesound HQ MP3 preview",
+      "sourceSha256": "1dc75103d76433eb8bcbc61d079cabd395d2326c450938641c78ac331c0abe22",
+      "sourceSegment": {
+        "start": 2,
+        "duration": 9.5
+      },
+      "duration": 10.0,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bitrateKbps": 96,
+      "bytes": 120855,
+      "sha256": "530b304f73cd626f34249c0021b12f9ad949e895a30d6a5654e1b7b28aa064f4",
+      "measurements": {
+        "decodedRmsDbFS": -30.67,
+        "decodedPeakDbFS": -15.3,
+        "dcMean": -7.61e-07,
+        "decodedFrames": 441000
+      },
+      "processing": {
+        "filters": "highpass=f=60,lowpass=f=3200",
+        "gainDb": -0.1847,
+        "fadeIn": 0.8,
+        "fadeOut": 1,
+        "padStart": 0.25,
+        "padEnd": 0.25,
+        "dynamics": "No limiter, compressor, gate, denoiser or synthetic layer"
+      },
+      "review": "human-listening-pending"
+    }
+  ],
+  "totalBytes": 903415
+}

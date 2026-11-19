@@ -12,7 +12,7 @@ const instrument = `
     paper: index => {const p=reading.sheetView(index);return {normal:p.normal.toArray(),up:p.up.toArray(),height:p.height};},
     inspection:()=>reliefs.info().open?reliefs.info():paperView.info(),
     relief:reliefs.info,
-    reliefMesh:()=>{let triangles=0,meshes=0;scene.getObjectByName('ReliefSample_0')?.traverse(m=>{if(m.isMesh){meshes++;triangles+=(m.geometry.index?.count||m.geometry.attributes.position.count)/3;}});return{meshes,triangles};},
+    reliefMesh:()=>{let triangles=0,meshes=0,textures=[];scene.getObjectByName('ReliefSample_0')?.traverse(m=>{if(m.isMesh){meshes++;if(m.material.map)textures.push([m.material.map.image.width,m.material.map.image.height]);triangles+=(m.geometry.index?.count||m.geometry.attributes.position.count)/3;}});return{meshes,triangles,textures};},
     phase:()=>phase,
     ink:()=>reading.info().pages.map(p=>p.image),
     curl:()=>Math.max(...scene.getObjectByName('PrintedSample').geometry.attributes.position.array.filter((_,i)=>i%3===2),...scene.getObjectByName('PrintedAnswer').geometry.attributes.position.array.filter((_,i)=>i%3===2)),
@@ -43,7 +43,7 @@ async function inspect(page, side, mobile, screenshot) {
     await page.waitForFunction(selector=>document.querySelector(selector).getBoundingClientRect().height > innerHeight - 116,side ? '#sample-open-answers' : '#sample-open');
   }else{
     const geometry=await page.evaluate(()=>window.deskSampleTest.reliefMesh());
-    assert.ok(geometry.meshes===4&&geometry.triangles>30000&&geometry.triangles<40000,'The sample must be an actual lightweight 3D mesh with four materials');
+    assert.ok(geometry.meshes===2&&geometry.triangles>70000&&geometry.triangles<100000&&geometry.textures.some(t=>t[0]===512&&t[1]===512),'The sample must use detailed geometry and a smooth 512px colour texture in two draw calls');
     const initial=await page.evaluate(()=>window.deskSampleTest.relief());
     await page.locator('#relief-zoom-in').click();
     assert.ok((await page.evaluate(()=>window.deskSampleTest.relief())).distance<initial.distance);
@@ -75,9 +75,11 @@ async function inspect(page, side, mobile, screenshot) {
       assert.ok(Math.abs(rotated.yaw-original.yaw)>.5&&Math.abs(rotated.pitch-original.pitch)>.1,'Dragging rotates and pivots the real model');
     }else{
     await page.mouse.move(area.x + area.width / 2, area.y + 20);
+    assert.equal((await page.evaluate(()=>window.deskSampleTest.inspection())).panY,0,'Hovering alone must not move the sheet');
+    await page.mouse.wheel(0,-400);
     await page.waitForFunction(()=>window.deskSampleTest.inspection().panY > .9);
     const upper = await page.evaluate(()=>window.deskSampleTest.pose());
-    await page.mouse.move(area.x + area.width / 2, area.y + area.height - 80);
+    await page.mouse.wheel(0,800);
     await page.waitForFunction(()=>window.deskSampleTest.inspection().panY < -.7);
     const lower = await page.evaluate(()=>window.deskSampleTest.pose());
     assert.ok(distance(upper.position,lower.position) > .1,'Reach both ends of the sheet');
@@ -113,6 +115,8 @@ async function inspect(page, side, mobile, screenshot) {
   const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   try {
     for (const [width,height,theme] of (process.argv.includes('--desktop') ? [[1440,960,'light']] : process.argv.includes('--mobile') ? [[390,844,'light'],[320,568,'dark']] : [[1440,960,'light'],[390,844,'light'],[320,568,'dark']])) {
+      const requestedWidth=process.argv.find(arg=>arg.startsWith('--width='))?.split('=')[1];
+      if(requestedWidth&&width!==Number(requestedWidth))continue;
       const mobile=width<700;
       const context=await browser.newContext({viewport:{width,height},hasTouch:mobile,colorScheme:theme,reducedMotion:'reduce'});
       await context.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());

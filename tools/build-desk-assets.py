@@ -184,7 +184,7 @@ box('BackWall', (23, 12, .18), (0, 2, -1.8), plaster, bevel=.03)
 box('SideWallBelow', (.18, 5.6, 40), (-8.1, -1.2, 17.8), plaster, bevel=.0008)
 box('SideWallAbove', (.18, 3.1, 40), (-8.1, 6.45, 17.8), plaster, bevel=.0008)
 box('SideWallBehind', (.18, 3.3, 1.75), (-8.1, 3.25, -1.325), plaster, bevel=.0008)
-box('SideWallAhead', (.18, 3.3, 35.35), (-8.1, 3.25, 20.125), plaster, bevel=.0008)
+box('SideWallAhead', (.18, 3.3, 33.35), (-8.1, 3.25, 21.125), plaster, bevel=.0008)
 box('RightWall', (.18, 12, 40), (8.1, 2, 17.8), plaster, bevel=.0008)
 box('Floor', (16.2, .15, 40), (0, -3.78, 17.8), floor_mat, bevel=.0008)
 box('Ceiling', (16.2, .15, 40), (0, 8.04, 17.8), plaster, bevel=.0008)
@@ -204,10 +204,32 @@ for x in [-6, -1.7, .68, 3.2, 6]:
 box('ShelfBack', (12.05, 2.42, .035), (0, .62, -1.68), wood, bevel=.008)
 
 for y in [1.6, 4.9]:
-    box('WindowFrame', (.18, .1, 3), (-7.92, y, 1), wood, bevel=.015)
-for z in [-.45, 1, 2.45]:
+    box('WindowFrame', (.18, .1, 5), (-7.92, y, 2), wood, bevel=.015)
+for z in [-.45, 2, 4.45]:
     box('WindowFrame', (.18, 3.35, .09), (-7.92, 3.25, z), wood, bevel=.014)
-box('WindowSill', (.55, .12, 3.25), (-7.75, 1.54, 1), wood, bevel=.025)
+box('WindowSill', (.55, .12, 5.25), (-7.75, 1.54, 2), wood, bevel=.025)
+window_opening = empty('WindowOpening', (-8.1, 3.25, 2), room)
+window_opening['width'] = 4.9
+window_opening['height'] = 3.3
+window_opening['zMinimum'] = -.45
+window_opening['zMaximum'] = 4.45
+
+# The wall switch remains separate from the baked room so the browser can hit
+# its physical face and tilt the rocker. Its front normal points into the room.
+switch = empty('RoomLightSwitch', (-6.9, 1.72, -1.67), living)
+switch['faceWidth'] = .32
+switch['faceHeight'] = .44
+switch['faceNormal'] = '+Z'
+switch_plastic = material('SwitchPlastic', '#e8e5d9', .36)
+switch_recess = material('SwitchRecess', '#5c5d55', .8)
+box('SwitchMount', (.32, .44, .07), (0, 0, 0), switch_plastic, switch, .016)
+box('SwitchRecess', (.237, .347, .008), (0, 0, .039), switch_recess, switch, .009)
+rocker = empty('SwitchRocker', (0, 0, .050), switch)
+rocker.rotation_euler.x = .045
+box('SwitchRockerFace', (.21, .319, .031), (0, 0, 0), switch_plastic, rocker, .01)
+for y in [-.188, .188]:
+    screw = cylinder('SwitchFixingScrew', .009, .004, (0, y, .038), silver, switch)
+    screw.rotation_euler.x = math.pi / 2
 
 
 def binder(identifier, color, x, lean=0, yaw=0, depth=-.55):
@@ -255,11 +277,11 @@ binder('plec', '#36523c', -5.51, lean=.15, yaw=.018, depth=-.54)
 binder('trama', '#36523c', -4.82, lean=.035, yaw=-.026, depth=-.61)
 binder('resso', '#36523c', -4.06, lean=-.11, yaw=.012, depth=-.50)
 binder('sentit', '#36523c', -3.37, lean=.11, yaw=-.018, depth=-.62)
-binder('fil-i-compte', '#aa823c', -.65, lean=-.065, yaw=-.018, depth=-.51)
+binder('fil-i-compte', '#aa823c', -2.55, lean=-.065, yaw=-.018, depth=-.51)
 
 # A box and two closed folders exercise the same catalogue with different objects.
 blue = material('BoxFabric', '#53636a', .76)
-box_group = empty('Item_relleu-obert', (1.93, 1.62 - 1.8, -.36), dynamic)
+box_group = empty('Item_relleu-obert', (-.6, 1.62 - 1.8, -.36), dynamic)
 box_group.rotation_euler.z = .04
 box_group['kind'] = 'box'
 box('BoxBase', (1.9, .1, 1.4), (0, -.32, 0), blue, box_group, .024)
@@ -289,12 +311,21 @@ def folder(identifier, color, x, z, angle):
     return group
 
 
-folder('pentagrama', '#ad6245', 4.28, -.18, -.075)
-folder('pauta', '#9d9c76', 4.75, 2.65, .17)
+folder('pentagrama', '#ad6245', 2, -.45, -.075)
+folder('pauta', '#9d9c76', 3.25, 1.5, .17)
+
+# The final slot is reserved for future materials. This unlabelled, closed
+# folder is scenery, with no Item_/Lid_ prefix and no invented project.
+spare = empty('SpareFolder', (4.65, -.548, -.72), room)
+spare.rotation_euler.z = .05
+spare_card = material('SpareFolderCard', '#a39679', .94)
+box('SpareFolderBack', (2.1, .014, 1.45), (0, -.015, 0), spare_card, spare, .005)
+box('SpareFolderPaper', (1.98, .012, 1.34), (.018, 0, .008), paper_edge, spare, .003)
+box('SpareFolderCover', (2.1, .014, 1.45), (0, .016, 0), spare_card, spare, .005)
 
 # The centre stays empty for the opened samples. Lived-in stationery sits to the
 # left of that working area, rather than in front of an interactive resource.
-notes = empty('DeskNotes', (-3.65, -.575, 1.58), room)
+notes = empty('DeskNotes', (-4.65, -.575, 3.5), room)
 for i, (angle, dx, dz) in enumerate([
         (-.105, -.08, -.075), (.075, .12, -.045), (-.032, -.035, .12),
         (.145, .10, .035), (-.045, -.015, .015)]):
@@ -318,7 +349,7 @@ for i, (angle, dx, dz) in enumerate([
     bpy.context.view_layer.objects.active = sheet
     bpy.ops.object.modifier_apply(modifier=thickness.name)
 curve('PaperClip', [(-.56, .017, -.75), (-.56, .017, -.48), (-.44, .017, -.48), (-.44, .017, -.78), (-.52, .017, -.78), (-.52, .017, -.54)], .0035, silver, notes)
-loose_pencil = empty('LoosePencil', (-2.6, -.553, 1.6), room)
+loose_pencil = empty('LoosePencil', (-5.6, -.553, 1.6), room)
 loose_pencil.rotation_euler.x = math.pi / 2
 loose_pencil.rotation_euler.z = -.35
 cylinder('LoosePencilBody', .024, .96, (0, .48, 0), material('LoosePencilPaint', '#a5793d', .65), loose_pencil)
@@ -326,7 +357,7 @@ cylinder('LoosePencilWood', .001, .12, (0, 1.02, 0), wood, loose_pencil, bottom=
 cylinder('LoosePencilGraphite', .001, .026, (0, 1.09, 0), dark_metal, loose_pencil, bottom=.006)
 
 
-stapler = empty('DeskStapler', (-3.25, -.57, .1), room)
+stapler = empty('DeskStapler', (-6.8, -.57, .55), room)
 stapler.rotation_euler.z = -.24
 stapler_plastic = material('StaplerEnamel', '#344c49', .34)
 rubber = material('StationeryRubber', '#30312d', .91)
@@ -381,7 +412,7 @@ mesh_object('TapeLooseEnd', vertices, faces, adhesive, tape_roll)
 case_cloth = material('Cloth_PencilCase', '#51616c', .92)
 case_lining = material('CaseLining', '#adac99', .95)
 case_piping = material('CasePiping', '#394853', .76)
-pen_case = empty('OpenPencilCase', (-4.75, -.578, 3.65), room)
+pen_case = empty('OpenPencilCase', (6.5, -.578, 3.8), room)
 pen_case.rotation_euler.z = -.115
 box('CaseBottom', (1.46, .055, .74), (0, .03, 0), case_cloth, pen_case, .055)
 box('CaseLining', (1.35, .018, .64), (0, .065, 0), case_lining, pen_case, .025)
@@ -432,12 +463,12 @@ def ballpoint(name, position, angle, color, parent):
 for i, color in enumerate(['#304c7b', '#292c2c', '#923e39', '#3e664f']):
     ballpoint('CaseBallpoint_' + str(i), (-.59 + (i % 2) * .045, .107 + i * .004, -.235 + i * .145),
               -.055 + i * .037, color, pen_case)
-ballpoint('LooseBallpoint', (-4.1, -.546, 4.35), -.24, '#304c7b', room)
+ballpoint('LooseBallpoint', (5.8, -.546, 4.55), -.24, '#304c7b', room)
 
 
 # Separate leaves retain the IndoorLeaf_ names used by the browser's gentle
 # sway. Veins and petioles move with each blade instead of floating above it.
-plant = empty('Pothos', (-6.3, -.56, 2.38), living)
+plant = empty('Pothos', (-6.65, -.56, 3.1), living)
 profile = [(0, 0), (.3, 0), (.36, .12), (.4, .65), (.39, .69), (.365, .69), (.36, .12), (0, .07)]
 vertices, faces = [], []
 for radius, height in profile:
@@ -471,16 +502,34 @@ leaf_palette = ['#506a32', '#3c5d2b', '#5d763e', '#4c6f37', '#6e8348']
 leaf_materials = [material('IndoorFoliage_' + str(i), color, .49 + i * .024)
                   for i, color in enumerate(leaf_palette)]
 leaf_veins = material('IndoorLeafVeins', '#91a267', .75)
+leaf_random = random.Random(712)
+curve('PlantGrowingShoot', [(0, .59, 0), (-.06, 1.08, .035), (-.13, 1.54, .03), (-.17, 1.91, .11)], .009, stem_mat, plant)
+curve('PlantSideShoot', [(0, .59, 0), (.12, .94, -.08), (.16, 1.38, -.16)], .008, stem_mat, plant)
+curve('PlantTrailingVine', [(-.04, .61, .04), (-.30, 1.0, .16), (-.57, .87, .35), (-.82, .53, .57)], .008, stem_mat, plant)
 for i in range(26):
-    azimuth = i * 2.39996 + random.uniform(-.14, .14)
-    radius = .14 + (i % 5) * .10
-    height = .85 + random.random() * 1.12
-    base = (math.cos(azimuth) * radius, height, math.sin(azimuth) * radius)
-    length = .46 + random.random() * .33
-    width_ratio = .27 + random.random() * .09
-    twist = random.uniform(-.055, .055)
-    curve('PlantPetiole', [(0, .59, 0), (base[0] * .42, height * .67, base[2] * .42), base],
-          .006 + random.random() * .002, stem_mat, plant)
+    azimuth = i * 2.39996 + leaf_random.uniform(-.16, .16)
+    radius = .12 + (i % 5) * .075
+    height = .94 + leaf_random.random() * .94
+    if i < 18:
+        base = (-.14 + math.cos(azimuth) * radius, height, .03 + math.sin(azimuth) * radius)
+        node = (base[0] * .36, .60 + (height - .60) * .72, base[2] * .36)
+        direction_x, direction_z = math.cos(azimuth), math.sin(azimuth)
+        # Favour the window; a few outward leaves should not mask the left binder.
+        if direction_x > .5:
+            direction_x, direction_z = .22, math.copysign(.72, direction_z or 1)
+        direction_down = leaf_random.uniform(-.36, .16)
+        length = .45 + leaf_random.random() * .30
+    else:
+        along = (i - 18) / 7
+        base = (-.24 - along * .57, .98 - along * .39, .13 + along * .43)
+        node = (base[0] + .08, base[1] + .045, base[2] - .035)
+        direction_x, direction_z = -.38 - along * .18, (-1 if i % 2 else 1) * .75
+        direction_down = -.16 - along * .30
+        length = .40 + leaf_random.random() * .20
+    width_ratio = .27 + leaf_random.random() * .09
+    twist = leaf_random.uniform(-.055, .055)
+    middle = ((node[0] + base[0]) * .5, (node[1] + base[1]) * .5 + .035, (node[2] + base[2]) * .5)
+    curve('PlantPetiole', [node, middle, base], .005 + leaf_random.random() * .002, stem_mat, plant)
 
     def leaf_point(t, side):
         width = math.sin(t * math.pi) ** .62 * length * width_ratio
@@ -498,9 +547,9 @@ for i in range(26):
             faces.append((n, n + 1, n + 12, n + 11))
     leaf = mesh_object('IndoorLeaf_' + str(i), vertices, faces, leaf_materials[i % len(leaf_materials)], plant)
     leaf.location = xyz(base)
-    direction = Vector((math.cos(azimuth), math.sin(azimuth), random.uniform(-.4, .18))).normalized()
+    direction = Vector((direction_x, direction_z, direction_down)).normalized()
     leaf.rotation_mode = 'QUATERNION'
-    leaf.rotation_quaternion = Quaternion(direction, random.uniform(-.30, .30)) @ Vector((0, -1, 0)).rotation_difference(direction)
+    leaf.rotation_quaternion = Quaternion(direction, leaf_random.uniform(-.30, .30)) @ Vector((0, -1, 0)).rotation_difference(direction)
     uv = leaf.data.uv_layers.new(name='UVMap')
     for polygon in leaf.data.polygons:
         for loop_index in polygon.loop_indices:
@@ -546,6 +595,7 @@ for leaf in [obj for obj in plant.children if obj.name.startswith('IndoorLeaf_')
     faces = [tuple(polygon.vertices) for polygon in original.polygons]
     blade_faces = len(faces)
     blade_colors = [tuple(color.color) for color in original.color_attributes['LeafTint'].data]
+    blade_uvs = [tuple(loop.uv) for loop in original.uv_layers['UVMap'].data]
     for vein in list(leaf.children):
         evaluated = vein.evaluated_get(depsgraph)
         tube = evaluated.to_mesh()
@@ -559,8 +609,12 @@ for leaf in [obj for obj in plant.children if obj.name.startswith('IndoorLeaf_')
     combined.materials.append(original.materials[0])
     combined.materials.append(leaf_veins)
     colors = combined.color_attributes.new(name='LeafTint', type='BYTE_COLOR', domain='CORNER')
+    # Keep clean, normalised blade UVs for the browser's subtle colour/normal maps.
+    # The separately shaded vein primitive does not use the leaf texture.
+    uv = combined.uv_layers.new(name='UVMap')
     for index, color in enumerate(colors.data):
         color.color = blade_colors[index] if index < len(blade_colors) else (1, 1, 1, 1)
+        uv.data[index].uv = blade_uvs[index] if index < len(blade_uvs) else (0, 0)
     for index, polygon in enumerate(combined.polygons):
         polygon.use_smooth = True
         polygon.material_index = 0 if index < blade_faces else 1

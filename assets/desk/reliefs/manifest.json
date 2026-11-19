@@ -6,11 +6,11 @@
       "title": "Agulles de Montserrat",
       "url": "agulles-montserrat.glb",
       "width": 1.0,
-      "height": 0.5588871,
+      "height": 0.5641803,
       "depth": 1.0,
-      "triangles": 33794,
+      "triangles": 75266,
       "sourceTriangles": 1250200,
-      "bytes": 753964,
+      "bytes": 1713060,
       "source": "agulles-montserrat.3mf",
       "sourceSHA256": "503b65e65dc56c8483a4e3abd3aebb4d871248cd670f9984b4e7269fc311d6f4",
       "sourceSizeMM": [
@@ -24,29 +24,29 @@
           "name": "Terreny",
           "color": "#c6b38dFF",
           "sourceTriangles": 559610,
-          "materialIndex": 0,
-          "triangles": 7430
+          "sourceMaterialIndex": 0,
+          "texturePixels": 50962
         },
         {
           "name": "Aigües interiors",
           "color": "#8dc5caFF",
           "sourceTriangles": 23776,
-          "materialIndex": 1,
-          "triangles": 568
+          "sourceMaterialIndex": 1,
+          "texturePixels": 4823
         },
         {
           "name": "Edificis · Camins i carreteres",
           "color": "#eee9dcFF",
           "sourceTriangles": 90824,
-          "materialIndex": 2,
-          "triangles": 792
+          "sourceMaterialIndex": 2,
+          "texturePixels": 6417
         },
         {
           "name": "Sòl de bosc · Arbres",
           "color": "#4e8966FF",
           "sourceTriangles": 575990,
-          "materialIndex": 3,
-          "triangles": 25004
+          "sourceMaterialIndex": 3,
+          "texturePixels": 199942
         }
       ],
       "provenance": {
@@ -72,12 +72,19 @@
           }
         ]
       },
-      "strategy": "highest-source-surface-heightfield",
+      "strategy": "source-heightfield-with-independent-source-colour-map",
       "resolution": [
-        128,
-        128
+        192,
+        192
       ],
-      "missingSurfaceSamples": 0
+      "colourResolution": [
+        512,
+        512
+      ],
+      "materialCount": 2,
+      "missingSurfaceSamples": 0,
+      "missingColourSamples": 0,
+      "sha256": "1b34e83790feb94bd0c2bf1211f3832fe5b62e9bf759cfce6b47762d83b5dff3"
     },
     {
       "id": "tamariu",
@@ -86,9 +93,9 @@
       "width": 1.0,
       "height": 0.2208511,
       "depth": 1.0,
-      "triangles": 33794,
+      "triangles": 75266,
       "sourceTriangles": 398214,
-      "bytes": 719220,
+      "bytes": 1707620,
       "source": "tamariu.3mf",
       "sourceSHA256": "b5cce03a9536d37018fd9cc5c3d2b3bc5524e87f9151a34b2def7fe3c102cecf",
       "sourceSizeMM": [
@@ -102,29 +109,29 @@
           "name": "Terreny",
           "color": "#c6b38dFF",
           "sourceTriangles": 188376,
-          "materialIndex": 0,
-          "triangles": 7796
+          "sourceMaterialIndex": 0,
+          "texturePixels": 54012
         },
         {
           "name": "Mar · Aigües interiors",
           "color": "#8dc5caFF",
           "sourceTriangles": 1876,
-          "materialIndex": 1,
-          "triangles": 12306
+          "sourceMaterialIndex": 1,
+          "texturePixels": 98544
         },
         {
           "name": "Edificis · Camins i carreteres",
           "color": "#eee9dcFF",
           "sourceTriangles": 80526,
-          "materialIndex": 2,
-          "triangles": 3752
+          "sourceMaterialIndex": 2,
+          "texturePixels": 29904
         },
         {
           "name": "Sòl de bosc · Arbres · Prats i zones verdes",
           "color": "#4e8966FF",
           "sourceTriangles": 127436,
-          "materialIndex": 3,
-          "triangles": 9940
+          "sourceMaterialIndex": 3,
+          "texturePixels": 79684
         }
       ],
       "provenance": {
@@ -140,23 +147,30 @@
           "url": "https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx"
         }
       },
-      "strategy": "highest-source-surface-heightfield",
+      "strategy": "source-heightfield-with-independent-source-colour-map",
       "resolution": [
-        128,
-        128
+        192,
+        192
       ],
-      "missingSurfaceSamples": 0
+      "colourResolution": [
+        512,
+        512
+      ],
+      "materialCount": 2,
+      "missingSurfaceSamples": 0,
+      "missingColourSamples": 0,
+      "sha256": "76850f77b05d82e6f6cd7d6d0c8c019d1dbf0f39f80acf08df993b67506eeb4e"
     },
     {
       "id": "sant-maurici",
       "title": "Estany de Sant Maurici",
       "url": "sant-maurici.glb",
       "width": 1.0,
-      "height": 0.3952687,
+      "height": 0.3958111,
       "depth": 1.0,
-      "triangles": 33794,
+      "triangles": 75266,
       "sourceTriangles": 2834536,
-      "bytes": 692280,
+      "bytes": 1703876,
       "source": "sant-maurici.3mf",
       "sourceSHA256": "1701f0756659ef53882fae332f583ceddddcb282492e6880b51ffeb929d335cc",
       "sourceSizeMM": [
@@ -170,29 +184,29 @@
           "name": "Relleu",
           "color": "#aba397FF",
           "sourceTriangles": 914640,
-          "materialIndex": 0,
-          "triangles": 8446
+          "sourceMaterialIndex": 0,
+          "texturePixels": 59666
         },
         {
           "name": "Sòl nu cartografiat",
           "color": "#787d82FF",
           "sourceTriangles": 17376,
-          "materialIndex": 1,
-          "triangles": 348
+          "sourceMaterialIndex": 1,
+          "texturePixels": 2678
         },
         {
           "name": "Aigües interiors",
           "color": "#6da7b8FF",
           "sourceTriangles": 184700,
-          "materialIndex": 2,
-          "triangles": 2578
+          "sourceMaterialIndex": 2,
+          "texturePixels": 20571
         },
         {
           "name": "Sòl de bosc · Vegetació simulada",
           "color": "#5d855fFF",
           "sourceTriangles": 1717820,
-          "materialIndex": 3,
-          "triangles": 22422
+          "sourceMaterialIndex": 3,
+          "texturePixels": 179229
         }
       ],
       "provenance": {
@@ -239,12 +253,19 @@
           "url": "https://www.openstreetmap.org/copyright"
         }
       },
-      "strategy": "highest-source-surface-heightfield",
+      "strategy": "source-heightfield-with-independent-source-colour-map",
       "resolution": [
-        128,
-        128
+        192,
+        192
       ],
-      "missingSurfaceSamples": 0
+      "colourResolution": [
+        512,
+        512
+      ],
+      "materialCount": 2,
+      "missingSurfaceSamples": 0,
+      "missingColourSamples": 0,
+      "sha256": "df6b0a2144b3c03737c014ecf8e3ffd12750d634cea31016da77351a76139cb5"
     }
   ]
 }

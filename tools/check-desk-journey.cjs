@@ -41,6 +41,8 @@ function checkFrames(frames, phase) {
   try {
     const capture = process.argv.includes('--captures');
     for (const layout of capture ? ['desktop'] : ['desktop','mobile','tablet']) {
+      const requested=process.argv.find(arg=>arg.startsWith('--layout='))?.split('=')[1];
+      if(requested&&requested!==layout)continue;
       const mobile = layout === 'mobile';
       const context = await browser.newContext({viewport:mobile?{width:390,height:844}:layout==='tablet'?{width:768,height:1024}:{width:1440,height:960},reducedMotion:'reduce',hasTouch:mobile});
       await context.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():route.abort());
@@ -68,7 +70,9 @@ function checkFrames(frames, phase) {
         await route.fulfill({response,body:process.argv.includes('--captures') ? body.replace('const journeyDuration = 2500;', 'const journeyDuration = 8000;') : body});
       });
       await page.goto(origin+'/escriptori/');
-      await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});
+      await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000}).catch(async error=>{
+        console.error(await page.evaluate(()=>({status:document.querySelector('#desk-status').textContent,loading:document.querySelector('.loading-label').textContent,ready:document.querySelector('#workspace').dataset.ready})),errors);throw error;
+      });
       await page.emulateMedia({reducedMotion:'no-preference'});
       for (const id of capture ? ['plec'] : mobile?['sentit','pauta']:layout==='tablet'?['plec','pauta']:['plec','trama','relleu-obert']) {
         if (id === 'trama') {

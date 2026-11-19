@@ -1,6 +1,7 @@
-import { createSampleBrowser } from './samples.js?v=1.9.0';
+import { createSampleBrowser } from './samples.js?v=1.10.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.6.0';
-import { createLightControls } from './light-controls.js?v=1.9.0';
+import { createLightControls } from './light-controls.js?v=1.10.0';
+import { createAmbientAudio } from './ambient-audio.js?v=1.10.0';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -19,6 +20,7 @@ let openingButton;
 const samples = createSampleBrowser({ getScene: () => scene, track });
 const loading = createLoadingIndicator(document.querySelector('#desk-loading'));
 const lightControls = createLightControls(() => scene);
+const ambience = createAmbientAudio(document.querySelector('#ambient-toggle'));
 
 const presentation = [
   { id: 'plec', name: 'Plec', kind: 'binder', purpose: 'Dictats', color: '#36523c', area: 'Llengua',
@@ -65,12 +67,12 @@ async function loadProjects() {
   if (!response.ok) throw new Error('No s’ha pogut carregar el catàleg.');
   const portal = new DOMParser().parseFromString(await response.text(), 'text/html');
   const sampleBase = new URL('assets/desk/samples/', base);
-  const sampleCatalogue = await fetch(new URL('examples.json?v=1.8.0', sampleBase)).then(response => {
+  const sampleCatalogue = await fetch(new URL('examples.json?v=1.10.0', sampleBase)).then(response => {
     if (!response.ok) throw new Error('No s’han pogut carregar les mostres.');
     return response.json();
   });
   const reliefBase = new URL('assets/desk/reliefs/', base);
-  const reliefCatalogue = await fetch(new URL('manifest.json?v=1.9.0', reliefBase)).then(response => {
+  const reliefCatalogue = await fetch(new URL('manifest.json?v=1.10.0', reliefBase)).then(response => {
     if (!response.ok) throw new Error('No s’han pogut carregar les maquetes.');
     return response.json();
   });
@@ -98,7 +100,7 @@ async function loadProjects() {
     if (project.preview) project.preview = new URL(project.preview, base).href;
     project.examples = sampleCatalogue[project.id];
     if (project.id === 'relleu-obert') {
-      project.reliefs = reliefCatalogue.models.map(model => ({ ...model, url: new URL(model.url, reliefBase).href }));
+      project.reliefs = reliefCatalogue.models.map(model => ({ ...model, url: new URL(model.url + '?v=' + model.sha256.slice(0, 12), reliefBase).href }));
       const byId = new Map(project.reliefs.map(model => [model.id, model]));
       const ids = ['agulles-montserrat', 'tamariu', 'sant-maurici'];
       project.examples = [[ids[0], ids[1]], [ids[2], ids[0]], [ids[1], ids[2]]].map(pair => ({
@@ -114,6 +116,10 @@ async function loadProjects() {
   }
   const about = portal.querySelector('#about-dialog');
   if (about) {
+    const credits = document.createElement('p');
+    credits.className = 'ambient-credits';
+    credits.innerHTML = 'So ambient: <a href="https://freesound.org/people/ecfike/sounds/183496/" target="_blank" rel="noopener noreferrer">ecfike</a>, <a href="https://freesound.org/people/ValentinPetiteau/sounds/563547/" target="_blank" rel="noopener noreferrer">ValentinPetiteau</a>, <a href="https://freesound.org/people/WhisperingEarth/sounds/798842/" target="_blank" rel="noopener noreferrer">WhisperingEarth</a> i <a href="https://freesound.org/people/TSP-Talk/sounds/846301/" target="_blank" rel="noopener noreferrer">TSP-Talk</a> · <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener noreferrer">CC0</a>.';
+    (about.querySelector('.credits') || about.querySelector('.dialog-content') || about).append(credits);
     about.querySelectorAll('[src],[href]').forEach(element => {
       for (const attribute of ['src', 'href']) {
         if (element.hasAttribute(attribute)) element.setAttribute(attribute, new URL(element.getAttribute(attribute), base).href);
@@ -184,7 +190,7 @@ async function openProject(project, button) {
     delete detail.dataset.preparing;
     detail.showModal();
     detail.querySelector('.description-page').scrollTop = 0;
-    scene.setDetailVisible(true);
+    scene.setDetailVisible(true); ambience.setReading(true);
     requestAnimationFrame(() => detail.classList.add('is-visible'));
     track('obre_fitxa_escriptori', { projecte: project.id });
   } catch (error) {
@@ -206,7 +212,7 @@ async function closeProject() {
   detail.classList.remove('is-visible');
   await new Promise(resolve => setTimeout(resolve, reduced.matches ? 0 : 220));
   detail.close();
-  scene.setDetailVisible(false);
+  scene.setDetailVisible(false); ambience.setReading(false);
   await scene.home();
   selected = null;
   controls.inert = false;
@@ -262,7 +268,7 @@ areaButtons.forEach(button => button.addEventListener('click', () => {
   if (!scene || busy || selected) return;
   const area = button.dataset.area;
   areaButtons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
-  presentation.forEach(project => { project.button.tabIndex = project.area === area ? 0 : -1; });
+  presentation.forEach(project => { project.button.tabIndex = area === 'Taula' || project.area === area ? 0 : -1; });
   scene.setArea(area);
 }));
 
@@ -270,7 +276,7 @@ async function start() {
   try {
     loading.update(0, 'Preparant l’escriptori…');
     const [manifest] = await Promise.all([
-      fetch(new URL('assets/desk/loading.json?v=1.9.0', base)).then(response => {
+      fetch(new URL('assets/desk/loading.json?v=1.10.0', base)).then(response => {
         if (!response.ok) throw new Error('No s’ha pogut carregar el pla de recursos.');
         return response.json();
       }),
@@ -278,7 +284,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.9.0');
+    const { createDesk } = await import('./scene.js?v=1.10.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({
@@ -291,7 +297,7 @@ async function start() {
     status.textContent = '';
     workspace.dataset.ready = 'true';
     workspace.setAttribute('aria-busy', 'false');
-    for (const element of [controls, document.querySelector('.desk-view-tools'), document.querySelector('.mobile-areas')]) element.inert = false;
+    for (const element of [controls, document.querySelector('#wall-light-switch'), document.querySelector('.desk-view-tools'), document.querySelector('.mobile-areas')]) element.inert = false;
     loading.finish();
     document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
       if (!busy && !selected) scene.moveView(button.dataset.view);

@@ -43,12 +43,12 @@ export function createReliefs({ scene, camera, target, animate, requestRender })
     const proxy = camera.clone(); proxy.position.copy(position); proxy.up.set(0, 1, 0); proxy.lookAt(center);
     return { position, rotation: proxy.quaternion, target: center, up: proxy.up };
   }
-  async function travel(to, movePiece) {
+  async function travel(to, movePiece, duration = 220) {
     const from = pose();
     await animate('relief-view', t => {
       camera.position.lerpVectors(from.position, to.position, t); camera.quaternion.slerpQuaternions(from.rotation, to.rotation, t);
       target.lerpVectors(from.target, to.target, t); movePiece?.(t);
-    });
+    }, duration);
     camera.up.copy(to.up);
   }
   function fitDistance() {
@@ -65,10 +65,23 @@ export function createReliefs({ scene, camera, target, animate, requestRender })
     const offset = startBounds.getCenter(new THREE.Vector3()).sub(selected.position);
     radius = startBounds.getSize(new THREE.Vector3()).length() * .5;
     // The front of the table is clear of the box and the second sample.
-    const destination = new THREE.Vector3(.1, -.574, 4.15);
+    const bottomOffset = startBounds.min.y - selected.position.y;
+    const destination = new THREE.Vector3(-1.5, -.574 - bottomOffset, 4.15);
+    const rim = box.group.localToWorld(new THREE.Vector3(0, .32, 0)).y;
+    const lift = Math.max(.45, rim + .14 - Math.min(startBounds.min.y, destination.y + bottomOffset));
+    // Lift the entire base above the rim before crossing a side. Horizontal
+    // motion overlaps the lift/landing, so the sample never stops in mid-air.
+    stored.path = t => {
+      const horizontal = THREE.MathUtils.smoothstep(t, .25, .79);
+      const raised = THREE.MathUtils.smoothstep(t, 0, .28) * (1 - THREE.MathUtils.smoothstep(t, .72, 1));
+      selected.position.lerpVectors(stored.worldPosition, destination, horizontal);
+      selected.position.y += lift * raised;
+      stored.progress = t;
+    };
+    stored.rim = rim;
     center = destination.clone().add(offset);
     yaw = .3; pitch = .85; distance = fitDistance();
-    await travel(view(), t => selected.position.lerpVectors(stored.worldPosition, destination, t));
+    await travel(view(), stored.path, 820);
     requestRender();
   }
   async function close(fallback) {
@@ -79,8 +92,7 @@ export function createReliefs({ scene, camera, target, animate, requestRender })
       proxy.up.copy(to.up); proxy.position.copy(resized.position); proxy.lookAt(resized.target);
       to = { ...resized, up: to.up, rotation: proxy.quaternion };
     }
-    const from = selected.position.clone();
-    await travel(to, t => selected.position.lerpVectors(from, stored.worldPosition, t));
+    await travel(to, t => stored.path(1 - t), 820);
     stored.parent.attach(selected); selected.position.copy(stored.position); selected.quaternion.copy(stored.rotation); selected.scale.copy(stored.scale);
     selected = null; stored = null; requestRender();
   }
@@ -105,12 +117,15 @@ export function createReliefs({ scene, camera, target, animate, requestRender })
   }
   function unmount() {
     for (const piece of pieces) piece.removeFromParent(); pieces = [];
-    const geometries = new Set(), materials = new Set();
+    const geometries = new Set(), materials = new Set(), textures = new Set();
     for (const entry of assets.values()) entry.object.traverse(mesh => {
       if (!mesh.isMesh) return;
-      geometries.add(mesh.geometry); for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) materials.add(material);
+      geometries.add(mesh.geometry); for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        materials.add(material); if (material.map) textures.add(material.map);
+      }
     });
     geometries.forEach(geometry => geometry.dispose()); materials.forEach(material => material.dispose());
+    textures.forEach(texture => texture.dispose());
     assets.clear(); box = null;
   }
   function points(narrow) {
@@ -138,5 +153,6 @@ export function createReliefs({ scene, camera, target, animate, requestRender })
   }
   return { prepare, mount, setSamples, inspect, close, orbit, zoom, reset, resize, unmount,
     points, project,
-    info: () => ({ kind: selected ? 'relief' : null, open: Boolean(selected), yaw, pitch, distance, radius, panX: 0, panY: 0, models: pieces.map(piece => piece.userData.relief.id), title: selected?.userData.relief.title }) };
+    info: () => ({ kind: selected ? 'relief' : null, open: Boolean(selected), yaw, pitch, distance, radius, panX: 0, panY: 0, models: pieces.map(piece => piece.userData.relief.id), title: selected?.userData.relief.title,
+      extraction: selected && stored ? { progress: stored.progress, rim: stored.rim, base: new THREE.Box3().setFromObject(selected).min.toArray(), position: selected.position.toArray() } : null }) };
 }

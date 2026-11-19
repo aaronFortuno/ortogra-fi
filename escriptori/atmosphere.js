@@ -2,12 +2,12 @@ import * as THREE from 'three';
 
 export async function createAtmosphere(scene, room, resources) {
   const window = new THREE.Group();
-  window.position.set(-8.1, 3.25, 1);
+  window.position.set(-8.1, 3.25, 2);
   window.rotation.y = Math.PI / 2;
   scene.add(window);
   const garden = await resources.load(new URL('../assets/desk/garden.webp', import.meta.url).href, objectURL => new THREE.TextureLoader().loadAsync(objectURL));
   garden.colorSpace = THREE.SRGBColorSpace;
-  const view = new THREE.Mesh(new THREE.PlaneGeometry(2.94, 3.33), new THREE.MeshBasicMaterial({ map: garden, toneMapped: false }));
+  const view = new THREE.Mesh(new THREE.PlaneGeometry(4.94, 3.33), new THREE.MeshBasicMaterial({ map: garden, toneMapped: false }));
   view.position.z = -.27;
   window.add(view);
 
@@ -38,7 +38,7 @@ export async function createAtmosphere(scene, room, resources) {
   const branches = [];
   for (let branch = 0; branch < 3; branch++) {
     const group = new THREE.Group();
-    group.position.set(-.92 + branch * .67, -1.76 + branch * .17, -.13);
+    group.position.set(-1.8 + branch * 1.3, -1.76 + branch * .17, -.13);
     const points = [new THREE.Vector3(), new THREE.Vector3(.14, .6, 0), new THREE.Vector3(-.06, 1.25, .015), new THREE.Vector3(.24, 1.95, 0)];
     const stem = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 20, .009, 5, false), stemMaterial);
     stem.castShadow = true;
@@ -59,12 +59,21 @@ export async function createAtmosphere(scene, room, resources) {
   }
   const frustum = new THREE.Frustum();
   const projection = new THREE.Matrix4();
-  const bounds = new THREE.Box3(new THREE.Vector3(-8.45, 1.62, -.48), new THREE.Vector3(-8, 4.9, 2.48));
+  const bounds = new THREE.Box3(new THREE.Vector3(-8.45, 1.62, -.48), new THREE.Vector3(-8, 4.9, 4.48));
   const plant = room.getObjectByName('Pothos');
   const plantBounds = plant ? new THREE.Box3().setFromObject(plant) : new THREE.Box3();
   const leafNodes = [];
   plant?.traverse(node => { if (/^IndoorLeaf_\d+$/.test(node.name)) leafNodes.push(node); });
-  const indoor = leafNodes.map((mesh, index) => ({ mesh, home: mesh.quaternion.clone(), phase: index * 1.7 }));
+  const indoor = leafNodes.map((mesh, index) => ({ mesh, home: mesh.quaternion.clone(), phase: index * 4.79, period: 19 + (index * 7 % 13) }));
+  const skin = leafSkin();
+  plant?.traverse(mesh => {
+    if (!mesh.isMesh || !mesh.material.name.startsWith('IndoorFoliage')) return;
+    mesh.material.map = skin.color;
+    mesh.material.roughnessMap = skin.roughness; mesh.material.roughness = .72;
+    mesh.material.normalMap = skin.normal; mesh.material.normalScale.set(.2, .2);
+    mesh.material.envMapIntensity = 1.1; mesh.material.needsUpdate = true;
+  });
+  const sway = new THREE.Quaternion(), swayAxis = new THREE.Vector3(.3, .1, 1).normalize();
   let windowVisible = false, plantVisible = false;
   return {
     leafTexture,
@@ -83,8 +92,10 @@ export async function createAtmosphere(scene, room, resources) {
           leaves[i].leaf.rotation.z = leaves[i].angle + Math.sin(seconds * .86 + i * .63 + phase) * .035;
         }
       }
-      if (plantVisible) for (const { mesh, home, phase } of indoor) {
-        const sway = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.sin(seconds * .47 + phase) * .012);
+      if (plantVisible) for (const { mesh, home, phase, period } of indoor) {
+        const moment = (seconds + phase) % period;
+        const envelope = moment < 3.4 ? Math.sin(Math.PI * moment / 3.4) ** 2 : 0;
+        sway.setFromAxisAngle(swayAxis, Math.sin(moment * 3.3 + phase) * envelope * .035 + Math.sin(seconds * .23 + phase) * .002);
         mesh.quaternion.copy(home).multiply(sway);
       }
     },
@@ -96,4 +107,29 @@ export async function createAtmosphere(scene, room, resources) {
       stemMaterial.color.set('#635b3d').multiplyScalar(.2 + .8 * state.day);
     },
   };
+}
+
+// Fine veins and varied waxiness follow the model's leaf UVs. The original
+// vertex colours and curved geometry remain visible beneath this microtexture.
+function leafSkin() {
+  const size = 256;
+  const canvas = () => { const c = document.createElement('canvas'); c.width = c.height = size; return c; };
+  const color = canvas(), roughness = canvas(), normal = canvas();
+  const data = [color, roughness, normal].map(c => c.getContext('2d').createImageData(size, size));
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = x / size, v = y / size, side = Math.abs(u - .5);
+    const central = Math.exp(-1 * (((u - .5) * 100) ** 2));
+    const vein = Math.exp(-1 * ((Math.sin((v - side * .65) * Math.PI * 13) * 17) ** 2)) * (1 - side * 1.3);
+    const grain = Math.sin(x * 5.23 + y * 13.7) * Math.sin(x * 1.73 - y * 3.13);
+    const tone = 232 + 13 * central + 7 * vein + 3 * grain;
+    const i = (y * size + x) * 4;
+    data[0].data.set([tone - 5, tone, tone - 8, 255], i);
+    const r = 153 - 28 * central - 15 * vein + grain * 7;
+    data[1].data.set([r, r, r, 255], i);
+    data[2].data.set([128 + Math.cos((v - side * .65) * Math.PI * 26) * vein * 17, 128 + grain * 5, 254, 255], i);
+  }
+  [color, roughness, normal].forEach((c, i) => c.getContext('2d').putImageData(data[i], 0, 0));
+  const maps = [color, roughness, normal].map(c => new THREE.CanvasTexture(c));
+  maps[0].colorSpace = THREE.SRGBColorSpace;
+  return { color: maps[0], roughness: maps[1], normal: maps[2] };
 }

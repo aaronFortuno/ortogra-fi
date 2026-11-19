@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { deskLayout } from './desk-layout.js?v=1.9.0';
+import { deskLayout } from './desk-layout.js?v=1.10.0';
 
 // Local ambient occlusion at actual furniture joints. The GLB already contains
 // broad static AO; these narrow gradients restore the contact that its shared

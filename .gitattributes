@@ -1,5 +1,6 @@
 * text=auto eol=lf
 *.png binary
 *.webp binary
+*.mp3 binary
 # Preserve PDF byte offsets, including files that contain only printable bytes.
 *.pdf binary
