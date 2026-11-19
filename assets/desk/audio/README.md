@@ -1,6 +1,6 @@
 # Ambient exterior de l’escriptori
 
-Els cinc fragments de camp provenen d’enregistraments CC0. El pati és una recreació pròpia amb crides sense paraules i bots de pilota. Tots sis fragments se serveixen des d’ortogra.fi.
+El vent, els ocells i el vehicle provenen d’enregistraments CC0. Per al pati s’ha utilitzat «Playground with kids playing» de Mixkit. Tots sis fragments se serveixen des d’ortogra.fi.
 
 | Fitxer | Contingut | Durada descodificada | Canals | Pes |
 | --- | --- | ---: | ---: | ---: |
@@ -9,11 +9,13 @@ Els cinc fragments de camp provenen d’enregistraments CC0. El pati és una rec
 | `birds-park-b.mp3` | Una altra frase del mateix parc | 7,4 s | Mono | 89.856 B |
 | `birds-garden.mp3` | Ocells de jardí | 7,4 s | Mono | 89.839 B |
 | `distant-car.mp3` | Pas d'un cotxe enregistrat a uns 20 m | 10 s | Mono | 120.855 B |
-| `playground.mp3` | Crides de joc i bots de pilota | 17 s | Mono | 136.845 B |
+| `playground-park.mp3` | Canalla jugant en un parc | 17 s | Mono | 136.845 B |
 
-**Total dels sis MP3 · 1.040.260 bytes.** Els cinc enregistraments de camp sumen 903.415 bytes a 44.100 Hz. El pati es genera amb `tools/prepare-desk-playground.py` a 32.000 Hz i es codifica a 64 kbit/s. Només entra amb llum de dia. El filtre de la finestra canvia progressivament entre 1,5 i 7,2 kHz.
+**Total dels sis MP3 · 1.040.260 bytes.** Els cinc fragments CC0 sumen 903.415 bytes a 44.100 Hz. El pati es prepara amb `tools/prepare-desk-playground.py` a partir del WAV de Mixkit i es codifica a 32.000 Hz i 64 kbit/s. Només entra amb llum de dia, a la velocitat original. El filtre de la finestra canvia progressivament entre 1,5 i 7,2 kHz.
 
 ## Fonts i llicències
+
+- **Mixkit**, «Playground with kids playing», recurs 2266. S’utilitza el tram d’1,5 a 18,5 s del WAV, amb una fusió als extrems i ajust de nivell. La llicència específica d’aquest fragment és la Sound Effects Free License. [Font](https://mixkit.co/free-sound-effects/children/) · [Llicència](https://mixkit.co/license/#sfxFree)
 
 - **ecfike**, [Wind and Leaves.wav](https://freesound.org/people/ecfike/sounds/183496/): vent entre arbres de fulla ampla. Fragment 200–232 s per a `wind-leaves`.
 - **ValentinPetiteau**, [ocells en un parc europeu](https://freesound.org/people/ValentinPetiteau/sounds/563547/): enregistrament de matí en un parc francès amb Zoom H5. Fragments 16–22,7 s i 24,5–31,2 s per als dos `birds-park`.

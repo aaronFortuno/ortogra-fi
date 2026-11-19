@@ -1,7 +1,7 @@
 import { createSampleBrowser } from './samples.js?v=1.11.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.6.0';
 import { createLightControls } from './light-controls.js?v=1.11.0';
-import { createAmbientAudio } from './ambient-audio.js?v=1.14.0';
+import { createAmbientAudio } from './ambient-audio.js?v=1.14.1';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -121,7 +121,7 @@ async function loadProjects() {
   if (about) {
     const credits = document.createElement('p');
     credits.className = 'ambient-credits';
-    credits.innerHTML = 'Enregistraments d’ambient de <a href="https://freesound.org/people/ecfike/sounds/183496/" target="_blank" rel="noopener noreferrer">ecfike</a>, <a href="https://freesound.org/people/ValentinPetiteau/sounds/563547/" target="_blank" rel="noopener noreferrer">ValentinPetiteau</a>, <a href="https://freesound.org/people/WhisperingEarth/sounds/798842/" target="_blank" rel="noopener noreferrer">WhisperingEarth</a> i <a href="https://freesound.org/people/TSP-Talk/sounds/846301/" target="_blank" rel="noopener noreferrer">TSP-Talk</a> · <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener noreferrer">CC0</a>. Ambient de pati recreat per ortogra.fi.';
+    credits.innerHTML = 'Enregistraments d’ambient de <a href="https://freesound.org/people/ecfike/sounds/183496/" target="_blank" rel="noopener noreferrer">ecfike</a>, <a href="https://freesound.org/people/ValentinPetiteau/sounds/563547/" target="_blank" rel="noopener noreferrer">ValentinPetiteau</a>, <a href="https://freesound.org/people/WhisperingEarth/sounds/798842/" target="_blank" rel="noopener noreferrer">WhisperingEarth</a> i <a href="https://freesound.org/people/TSP-Talk/sounds/846301/" target="_blank" rel="noopener noreferrer">TSP-Talk</a> · <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener noreferrer">CC0</a>. Pati: <a href="https://mixkit.co/free-sound-effects/children/" target="_blank" rel="noopener noreferrer">Playground with kids playing · Mixkit</a>.';
     (about.querySelector('.credits') || about.querySelector('.dialog-content') || about).append(credits);
     about.querySelectorAll('[src],[href]').forEach(element => {
       for (const attribute of ['src', 'href']) {

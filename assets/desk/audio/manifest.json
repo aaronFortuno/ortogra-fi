@@ -1,28 +1,35 @@
 {
-  "version": 2,
+  "version": 3,
   "prepared": "2026-11-19",
   "format": "MP3",
   "review": {
     "licenseChecked": true,
     "waveformAndSpectrumChecked": true,
     "humanListening": "pending",
-    "speech": "No speech is intended; source descriptions and spectrum were checked. Human listening remains pending."
+    "speech": "Playground crowd voices are intentional. Human listening remains pending."
   },
   "clips": [
     {
       "id": "playground",
-      "file": "playground.mp3",
-      "title": "Joc al pati",
+      "file": "playground-park.mp3",
+      "title": "Canalla jugant al parc",
       "kind": "playground",
-      "creator": "ortogra.fi",
-      "source": "tools/prepare-desk-playground.py",
-      "sourceFormat": "Original procedural sound design, wordless calls and a bouncing ball",
+      "creator": "Mixkit",
+      "source": "https://mixkit.co/free-sound-effects/children/",
+      "sourceTitle": "Playground with kids playing",
+      "sourceFormat": "Mixkit WAV 2266",
+      "sourceSha256": "bdc7dbab0ef5d154b60bd92d487f96205af698486377eb1aa74c48045acb7f78",
+      "sourceSegment": { "start": 1.5, "duration": 17 },
+      "license": "Mixkit Sound Effects Free License",
+      "licenseUrl": "https://mixkit.co/license/#sfxFree",
+      "processingScript": "tools/prepare-desk-playground.py",
       "duration": 17,
       "sampleRate": 32000,
       "channels": 1,
       "bitrateKbps": 64,
       "bytes": 136845,
-      "sha256": "75213cffccfe2d63d077170e32d51c9f109ce094f976dbdb71bceace57a1a769"
+      "sha256": "3678d312de7ffdab5e8e74ddc3b1da95a6ca2eaca433628529eb77b92adc63d1",
+      "measurements": { "decodedRmsDbFS": -32.09, "decodedPeakDbFS": -12.43, "decodedFrames": 544000 }
     },
     {
       "id": "wind-leaves",

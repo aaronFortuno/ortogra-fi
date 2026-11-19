@@ -2,6 +2,10 @@
 
 Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Ajust del pati i del volum · 1.14.1
+
+Un fragment de 17 segons de canalla jugant substitueix les veus sintetitzades. Sona a la velocitat original. El guany general baixa 3 dB tant amb la finestra oberta com tancada, també durant la lectura. Els sis àudios continuen ocupant 1.040.260 bytes. La font, la llicència de Mixkit i el tractament del WAV consten a [la fitxa dels àudios](../assets/desk/audio/README.md).
+
 ## Finestra, ambient i material de taula · 1.14
 
 La maneta i el vidre obren una fulla practicable. La claror arriba pel mateix buit tant amb el vidre tancat com obert. Les branques a fora comparteixen la fase de la ràfega i l’obertura de la fulla augmenta el moviment del potos a dins. El cicle ambiental continua limitat a 24 Hz i les ombres de la vegetació a 4 Hz. Amb moviment reduït la finestra passa directament a la posició final.

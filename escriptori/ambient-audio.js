@@ -1,6 +1,7 @@
 // Each exterior layer schedules its own next entrance on the audio clock.
 export function createAmbientAudio(button) {
   const base = new URL('../assets/desk/audio/', import.meta.url);
+  const mixGain = 10 ** (-3 / 20);
   let context, master, filter, buffers, loadingBuffers, reading = false, open = false;
   let generation = 0, previousBird = '', wanted = true, started = false, pending = false, playedOnce = false;
   try { wanted = localStorage.getItem('ortografi-desk-muted') !== 'true'; } catch { /* Session-only preference. */ }
@@ -32,7 +33,7 @@ export function createAmbientAudio(button) {
     if (!master) return;
     const now = context.currentTime;
     master.gain.cancelScheduledValues(now);
-    const level = (open ? .42 : .24) * (reading ? .43 : 1);
+    const level = mixGain * (open ? .42 : .24) * (reading ? .43 : 1);
     master.gain.setTargetAtTime(wanted && !document.hidden ? level : 0, now, .12);
     filter.frequency.setTargetAtTime(open ? 7200 : 1500, now, .14);
   }
@@ -72,7 +73,7 @@ export function createAmbientAudio(button) {
   function playground(token) {
     const entry = buffers.find(clip => clip.kind === 'playground');
     if (isDay() && entry) play(entry, { gain: random(.46, .72), pan: random(-.75, -.3),
-      offset: random(0, 2), fade: 1.4, rate: random(.97, 1.03) });
+      offset: random(0, 2), fade: 1.4 });
     later(random(38, 90), () => playground(token), token);
   }
   async function start(gesture = false) {
@@ -98,7 +99,7 @@ export function createAmbientAudio(button) {
       if (!buffers) {
         reflect('loading');
         loadingBuffers ||= (async () => {
-          const response = await fetch(new URL('manifest.json?v=1.14.0', base));
+          const response = await fetch(new URL('manifest.json?v=1.14.1', base));
           if (!response.ok) throw new Error('Audio catalogue unavailable');
           const manifest = await response.json();
           return Promise.all(manifest.clips.map(async entry => {
