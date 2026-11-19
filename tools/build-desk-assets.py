@@ -102,6 +102,7 @@ def empty(name, position=(0, 0, 0), parent=None):
 dynamic = empty('Materials')
 room = empty('Room')
 living = empty('LivingDetails')
+props = empty('Stationery')
 
 
 def finish(obj, name, mat, position, parent):
@@ -179,7 +180,7 @@ def curve(name, points, thickness, mat, parent=room):
 
 
 # Furniture is fully modelled so the viewpoint can move beyond the original crop.
-box('BackWall', (23, 12, .18), (0, 2, -1.8), plaster, bevel=.03)
+box('BackWall', (16.2, 12, .18), (0, 2, -1.8), plaster, bevel=.03)
 # Leave a real opening; the browser places the garden and moving foliage beyond it.
 box('SideWallBelow', (.18, 5.6, 40), (-8.1, -1.2, 17.8), plaster, bevel=.0008)
 box('SideWallAbove', (.18, 3.1, 40), (-8.1, 6.45, 17.8), plaster, bevel=.0008)
@@ -316,7 +317,7 @@ folder('pauta', '#9d9c76', 3.25, 1.5, .17)
 
 # The final slot is reserved for future materials. This unlabelled, closed
 # folder is scenery, with no Item_/Lid_ prefix and no invented project.
-spare = empty('SpareFolder', (4.65, -.548, -.72), room)
+spare = empty('SpareFolder', (4.65, -.548, -.72), props)
 spare.rotation_euler.z = .05
 spare_card = material('SpareFolderCard', '#a39679', .94)
 box('SpareFolderBack', (2.1, .014, 1.45), (0, -.015, 0), spare_card, spare, .005)
@@ -325,7 +326,7 @@ box('SpareFolderCover', (2.1, .014, 1.45), (0, .016, 0), spare_card, spare, .005
 
 # The centre stays empty for the opened samples. Lived-in stationery sits to the
 # left of that working area, rather than in front of an interactive resource.
-notes = empty('DeskNotes', (-4.65, -.575, 3.5), room)
+notes = empty('DeskNotes', (-4.65, -.575, 3.5), props)
 for i, (angle, dx, dz) in enumerate([
         (-.105, -.08, -.075), (.075, .12, -.045), (-.032, -.035, .12),
         (.145, .10, .035), (-.045, -.015, .015)]):
@@ -341,7 +342,7 @@ for i, (angle, dx, dz) in enumerate([
         for col in range(15):
             n = row * 16 + col
             faces.append((n, n + 16, n + 17, n + 1))
-    sheet = mesh_object('LooseWorksheet', vertices, faces, paper, notes)
+    sheet = mesh_object('LooseWorksheet_' + str(i), vertices, faces, paper, notes)
     sheet.location = xyz((dx, i * .0038, dz))
     sheet.rotation_euler.z = angle
     thickness = sheet.modifiers.new('Paper thickness', 'SOLIDIFY')
@@ -349,7 +350,7 @@ for i, (angle, dx, dz) in enumerate([
     bpy.context.view_layer.objects.active = sheet
     bpy.ops.object.modifier_apply(modifier=thickness.name)
 curve('PaperClip', [(-.56, .017, -.75), (-.56, .017, -.48), (-.44, .017, -.48), (-.44, .017, -.78), (-.52, .017, -.78), (-.52, .017, -.54)], .0035, silver, notes)
-loose_pencil = empty('LoosePencil', (-5.6, -.553, 1.6), room)
+loose_pencil = empty('LoosePencil', (-5.6, -.553, 1.6), props)
 loose_pencil.rotation_euler.x = math.pi / 2
 loose_pencil.rotation_euler.z = -.35
 cylinder('LoosePencilBody', .024, .96, (0, .48, 0), material('LoosePencilPaint', '#a5793d', .65), loose_pencil)
@@ -357,7 +358,7 @@ cylinder('LoosePencilWood', .001, .12, (0, 1.02, 0), wood, loose_pencil, bottom=
 cylinder('LoosePencilGraphite', .001, .026, (0, 1.09, 0), dark_metal, loose_pencil, bottom=.006)
 
 
-stapler = empty('DeskStapler', (-6.83, -.58, .61), room)
+stapler = empty('DeskStapler', (-6.83, -.58, .61), props)
 stapler.rotation_euler.z = -.61
 stapler_plastic = material('StaplerEnamel', '#415b55', .37)
 rubber = material('StationeryRubber', '#30312d', .91)
@@ -410,7 +411,7 @@ def annulus(name, outer, inner, height, mat, parent, y=0):
 
 adhesive = material('AdhesiveFilm', '#d9c797', .32)
 cardboard = material('TapeCardboard', '#ab8b69', .94)
-tape_roll = empty('DeskTapeRoll', (-6.78, -.58, 1.87), room)
+tape_roll = empty('DeskTapeRoll', (-6.78, -.58, 1.87), props)
 tape_roll.rotation_euler.z = .3
 roll = annulus('TapeRoll', .235, .145, .145, adhesive, tape_roll)
 core = annulus('TapeCore', .146, .125, .148, cardboard, tape_roll, 0)
@@ -439,7 +440,7 @@ mesh_object('TapeLooseEnd', vertices, faces, tail, tape_roll)
 case_cloth = material('Cloth_PencilCase', '#51616c', .92)
 case_lining = material('CaseLining', '#adac99', .95)
 case_piping = material('CasePiping', '#394853', .76)
-pen_case = empty('OpenPencilCase', (6.5, -.578, 3.8), room)
+pen_case = empty('OpenPencilCase', (6.5, -.578, 3.8), props)
 pen_case.rotation_euler.z = -.115
 box('CaseBottom', (1.46, .055, .74), (0, .03, 0), case_cloth, pen_case, .055)
 box('CaseLining', (1.35, .018, .64), (0, .065, 0), case_lining, pen_case, .025)
@@ -490,7 +491,7 @@ def ballpoint(name, position, angle, color, parent):
 for i, color in enumerate(['#304c7b', '#292c2c', '#923e39', '#3e664f']):
     ballpoint('CaseBallpoint_' + str(i), (-.59 + (i % 2) * .045, .107 + i * .004, -.235 + i * .145),
               -.055 + i * .037, color, pen_case)
-ballpoint('LooseBallpoint', (5.8, -.546, 4.55), -.24, '#304c7b', room)
+ballpoint('LooseBallpoint', (5.8, -.546, 4.55), -.24, '#304c7b', props)
 
 
 # Separate leaves retain the IndoorLeaf_ names used by the browser's gentle
@@ -648,7 +649,7 @@ for leaf in [obj for obj in plant.children if obj.name.startswith('IndoorLeaf_')
     leaf.data = combined
     bpy.data.meshes.remove(original)
 
-cup = empty('PencilCup', (6.05, -.57, 1.2), room)
+cup = empty('PencilCup', (6.05, -.57, 1.2), props)
 cylinder('CupBody', .24, .54, (0, .27, 0), ceramic, cup, bottom=.2)
 cylinder('CupInside', .21, .02, (0, .525, 0), cavity, cup)
 for i, color in enumerate(['#526844', '#ad744c', '#796d48', '#bb9b53', '#535c65']):
@@ -699,7 +700,8 @@ def bake_ambient():
     scene.render.threads_mode = 'FIXED'
     scene.render.threads = 4
     scene.render.bake.margin = 8
-    for obj in dynamic.children_recursive:
+    movable = [*dynamic.children_recursive, *living.children_recursive, *props.children_recursive]
+    for obj in movable:
         obj.hide_render = True
     bpy.ops.object.bake(type='AO', uv_layer='AmbientUV')
     image.filepath_raw = str(WORK / 'ambient.png')
@@ -719,7 +721,7 @@ def bake_ambient():
         output = nodes.new('ShaderNodeGroup')
         output.node_tree = settings
         mat.node_tree.links.new(texture.outputs['Color'], output.inputs['Occlusion'])
-    for obj in dynamic.children_recursive:
+    for obj in movable:
         obj.hide_render = False
     surface.data.uv_layers.active_index = 0
     surface.data.uv_layers[0].active_render = True

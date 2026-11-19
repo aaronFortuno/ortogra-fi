@@ -1,7 +1,7 @@
 import { createSampleBrowser } from './samples.js?v=1.11.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.6.0';
 import { createLightControls } from './light-controls.js?v=1.11.0';
-import { createAmbientAudio } from './ambient-audio.js?v=1.14.1';
+import { createAmbientAudio } from './ambient-audio.js?v=1.15.0';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -193,7 +193,7 @@ async function openProject(project, button) {
     delete detail.dataset.preparing;
     detail.showModal();
     detail.querySelector('.description-page').scrollTop = 0;
-    scene.setDetailVisible(true); ambience.setReading(true);
+    scene.setDetailVisible(true);
     requestAnimationFrame(() => detail.classList.add('is-visible'));
     track('obre_fitxa_escriptori', { projecte: project.id });
   } catch (error) {
@@ -215,7 +215,7 @@ async function closeProject() {
   detail.classList.remove('is-visible');
   await new Promise(resolve => setTimeout(resolve, reduced.matches ? 0 : 220));
   detail.close();
-  scene.setDetailVisible(false); ambience.setReading(false);
+  scene.setDetailVisible(false);
   await scene.home();
   selected = null;
   controls.inert = false;
@@ -279,7 +279,7 @@ async function start() {
   try {
     loading.update(0, 'Preparant l’escriptori…');
     const [manifest] = await Promise.all([
-      fetch(new URL('assets/desk/loading.json?v=1.14.0', base)).then(response => {
+      fetch(new URL('assets/desk/loading.json?v=1.15.0', base)).then(response => {
         if (!response.ok) throw new Error('No s’ha pogut carregar el pla de recursos.');
         return response.json();
       }),
@@ -287,7 +287,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.14.0');
+    const { createDesk } = await import('./scene.js?v=1.15.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({
@@ -297,6 +297,7 @@ async function start() {
       onStage: (percent, label) => loading.update(percent ?? 0, label),
       onLightingChange: lightControls.update,
       onWindowChange: ambience.setWindow,
+      onObjectSound: ambience.playObject,
     });
     status.textContent = '';
     workspace.dataset.ready = 'true';
@@ -304,10 +305,34 @@ async function start() {
     for (const element of [controls, document.querySelector('#wall-light-switch'), document.querySelector('#window-latch'), document.querySelector('.desk-view-tools'), document.querySelector('.mobile-areas')]) element.inert = false;
     ambience.start();
     loading.finish();
-    if (new URLSearchParams(location.search).get('vista') === 'finestra') scene.moveView('window');
-    document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
-      if (!busy && !selected) scene.moveView(button.dataset.view);
-    }));
+    const view = new URLSearchParams(location.search).get('vista');
+    if (view === 'finestra') scene.moveView('window');
+    else if (['fulls', 'estoig', 'potus'].includes(view)) scene.moveView(view);
+    document.querySelectorAll('[data-view]').forEach(button => {
+      const activate = () => { if (!busy && !selected) scene.moveView(button.dataset.view); };
+      let touch = null, touchReturn = null;
+      button.addEventListener('pointerdown', event => {
+        if (event.pointerType !== 'mouse' && event.isPrimary) {
+          touch = { id: event.pointerId, x: event.clientX, y: event.clientY };
+        }
+      });
+      button.addEventListener('pointerup', event => {
+        if (!touch || event.pointerId !== touch.id) return;
+        const tapped = Math.hypot(event.clientX - touch.x, event.clientY - touch.y) <= 6;
+        touch = null;
+        // As in the enlarged sheet, a tap after a drag may have no click.
+        touchReturn = { pointer: event.pointerId, time: performance.now() };
+        event.preventDefault();
+        if (tapped) activate();
+      });
+      button.addEventListener('pointercancel', () => { touch = null; });
+      button.addEventListener('click', event => {
+        if (touchReturn && event.pointerId === touchReturn.pointer && performance.now() - touchReturn.time < 700) {
+          touchReturn = null; event.preventDefault(); return;
+        }
+        activate();
+      });
+    });
     new MutationObserver(() => scene.setTheme(document.documentElement.dataset.theme === 'dark'))
       .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   } catch (error) {

@@ -2,6 +2,16 @@
 
 Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Objectes de taula i arxivadors carregats · 1.15
+
+Els cinc fulls, la grapadora, la cinta i els estris d’escriptura tenen geometria seleccionable. El gest conserva el punt per on s’agafa l’objecte. El cantell i el terra determinen on aterra. El mateix control de silenci governa els sons de contacte i el pati. Els sons de paper, de fregament i d’impacte es generen durant el gest i no passen pel filtre de la finestra.
+
+El pes eixampla les tapes i enfonsa lleugerament el cap dels plecs. La deformació desapareix a mesura que l’arxivador s’obre. El jardí i les branques ocupen profunditats diferents darrere del mur. La llum solar actualitza les ombres de les fulles fins i tot quan la càmera només mira la taula.
+
+Revisió local abans de publicar: càrrega dels mòduls, integritat dels sis MP3, control de finestra i silenci, suspensió i retorn de l’àudio, canvi físic de pàgina en tots dos sentits i extracció de les maquetes. S’ha comprovat que arrossegar un full no modifica la càmera, que pot caure de la taula i que el botó de recollida recupera la posició original. Les obertures de Plec, Trama i Relleu Obert mantenen el recorregut continu de 2.500 ms i el retorn exacte de la càmera. Les captures d’escriptori i de 320 píxels amb tema fosc no mostren desbordament ni errors de navegador. El manifest inicial conserva 16 recursos i suma 10.183.157 bytes.
+
+La prova tàctil ha detectat que el navegador pot ometre el clic del primer toc després d’arrossegar. Els controls de càmera activen els tocs breus en acabar el gest i consumeixen el possible clic duplicat, com ja feia el visor ampliat. La prova d’arrossegament, pinça i primer toc posterior passa amb aquesta correcció; ratolí i teclat conserven l’activació per clic.
+
 ## Ajust del pati i del volum · 1.14.1
 
 Un fragment de 17 segons de canalla jugant substitueix les veus sintetitzades. Sona a la velocitat original. El guany general baixa 3 dB tant amb la finestra oberta com tancada, també durant la lectura. Els sis àudios continuen ocupant 1.040.260 bytes. La font, la llicència de Mixkit i el tractament del WAV consten a [la fitxa dels àudios](../assets/desk/audio/README.md).

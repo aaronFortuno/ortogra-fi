@@ -1,8 +1,10 @@
+import { objectAudio } from './object-audio.js?v=1.15.0';
+
 // Each exterior layer schedules its own next entrance on the audio clock.
 export function createAmbientAudio(button) {
   const base = new URL('../assets/desk/audio/', import.meta.url);
   const mixGain = 10 ** (-3 / 20);
-  let context, master, filter, buffers, loadingBuffers, reading = false, open = false;
+  let context, master, filter, buffers, loadingBuffers, effects, open = false;
   let generation = 0, previousBird = '', wanted = true, started = false, pending = false, playedOnce = false;
   try { wanted = localStorage.getItem('ortografi-desk-muted') !== 'true'; } catch { /* Session-only preference. */ }
   const sources = new Set(), timers = new Set();
@@ -24,6 +26,7 @@ export function createAmbientAudio(button) {
   };
   function stopLayers(fade = 0) {
     generation++;
+    effects?.stop();
     for (const timer of timers) clearTimeout(timer);
     timers.clear();
     for (const source of sources) { try { source.stop(context.currentTime + fade); } catch { /* Already ended. */ } }
@@ -33,7 +36,7 @@ export function createAmbientAudio(button) {
     if (!master) return;
     const now = context.currentTime;
     master.gain.cancelScheduledValues(now);
-    const level = mixGain * (open ? .42 : .24) * (reading ? .43 : 1);
+    const level = mixGain * (open ? .42 : .24);
     master.gain.setTargetAtTime(wanted && !document.hidden ? level : 0, now, .12);
     filter.frequency.setTargetAtTime(open ? 7200 : 1500, now, .14);
   }
@@ -130,6 +133,8 @@ export function createAmbientAudio(button) {
   function unlock(event) {
     if (event.isTrusted && !button.contains(event.target) && !event.repeat && !event.ctrlKey && !event.metaKey) start(true);
   }
+  document.addEventListener('pointerdown', unlock, true);
+  document.addEventListener('pointerup', unlock, true);
   document.addEventListener('click', unlock, true);
   document.addEventListener('keydown', unlock, true);
   button.addEventListener('click', () => {
@@ -145,5 +150,9 @@ export function createAmbientAudio(button) {
   window.addEventListener('pagehide', () => pause());
   window.addEventListener('pageshow', event => { if (event.persisted) start(playedOnce || navigator.userActivation?.hasBeenActive); });
   reflect(wanted ? 'waiting' : 'off');
-  return { start, setWindow(value) { open = value; volume(); }, setReading(value) { reading = value; volume(); } };
+  return { start, setWindow(value) { open = value; volume(); },
+    playObject(action, material) {
+      if (!wanted || document.hidden || context?.state !== 'running') return;
+      effects ||= objectAudio(context); effects.play(action, material);
+    } };
 }

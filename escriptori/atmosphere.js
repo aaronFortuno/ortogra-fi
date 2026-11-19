@@ -10,7 +10,9 @@ export async function createAtmosphere(scene, room, resources) {
   garden.colorSpace = THREE.SRGBColorSpace;
   const view = new THREE.Mesh(new THREE.PlaneGeometry(4.94, 3.33), new THREE.MeshBasicMaterial({ map: garden, toneMapped: false }));
   const skyTint = { value: new THREE.Color(1, 1, 1) };
-  view.position.z = -.27;
+  // Leave real space between the masonry, the shrub and the far garden.
+  view.scale.set(2.3, 1.95, 1);
+  view.position.set(.65, .08, -2.75);
   window.add(view);
   const sash = createCasement(window);
   let opening = 0;
@@ -25,12 +27,14 @@ export async function createAtmosphere(scene, room, resources) {
   const branches = windowBranches(window, leafGeometry, leafMaterials, stemMaterial);
   const frustum = new THREE.Frustum();
   const projection = new THREE.Matrix4();
-  const bounds = new THREE.Box3(new THREE.Vector3(-8.45, 1.62, -.48), new THREE.Vector3(-8, 4.9, 4.48));
+  const bounds = new THREE.Box3(new THREE.Vector3(-9.7, .4, -1), new THREE.Vector3(-8.38, 5.2, 5.3));
   const plant = room.getObjectByName('Pothos');
   const plantBounds = plant ? new THREE.Box3().setFromObject(plant) : new THREE.Box3();
+  const plantOrigin = plant?.getWorldPosition(new THREE.Vector3());
+  const movedBounds = new THREE.Box3(), shift = new THREE.Vector3();
   const leafNodes = [];
   plant?.traverse(node => { if (/^IndoorLeaf_\d+$/.test(node.name)) leafNodes.push(node); });
-  const indoor = leafNodes.map((mesh, index) => ({ mesh, home: mesh.quaternion.clone(), phase: index * 4.79, period: 19 + (index * 7 % 13) }));
+  const indoor = leafNodes.map((mesh, index) => ({ mesh, home: mesh.quaternion.clone(), touched: -Infinity, impulse: 0, phase: index * 4.79, period: 19 + (index * 7 % 13) }));
   const skin = leafSkin();
   plant?.traverse(mesh => {
     if (!mesh.isMesh) return;
@@ -65,16 +69,23 @@ export async function createAtmosphere(scene, room, resources) {
       };
       view.material.customProgramCacheKey = () => 'garden-moving-sky-v1'; view.material.needsUpdate = true;
     },
+    brush(leaf, direction, seconds) {
+      if (!plant || !leaf) return;
+      for (const item of indoor) {
+        const weight = Math.max(0, 1 - item.mesh.position.distanceTo(leaf.position) / .47);
+        if (weight > 0) { item.touched = seconds; item.impulse = (.09 + .16 * weight) * weight * direction; }
+      }
+    },
     visible(camera) {
       projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
       frustum.setFromProjectionMatrix(projection);
       windowVisible = frustum.intersectsBox(bounds);
-      plantVisible = !plantBounds.isEmpty() && frustum.intersectsBox(plantBounds);
+      plantVisible = Boolean(plant) && frustum.intersectsBox(movedBounds.copy(plantBounds).translate(plant.getWorldPosition(shift).sub(plantOrigin)));
       return windowVisible || plantVisible;
     },
-    update(time) {
+    update(time, sunlit) {
       const seconds = time / 1000;
-      if (windowVisible) for (const { group, leaves, phase } of branches) {
+      if (windowVisible || sunlit) for (const { group, leaves, phase } of branches) {
         const gustTime = (seconds + 2.4 - phase * .18 + 21) % 21;
         const gust = gustTime < 6 ? Math.sin(Math.PI * gustTime / 6) ** 2 : 0;
         group.rotation.z = Math.sin(seconds * .72 + phase * .36) * (.053 + .083 * gust) + Math.sin(seconds * .21 + phase) * .019;
@@ -85,11 +96,13 @@ export async function createAtmosphere(scene, room, resources) {
           leaf.rotation.y = home.y + Math.sin(seconds * 1.43 + i * .91 + phase) * (.035 + .045 * gust);
         }
       }
-      if (plantVisible) for (const { mesh, home, phase, period } of indoor) {
+      if (plantVisible || sunlit) for (const { mesh, home, phase, period, touched, impulse } of indoor) {
         const moment = (seconds + phase) % period;
         const envelope = moment < 3.4 ? Math.sin(Math.PI * moment / 3.4) ** 2 : 0;
         const draught = opening * (.015 + .025 * Math.sin(seconds * .52 - phase * .06));
-        sway.setFromAxisAngle(swayAxis, Math.sin(moment * 3.3 + phase) * envelope * (.046 + opening * .035) + Math.sin(seconds * .31 + phase) * .006 + draught);
+        const age = seconds - touched;
+        const recoil = age < 1.6 ? impulse * Math.sin(age * 14) * Math.exp(-age * 3.1) : 0;
+        sway.setFromAxisAngle(swayAxis, recoil +  Math.sin(moment * 3.3 + phase) * envelope * (.046 + opening * .035) + Math.sin(seconds * .31 + phase) * .006 + draught);
         mesh.quaternion.copy(home).multiply(sway);
       }
     },
@@ -179,14 +192,14 @@ function windowBranches(parent, blade, leafMaterials, bark) {
   // Each row is one shoot growing into the opening from below the sill.
   // Forks originate on the parent curve and buds alternate along each twig.
   const shoots = [
-    { x: -2.16, y: -1.82, rise: 2.86, lean: 1.12, forks: [[.34, -.52, .91], [.58, .61, .68]] },
-    { x: -.21, y: -1.87, rise: 1.79, lean: -.66, forks: [[.40, .53, .70]] },
-    { x: 1.66, y: -1.90, rise: 2.27, lean: -.48, forks: [[.37, -.61, .71], [.62, .44, .56]] },
+    { x: -2.43, y: -2.92, rise: 3.83, lean: 1.32, forks: [[.34, -.52, .91], [.58, .61, .68]] },
+    { x: -.45, y: -2.73, rise: 2.73, lean: -.74, forks: [[.40, .53, .70]] },
+    { x: 2.01, y: -2.88, rise: 3.17, lean: -.67, forks: [[.37, -.61, .71], [.62, .44, .56]] },
   ];
   return shoots.map(({ x, y, rise, lean, forks }, branch) => {
     const group = new THREE.Group(), leaves = [], wood = [];
     group.name = 'ExteriorBranch_' + branch;
-    group.position.set(x, y, -.12);
+    group.position.set(x, y, [-.86, -1.19, -.96][branch]);
     parent.add(group);
     function grow(base, dx, dy, radius, count, phase) {
       const tip = base.clone().add(new THREE.Vector3(dx, dy, .04));

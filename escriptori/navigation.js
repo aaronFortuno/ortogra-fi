@@ -28,11 +28,11 @@ export class DeskNavigation {
       this.pan = event.shiftKey || event.button === 2;
       // Capture on the original button so a short tap remains an ordinary click.
       event.target.setPointerCapture(event.pointerId);
-      this.start(event.type);
+      if (!event.defaultPrevented) this.start(event.type);
     });
     surface.addEventListener('pointermove', event => {
       const previous = this.pointers.get(event.pointerId);
-      if (!this.enabled || !previous) return;
+      if (!this.enabled || !previous || event.defaultPrevented) return;
       const before = [...this.pointers.values()].map(point => ({ ...point }));
       const dx = event.clientX - previous.x, dy = event.clientY - previous.y;
       previous.x = event.clientX; previous.y = event.clientY;

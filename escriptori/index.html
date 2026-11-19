@@ -10,9 +10,9 @@
   <title>Escriptori beta · ortogra.fi</title>
   <script src="../theme.js?v=1.0.0"></script>
   <link rel="stylesheet" href="../styles.css?v=1.6.0">
-  <link rel="stylesheet" href="desk.css?v=1.14.0">
+  <link rel="stylesheet" href="desk.css?v=1.15.0">
   <script type="importmap">{"imports":{"three":"../assets/vendor/three/three.module.min.js"}}</script>
-  <script type="module" src="desk.js?v=1.14.1"></script>
+  <script type="module" src="desk.js?v=1.15.0"></script>
 </head>
 <body class="desk-page">
   <a class="skip-link" href="#projectes">Ves als projectes</a>
@@ -55,6 +55,7 @@
         </div>
         <p class="loading-label" role="status">Preparant l’escriptori…</p>
       </div>
+      <button id="recover-stationery" type="button" hidden>Recull els objectes de terra</button>
       <p id="desk-status" class="desk-status" role="status"></p>
       <p id="hover-caption" class="hover-caption" aria-hidden="true"></p>
       <div class="desk-view-tools" role="group" aria-label="Punt de vista" inert>
@@ -79,7 +80,7 @@
         <div class="room-light-row"><span id="room-light-status">Llum segons l’hora</span><button id="room-light-auto" type="button" disabled>Automàtica</button></div>
         <button id="light-now" type="button">Torna a l’hora actual</button>
       </div>
-      <p class="desk-view-help">Arrossega per mirar · Majúscules + arrossega per desplaçar-te · Roda per acostar-te</p>
+      <p class="desk-view-help">Arrossega un objecte per moure’l o un espai buit per mirar · Majúscules + arrossega per desplaçar-te · Roda per acostar-te</p>
       <div class="mobile-areas" role="group" aria-label="Àrea de la taula" inert>
         <button type="button" data-area="Taula" aria-pressed="false">Taula</button>
         <button type="button" data-area="Llengua" aria-pressed="true">Llengua</button>

@@ -128,6 +128,18 @@ function prepareOakFinish(material) {
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>',
       '#include <begin_vertex>\noakPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = 'varying vec3 oakPosition;\n' + shader.fragmentShader;
+    // Use the real shadow on the clear, movable part of the worktop. The
+    // old atlas includes the original positions of the stationery and pot.
+    shader.fragmentShader = shader.fragmentShader.replace('#include <aomap_fragment>', `
+      #ifdef USE_AOMAP
+        float deskTop = (1.0 - smoothstep(.01,.04,abs(oakPosition.y + .58))) * smoothstep(.12,.38,oakPosition.z);
+        float deskAoStrength = aoMapIntensity * (1.0 - deskTop);
+        #define aoMapIntensity deskAoStrength
+      #endif
+      #include <aomap_fragment>
+      #ifdef USE_AOMAP
+        #undef aoMapIntensity
+      #endif`);
     shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
       vec2 workArea = (oakPosition.xz - vec2(-1.2, 2.8)) / vec2(3.6, 1.7);
       float desktop = 1.0 - smoothstep(.005, .025, abs(oakPosition.y - ${deskLayout.table.surfaceY.toFixed(3)}));

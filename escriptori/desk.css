@@ -546,3 +546,5 @@
   .desk-detail[data-kind=box] #project-description{margin-top:4px;line-height:1.35}
   .desk-detail[data-kind=box] #project-credits{margin-top:4px}
 }
+
+#recover-stationery:not([hidden]) { position:absolute; z-index:3; right:1rem; top:4rem; padding:.45rem .8rem; border:1px solid currentColor; border-radius:.4rem; color:var(--ink); background:var(--paper); cursor:pointer; }
