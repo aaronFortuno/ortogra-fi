@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from '../assets/vendor/three/addons/utils/BufferGeometryUtils.js';
 
 export async function createAtmosphere(scene, room, resources) {
   const window = new THREE.Group();
@@ -12,54 +13,14 @@ export async function createAtmosphere(scene, room, resources) {
   view.position.z = -.27;
   window.add(view);
 
-  const shape = new THREE.Shape();
-  shape.moveTo(0, -.24);
-  shape.bezierCurveTo(-.13, -.1, -.13, .09, 0, .24);
-  shape.bezierCurveTo(.12, .06, .1, -.13, 0, -.24);
-  const leafGeometry = new THREE.ShapeGeometry(shape, 8);
-  // ShapeGeometry uses local xy for UVs; normalise these for the vein texture.
-  const uv = leafGeometry.attributes.uv;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / .26 + .5, uv.getY(i) / .48 + .5);
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  const gradient = ctx.createLinearGradient(0, 0, 128, 0);
-  gradient.addColorStop(0, '#384b2b'); gradient.addColorStop(.5, '#7d8a4d'); gradient.addColorStop(1, '#4a5d32');
-  ctx.fillStyle = gradient; ctx.fillRect(0, 0, 128, 128);
-  ctx.strokeStyle = '#adb47d70'; ctx.lineWidth = 1.3;
-  ctx.beginPath(); ctx.moveTo(64, 0); ctx.lineTo(64, 128); ctx.stroke();
-  ctx.lineWidth = .7;
-  for (let y = 18; y < 120; y += 17) {
-    ctx.beginPath(); ctx.moveTo(64, y); ctx.lineTo(4, y - 25); ctx.moveTo(64, y); ctx.lineTo(124, y - 25); ctx.stroke();
-  }
-  const leafTexture = new THREE.CanvasTexture(canvas);
-  leafTexture.colorSpace = THREE.SRGBColorSpace;
-  const leafMaterial = new THREE.MeshStandardMaterial({ map: leafTexture, roughness: .74, side: THREE.DoubleSide });
-  const stemMaterial = new THREE.MeshStandardMaterial({ color: '#635b3d', roughness: .93 });
-  const branches = [];
-  for (let branch = 0; branch < 3; branch++) {
-    const group = new THREE.Group();
-    group.name = 'ExteriorBranch_' + branch;
-    group.position.set(-1.8 + branch * 1.3, -1.76 + branch * .17, -.13);
-    const points = [new THREE.Vector3(), new THREE.Vector3(.14, .6, 0), new THREE.Vector3(-.06, 1.25, .015), new THREE.Vector3(.24, 1.95, 0)];
-    const stem = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 20, .009, 5, false), stemMaterial);
-    stem.castShadow = true;
-    group.add(stem);
-    const leaves = [];
-    for (let i = 0; i < 13; i++) {
-      const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
-      leaf.name = 'ExteriorLeaf_' + branch + '_' + i;
-      const side = i % 2 ? 1 : -1;
-      leaf.position.set(.08 + side * .16, .22 + i * .126, Math.sin(i * 2.7) * .025);
-      leaf.rotation.set(Math.sin(i * 4.1) * .38, Math.cos(i * 1.7) * .5, side * -.8);
-      leaf.scale.setScalar(.65 + (Math.sin(i * 2.3) + 1) * .18);
-      leaf.castShadow = true;
-      group.add(leaf);
-      leaves.push({ leaf, home: leaf.rotation.clone() });
-    }
-    window.add(group);
-    branches.push({ group, leaves, phase: branch * 2.1 });
-  }
+  const leafGeometry = branchLeaf();
+  const leafTexture = canopyTexture();
+  const leafTints = ['#b3c690', '#d5d6a2', '#9cb294'];
+  const leafMaterials = leafTints.map(color => new THREE.MeshStandardMaterial({
+    color, map: leafTexture, roughness: .86, side: THREE.DoubleSide,
+  }));
+  const stemMaterial = new THREE.MeshStandardMaterial({ color: '#634f34', roughness: .94 });
+  const branches = windowBranches(window, leafGeometry, leafMaterials, stemMaterial);
   const frustum = new THREE.Frustum();
   const projection = new THREE.Matrix4();
   const bounds = new THREE.Box3(new THREE.Vector3(-8.45, 1.62, -.48), new THREE.Vector3(-8, 4.9, 4.48));
@@ -70,11 +31,13 @@ export async function createAtmosphere(scene, room, resources) {
   const indoor = leafNodes.map((mesh, index) => ({ mesh, home: mesh.quaternion.clone(), phase: index * 4.79, period: 19 + (index * 7 % 13) }));
   const skin = leafSkin();
   plant?.traverse(mesh => {
-    if (!mesh.isMesh || !mesh.material.name.startsWith('IndoorFoliage')) return;
+    if (!mesh.isMesh) return;
+    if (mesh.material.name === 'IndoorLeafVeins') mesh.material.color.set('#536637');
+    if (!mesh.material.name.startsWith('IndoorFoliage')) return;
     mesh.material.map = skin.color;
-    mesh.material.roughnessMap = skin.roughness; mesh.material.roughness = .72;
-    mesh.material.normalMap = skin.normal; mesh.material.normalScale.set(.2, .2);
-    mesh.material.envMapIntensity = 1.1; mesh.material.needsUpdate = true;
+    mesh.material.roughnessMap = skin.roughness;
+    mesh.material.roughness = .94;
+    mesh.material.needsUpdate = true;
   });
   const sway = new THREE.Quaternion(), swayAxis = new THREE.Vector3(.3, .1, 1).normalize();
   let windowVisible = false, plantVisible = false;
@@ -123,33 +86,165 @@ export async function createAtmosphere(scene, room, resources) {
       tint.lerp(new THREE.Color('#f7cca1'), state.golden * .5);
       view.material.color.copy(tint);
       skyTint.value.copy(tint);
-      leafMaterial.color.setScalar(.14 + .86 * state.day);
-      stemMaterial.color.set('#635b3d').multiplyScalar(.2 + .8 * state.day);
+      leafMaterials.forEach((mat, i) => mat.color.set(leafTints[i]).multiplyScalar(.14 + .86 * state.day));
+      stemMaterial.color.set('#634f34').multiplyScalar(.2 + .8 * state.day);
     },
   };
 }
 
-// Fine veins and varied waxiness follow the model's leaf UVs. The original
-// vertex colours and curved geometry remain visible beneath this microtexture.
-function leafSkin() {
-  const size = 256;
-  const canvas = () => { const c = document.createElement('canvas'); c.width = c.height = size; return c; };
-  const color = canvas(), roughness = canvas(), normal = canvas();
-  const data = [color, roughness, normal].map(c => c.getContext('2d').createImageData(size, size));
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const u = x / size, v = y / size, side = Math.abs(u - .5);
-    const central = Math.exp(-1 * (((u - .5) * 100) ** 2));
-    const vein = Math.exp(-1 * ((Math.sin((v - side * .65) * Math.PI * 13) * 17) ** 2)) * (1 - side * 1.3);
-    const grain = Math.sin(x * 5.23 + y * 13.7) * Math.sin(x * 1.73 - y * 3.13);
-    const tone = 232 + 13 * central + 7 * vein + 3 * grain;
-    const i = (y * size + x) * 4;
-    data[0].data.set([tone - 5, tone, tone - 8, 255], i);
-    const r = 153 - 28 * central - 15 * vein + grain * 7;
-    data[1].data.set([r, r, r, 255], i);
-    data[2].data.set([128 + Math.cos((v - side * .65) * Math.PI * 26) * vein * 17, 128 + grain * 5, 254, 255], i);
+// The narrow first section is the petiole. Its end stays on the sampled twig
+// while the blade rolls in the wind. Width and camber vanish at both tips.
+function branchLeaf() {
+  const positions = [], uvs = [], indices = [];
+  const rows = 9, columns = 4;
+  for (let row = 0; row <= rows; row++) {
+    const t = row / rows;
+    const blade = Math.max(0, (t - .11) / .89);
+    const envelope = Math.sin(Math.PI * blade);
+    const width = .003 * (1 - t) + .097 * envelope ** .83 * (1.17 - .38 * blade);
+    for (let col = 0; col <= columns; col++) {
+      const s = col / columns * 2 - 1;
+      positions.push(.028 * t * t + width * s * (1 + .09 * s),
+        .44 * t + .015 * s * envelope,
+        .047 * envelope - .049 * t * t + envelope * (.032 * s * s + .021 * s * t));
+      uvs.push(col / columns, t);
+      if (row && col) {
+        const i = row * (columns + 1) + col;
+        indices.push(i - columns - 2, i - columns - 1, i, i - columns - 2, i, i - 1);
+      }
+    }
   }
-  [color, roughness, normal].forEach((c, i) => c.getContext('2d').putImageData(data[i], 0, 0));
-  const maps = [color, roughness, normal].map(c => new THREE.CanvasTexture(c));
-  maps[0].colorSpace = THREE.SRGBColorSpace;
-  return { color: maps[0], roughness: maps[1], normal: maps[2] };
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function twig(curve, segments, radius) {
+  const tube = new THREE.TubeGeometry(curve, segments, radius, 5, false);
+  const p = tube.attributes.position, center = new THREE.Vector3(), offset = new THREE.Vector3();
+  for (let ring = 0; ring <= segments; ring++) {
+    const t = ring / segments;
+    curve.getPointAt(t, center);
+    for (let j = 0; j <= 5; j++) {
+      const i = ring * 6 + j;
+      offset.fromBufferAttribute(p, i).sub(center).multiplyScalar(1 - .85 * t).add(center);
+      p.setXYZ(i, offset.x, offset.y, offset.z);
+    }
+  }
+  return tube;
+}
+
+function windowBranches(parent, blade, leafMaterials, bark) {
+  // Each row is one shoot growing into the opening from below the sill.
+  // Forks originate on the parent curve and buds alternate along each twig.
+  const shoots = [
+    { x: -2.16, y: -1.82, rise: 2.86, lean: 1.12, forks: [[.34, -.52, .91], [.58, .61, .68]] },
+    { x: -.21, y: -1.87, rise: 1.79, lean: -.66, forks: [[.40, .53, .70]] },
+    { x: 1.66, y: -1.90, rise: 2.27, lean: -.48, forks: [[.37, -.61, .71], [.62, .44, .56]] },
+  ];
+  return shoots.map(({ x, y, rise, lean, forks }, branch) => {
+    const group = new THREE.Group(), leaves = [], wood = [];
+    group.name = 'ExteriorBranch_' + branch;
+    group.position.set(x, y, -.12);
+    parent.add(group);
+    function grow(base, dx, dy, radius, count, phase) {
+      const tip = base.clone().add(new THREE.Vector3(dx, dy, .04));
+      const bend = base.clone().lerp(tip, .44);
+      bend.x -= dx * .22; bend.z += .025;
+      const curve = new THREE.CatmullRomCurve3([base, bend, tip]);
+      wood.push(twig(curve, count * 2, radius));
+      for (let i = 0; i < count; i++) {
+        // Only jitter interior buds. The first and last attachment must stay
+        // on the curve for every shoot, including the three-leaf forks.
+        const offset = i > 0 && i < count - 1 ? .16 * Math.sin(i + phase) : 0;
+        const t = .24 + .74 * (i + offset) / (count - 1);
+        const side = (i + phase) % 2 ? 1 : -1;
+        const tint = i === count - 1 ? 1 : (i + phase) % leafMaterials.length;
+        const leaf = new THREE.Mesh(blade, leafMaterials[tint]);
+        leaf.name = 'ExteriorLeaf_' + branch + '_' + leaves.length;
+        curve.getPointAt(t, leaf.position);
+        leaf.rotation.order = 'ZXY';
+        leaf.rotation.set(.33 * Math.cos(2.6 * i + phase),
+          .83 * Math.sin(2.17 * i + phase), -side * (.58 + .43 * Math.sin(i + phase) ** 2) - .23 * dx);
+        const length = (.86 + .12 * Math.cos(i * 1.62 + phase)) * (1 - .46 * t * t);
+        leaf.scale.set(length * (.85 + .20 * Math.sin(i + phase)), length, length);
+        leaf.castShadow = true;
+        group.add(leaf);
+        leaves.push({ leaf, home: leaf.rotation.clone() });
+      }
+      return curve;
+    }
+    const stem = grow(new THREE.Vector3(), lean, rise, .018, 6, branch * 3);
+    for (const [i, [t, dx, dy]] of forks.entries()) {
+      grow(stem.getPointAt(t), dx, dy, .009, 3, branch * 3 + i + 1);
+    }
+    const stemMesh = new THREE.Mesh(mergeGeometries(wood), bark);
+    for (const segment of wood) segment.dispose();
+    stemMesh.castShadow = true;
+    group.add(stemMesh);
+    return { group, leaves, phase: branch * 2.1 };
+  });
+}
+
+// Bounded value noise on leaf UVs. The scale follows a blade from base to tip.
+function tissueNoise(x, y) {
+  const cellX = Math.floor(x), cellY = Math.floor(y);
+  function hash(i, j) {
+    let n = Math.imul(i + 17, 374761393) + Math.imul(j + 29, 668265263);
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+  }
+  const sx = THREE.MathUtils.smoothstep(x - cellX, 0, 1);
+  const sy = THREE.MathUtils.smoothstep(y - cellY, 0, 1);
+  const top = THREE.MathUtils.lerp(hash(cellX, cellY), hash(cellX + 1, cellY), sx);
+  const bottom = THREE.MathUtils.lerp(hash(cellX, cellY + 1), hash(cellX + 1, cellY + 1), sx);
+  return THREE.MathUtils.lerp(top, bottom, sy);
+}
+
+function canopyTexture() {
+  const size = 128, data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = x / (size - 1) - .5, t = y / (size - 1), side = Math.abs(u);
+    const tissue = tissueNoise(u * 8, t * 12);
+    const stripe = (t - (.13 * side + .36 * side * side) + .023 * Math.sin(t * 8 + u)) * 7;
+    const vein = (1 - THREE.MathUtils.smoothstep(Math.abs(stripe - Math.round(stripe)), .012, .075)) * (1 - 1.5 * side);
+    const midrib = (1 - THREE.MathUtils.smoothstep(side, .002, .023 - .012 * t));
+    const tone = 24 * tissue + 15 * vein + 35 * midrib + 8 * (u + .5);
+    const petiole = 1 - THREE.MathUtils.smoothstep(t, .08, .16);
+    data.set([64 + tone + 32 * petiole, 91 + tone + 7 * petiole, 48 + tone * .65, 255], (y * size + x) * 4);
+  }
+  return leafMap(data, size, true);
+}
+
+function leafMap(data, size, color = false) {
+  const map = new THREE.DataTexture(data, size, size);
+  if (color) map.colorSpace = THREE.SRGBColorSpace;
+  map.magFilter = THREE.LinearFilter; map.minFilter = THREE.LinearMipmapLinearFilter;
+  map.generateMipmaps = true; map.needsUpdate = true;
+  return map;
+}
+
+function leafSkin() {
+  const size = 256, color = new Uint8Array(size * size * 4), roughness = new Uint8Array(color.length);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    // glTF stores v=1 at the petiole. Follow the raised lateral veins towards the tip.
+    const u = x / (size - 1) - .5, t = 1 - y / (size - 1), side = Math.abs(u);
+    const flow = t - side * (.15 + .26 * side);
+    const coarse = tissueNoise(u * 7 + flow * 4, flow * 12);
+    const fine = tissueNoise(u * 29, flow * 47);
+    const pigment = THREE.MathUtils.smoothstep(.65 * coarse + .35 * fine, .48, .8);
+    const rib = 1 - THREE.MathUtils.smoothstep(side, .003, .022 - .012 * t);
+    // Pothos mottling follows the tissue between veins. The central rib
+    // stays green and wax reflects differently across the same blade.
+    const marbling = pigment * THREE.MathUtils.smoothstep(side, .02, .15);
+    const tone = 172 + 38 * coarse;
+    const i = (y * size + x) * 4;
+    color.set([tone + 45 * marbling, tone + 12 + 25 * marbling + 5 * rib, tone - 10 - 39 * marbling, 255], i);
+    const r = 159 + 44 * coarse + 37 * fine + 12 * marbling - 16 * rib;
+    roughness.set([r, r, r, 255], i);
+  }
+  return { color: leafMap(color, size, true), roughness: leafMap(roughness, size) };
 }

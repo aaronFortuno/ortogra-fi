@@ -37,14 +37,17 @@ export function createDaylight({ scene, renderer, canvas, atmosphere, ambient, d
     ambient.groundColor.copy(ground.set('#9e7952').lerp(new THREE.Color('#8b8974'), state.day));
     const power = state.roomPower;
     ambient.intensity = .045 + .145 * Math.max(state.day, power) + .17 * state.day + .13 * power;
-    fill.color.set('#dce9fa'); fill.intensity = .025 + .255 * state.day + .095 * power;
+    // Shift part of the uniform daylight into the existing hemisphere on
+    // the window side. The aperture and the shelf AO then read together.
+    fill.position.set(5 - 13 * state.day, 5 - 2 * state.day, 4);
+    fill.color.set('#dce9fa'); fill.intensity = .025 + .52 * state.day + .095 * power;
     roomLight.intensity = 85 * power;
     // At night the ceiling must still anchor the furniture to the room. Skip
     // this second shadow pass entirely while daylight lights the interior.
     roomLight.castShadow = power > .02;
     bounce.color.set('#f4ce91'); bounce.intensity = .012 + .04 * state.day + .13 * power;
     diffuser.material.color.set('#fff0d5').multiplyScalar(.04 + .96 * power);
-    scene.environmentIntensity = .035 + 1.215 * state.day + .065 * power;
+    scene.environmentIntensity = .035 + .94 * state.day + .065 * power;
     onReadingPower?.(state.readingPower);
     renderer.toneMappingExposure = dark ? .98 : 1.06;
     scene.background = new THREE.Color('#182331').lerp(new THREE.Color('#e7e1d3'), state.day);

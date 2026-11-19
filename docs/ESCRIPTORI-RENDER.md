@@ -2,6 +2,18 @@
 
 Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Passada de realisme · 1.12
+
+La veta del roure segueix l’eix llarg de cada peça. Els mapes de color, normals i rugositat comparteixen la mateixa escala perquè els porus coincideixin amb el dibuix de la xapa. El vernís distingeix la zona d’escriptura del fons dels separadors.
+
+Al potos, la variació de verd i groc segueix el teixit de cada fulla, amb menys contrast al nervi central i una brillantor irregular. A la finestra, els pecíols arrenquen de punts de les branques corbades i les fulles joves són més petites a les puntes. Les ràfegues continuen utilitzant el rellotge d’ambient de l’escena.
+
+De dia, una part de la llum difusa arriba de l’hemisferi orientat cap a la finestra. Aquest pes disminueix amb l’altura solar i el plafó conserva la il·luminació nocturna. Es reutilitzen les llums, els mapes d’ombres i l’oclusió del moble. El manifest inicial conté 16 recursos que sumen 10.474.915 bytes.
+
+La comparació local parteix de `32d466b`. Dos pecíols de l’esborrany intermedi quedaven més enllà del final de la seva branca i Three.js interrompia la càrrega. La variació de posició es limita ara als brots interiors. Les 33 fulles tenen un punt d’ancoratge vàlid.
+
+Les cinc parelles de captures són a `output/desk/pilot-realisme/`. En la vista de la finestra, les crides de dibuix passen de 119 a 109, els triangles dibuixats de 64.100 a 65.180 i les textures residents de 35 a 34. A la taula de dia es mantenen 186 crides, 79.347 triangles i 32 textures. Mesures amb ANGLE Intel D3D11, DPR 1,25, ombres de 2.048² i moviment reduït.
+
 ## Aplicat en aquesta iteració
 
 - Els objectes tenen petites diferències de posició, profunditat i inclinació. Hi ha papers desalineats, un clip i un llapis, sense afegir moviments constants als elements que es poden obrir.

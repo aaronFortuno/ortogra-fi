@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { HDRLoader } from '../assets/vendor/three/addons/loaders/HDRLoader.js';
+import { deskLayout } from './desk-layout.js?v=1.10.0';
 
 export async function prepareMaterials(room, scene, renderer, resources) {
   const loader = new THREE.TextureLoader();
@@ -16,6 +17,9 @@ export async function prepareMaterials(room, scene, renderer, resources) {
     resources.load(new URL('../assets/desk/pbr/studio.hdr', import.meta.url).href, objectURL => new HDRLoader().loadAsync(objectURL)),
   ]);
   oak.colorSpace = THREE.SRGBColorSpace;
+  // The veneer scan runs along U. Keep the pores and the finish registered
+  // as the cathedral grain stretches along each board's longest face.
+  for (const map of [oak, oakNormal, oakRough]) map.repeat.set(.52, 1.65);
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromEquirectangular(studio).texture;
   scene.environmentRotation.y = 1.25;
@@ -44,12 +48,13 @@ export async function prepareMaterials(room, scene, renderer, resources) {
     }
     if (source.name.startsWith('Oak')) {
       material.map = oak;
-      material.color.set('#dcc3a2');
+      material.color.set('#d9ba94');
       material.normalMap = oakNormal;
       material.normalScale.set(.22, .22);
       material.roughnessMap = oakRough;
       material.roughness = 1;
       material.envMapIntensity = .65;
+      prepareOakFinish(material);
     }
     if (source.name.startsWith('Plaster')) {
       material.color.set('#e9e5db');
@@ -88,6 +93,23 @@ export async function prepareMaterials(room, scene, renderer, resources) {
     object.material = Array.isArray(object.material) ? object.material.map(prepare) : prepare(object.material);
   });
   return new Set(cache.values());
+}
+
+// Satin veneer is more matte in the rack and lightly burnished on the writing
+// surface. Keep the measured pore pattern under both finishes and the AO UVs intact.
+function prepareOakFinish(material) {
+  material.onBeforeCompile = shader => {
+    shader.vertexShader = 'varying vec3 oakPosition;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\noakPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    shader.fragmentShader = 'varying vec3 oakPosition;\n' + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+      vec2 workArea = (oakPosition.xz - vec2(-1.2, 2.8)) / vec2(3.6, 1.7);
+      float desktop = 1.0 - smoothstep(.005, .025, abs(oakPosition.y - ${deskLayout.table.surfaceY.toFixed(3)}));
+      float polish = desktop * (1.0 - smoothstep(.12, 1.0, dot(workArea, workArea)));
+      roughnessFactor = .41 + .52 * roughnessFactor - .095 * polish;`);
+  };
+  material.customProgramCacheKey = () => 'satin-oak-v1';
 }
 
 // World-space mapping keeps the grain the same size on a wall, a window reveal

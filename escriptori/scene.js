@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
 import { DeskNavigation } from './navigation.js?v=1.11.0';
-import { createAtmosphere } from './atmosphere.js?v=1.11.0';
-import { prepareMaterials } from './materials.js?v=1.11.0';
+import { createAtmosphere } from './atmosphere.js?v=1.12.0';
+import { prepareMaterials } from './materials.js?v=1.12.0';
 import { createReadingPages } from './reading.js?v=1.11.0';
-import { createDaylight } from './daylight.js?v=1.11.0';
+import { createDaylight } from './daylight.js?v=1.12.0';
 import { createPaperView } from './paper-view.js?v=1.11.0';
 import { createContactShadows } from './contact-shadows.js?v=1.11.0';
 import { createShelfOcclusion } from './shelf-occlusion.js?v=1.11.0';
