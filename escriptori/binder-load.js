@@ -9,7 +9,7 @@ function sectionGeometry(source, toBinder) {
   const point = new THREE.Vector3();
   const heights = [];
   for (let i = 0; i < values.position.length; i += 3) heights.push(point.fromArray(values.position, i).applyMatrix4(toBinder).y);
-  for (const cut of [-.45, .37]) {
+  for (const cut of [-.62, .08, .68]) {
     const split = new Map(), next = [];
     function crossing(a, b) {
       const key = Math.min(a, b) + '/' + Math.max(a, b);
@@ -50,7 +50,7 @@ function sectionGeometry(source, toBinder) {
 export function prepareBinderLoad(group, variant) {
   group.updateWorldMatrix(true, true);
   const inverse = group.matrixWorld.clone().invert(), parts = [];
-  const lean = [.093, .048, -.067, .076, -.085][variant % 5];
+  const fullness = [.94, 1.04, .98, 1.08, 1][variant % 5];
   group.traverse(mesh => {
     if (!mesh.isMesh) return;
     const toBinder = new THREE.Matrix4().multiplyMatrices(inverse, mesh.matrixWorld);
@@ -74,15 +74,20 @@ export function prepareBinderLoad(group, variant) {
       const height = THREE.MathUtils.clamp((v.y + 1.04) / 2.08, 0, 1);
       const free = THREE.MathUtils.clamp((.80-v.z)/1.55, 0, 1);
       const bow = Math.sin(Math.PI * height);
-      // The foot stays planted. A full block spreads the boards most at the
-      // free edge, and the head of the paper settles below the cloth.
       const side = THREE.MathUtils.clamp(v.x / .225, -1, 1);
-      v.x += lean * (height * height + .66 * bow) + side * (.027 * bow + .052 * free * height);
-      v.y -= height ** 3 * free * (.014 + .033 * (1-side*side));
+      const spine = THREE.MathUtils.smoothstep(v.z, .50, .79);
+      // A slight waist and a convex cloth spine, rather than shearing the
+      // entire book sideways. Rigid-body lean/contact is arranged separately.
+      const pressure = fullness * (.023 * bow + .033 * free * height ** 2);
+      const sag = -.016 * fullness * bow + .006 * Math.sin(2 * Math.PI * height);
+      v.x += sag + side * pressure;
+      v.z += spine * (.027 * fullness * bow - .010 * height ** 7)
+        + (1 - spine) * .007 * side * bow;
+      v.y -= height ** 3 * (.008 + .018 * free) * fullness;
       if (paperBlock || sheetEdge) {
-        const gutter = Math.max(0, 1 - (v.x / .23) ** 2);
-        const layers = .008 * Math.sin(43 * local.x + .9 * variant + 2 * free);
-        v.y += height ** 5 * (-.052 * gutter + layers + (sheetEdge ? .015 : 0));
+        const gutter = Math.max(0, 1 - side * side);
+        const layers = .004 * Math.sin(43 * local.x + .9 * variant + 2 * free);
+        v.y += height ** 5 * (-fullness * (.036 + .020 * free) * gutter + layers);
       }
       v.applyMatrix4(fromBinder).sub(local).toArray(offset, i * 3);
     }
@@ -115,4 +120,72 @@ export function prepareBinderLoad(group, variant) {
       }
     }
   };
+}
+
+// Project the real closed geometry onto the shelf's vertical plane. The convex
+// outline is conservative across depth: covers cannot pass through a neighbour
+// even when the books have slightly different yaw/depth. This runs only at load.
+function standingProfile(group) {
+  group.updateWorldMatrix(true, true);
+  const points = [], p = new THREE.Vector3();
+  group.traverse(mesh => {
+    if (!mesh.isMesh) return;
+    const position = mesh.geometry.getAttribute('position');
+    for (let i = 0; i < position.count; i++) {
+      p.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld);
+      points.push({ x: p.x, y: p.y });
+    }
+  });
+  points.sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (a, b, c) => (b.x-a.x)*(c.y-a.y) - (b.y-a.y)*(c.x-a.x);
+  const half = ordered => {
+    const hull = [];
+    for (const p of ordered) {
+      while (hull.length > 1 && cross(hull.at(-2), hull.at(-1), p) <= 0) hull.pop();
+      hull.push(p);
+    }
+    hull.pop(); return hull;
+  };
+  return [...half(points), ...half(points.reverse())];
+}
+
+function profileSpan(profile, y) {
+  let low = Infinity, high = -Infinity;
+  for (let i = 0; i < profile.length; i++) {
+    const a = profile[i], b = profile[(i+1) % profile.length];
+    if (y < Math.min(a.y, b.y) || y > Math.max(a.y, b.y)) continue;
+    if (Math.abs(a.y-b.y) < 1e-9) {
+      low = Math.min(low, a.x, b.x); high = Math.max(high, a.x, b.x);
+    } else {
+      const x = THREE.MathUtils.lerp(a.x, b.x, (y-a.y)/(b.y-a.y));
+      low = Math.min(low, x); high = Math.max(high, x);
+    }
+  }
+  return { low, high };
+}
+
+export function arrangeBinderRow(groups, { left, surface, gap = .004 }) {
+  let previous;
+  for (const [index, group] of groups.entries()) {
+    // Five degrees against the wooden cheek; each following base is slightly
+    // further away, while its upper board comes to rest against the last book.
+    group.rotation.z = THREE.MathUtils.degToRad(5 + 2.5 * index);
+    group.position.x = group.position.y = 0;
+    let profile = standingProfile(group);
+    const lift = surface - Math.min(...profile.map(p => p.y)) + .001;
+    group.position.y += lift;
+    profile.forEach(p => { p.y += lift; });
+    let offset = left + gap - Math.min(...profile.map(p => p.x));
+    if (previous) {
+      const bottom = Math.max(Math.min(...previous.map(p=>p.y)), Math.min(...profile.map(p=>p.y)));
+      const top = Math.min(Math.max(...previous.map(p=>p.y)), Math.max(...profile.map(p=>p.y)));
+      const heights = [bottom, top, ...previous.map(p=>p.y), ...profile.map(p=>p.y)]
+        .filter(y => y >= bottom && y <= top);
+      offset = Math.max(...heights.map(y => profileSpan(previous, y).high - profileSpan(profile, y).low + gap));
+    }
+    group.position.x += offset;
+    profile.forEach(p => { p.x += offset; });
+    previous = profile;
+    group.updateWorldMatrix(true, true);
+  }
 }

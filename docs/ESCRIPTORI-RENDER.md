@@ -2,6 +2,16 @@
 
 Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Pes i suport entre arxivadors · 1.15.1
+
+La referència és la fotografia generada d’arxivadors en bon estat, lleugerament carregats, contra un lateral esquerre. Els cinc arxivadors comparteixen ara una inclinació cap al mateix costat: 5°, 7,5°, 10°, 12,5° i 15°. La geometria tancada determina la posició de cada peu sobre la taula i la separació mínima respecte del separador i de l’arxivador anterior. Es calcula una envolupant convexa en el pla vertical, conservadora respecte de la profunditat, amb un marge de 0,004 unitats per evitar interseccions. No hi ha un motor de física ni càlcul de contactes continu; els veïns romanen al seu lloc durant l’extracció.
+
+La deformació diferencia la inclinació del conjunt de la pressió dels fulls: les tapes s’eixamplen una mica més a la boca, el llom agafa una convexitat suau i el cap del bloc de paper s’enfonsa de manera irregular. La càrrega varia discretament entre arxivadors. Etiquetes i folres segueixen la mateixa deformació, que es retira durant l’obertura i es recupera en tancar. Les zones clicables es retallen amb la silueta projectada del llom; així, els rectangles dels arxivadors adjacents no es tapen. Els accessos d’àrea es recentren sobre les noves posicions.
+
+Comparació local amb `2867c05`, mateix enquadrament d’escriptori i hora solar: 189 crides de dibuix i 32 textures en totes dues versions; 56.045 → 57.965 triangles. A la vista propera es mantenen 170 crides i 32 textures. Els atributs i índexs de les geometries de l’escena passen de 4.130.246 a 4.174.406 bytes (+44.160 bytes, aproximadament 1,1%). No s’han afegit textures, llums, recursos ni passades de renderitzat. El GLB i el manifest de càrrega no canvien. Aquestes són mesures de complexitat de l’escena, no una mesura comparativa d’FPS. Captures: `output/desk/binder-support/`.
+
+`node tools/check-desk-binders.cjs` comprova els peus, la proximitat real entre tapes a la part alta, la selecció individual dels lloms i el retorn exacte de la geometria carregada, en escriptori i a 320 píxels amb tema fosc. La prova tàctil comprova també arrossegament, pinça i primer toc posterior. Les set trajectòries de la prova de recorregut passen en escriptori, mòbil i tauleta: obertura contínua, material visible i retorn exacte de la càmera.
+
 ## Objectes de taula i arxivadors carregats · 1.15
 
 Els cinc fulls, la grapadora, la cinta i els estris d’escriptura tenen geometria seleccionable. El gest conserva el punt per on s’agafa l’objecte. El cantell i el terra determinen on aterra. El mateix control de silenci governa els sons de contacte i el pati. Els sons de paper, de fregament i d’impacte es generen durant el gest i no passen pel filtre de la finestra.

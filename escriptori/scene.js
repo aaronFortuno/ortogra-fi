@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
 import { DeskNavigation } from './navigation.js?v=1.15.0';
-import { prepareBinderLoad } from './binder-load.js?v=1.15.0';
+import { prepareBinderLoad, arrangeBinderRow } from './binder-load.js?v=1.15.1';
+import { deskLayout } from './desk-layout.js?v=1.10.0';
 import { createStationery } from './stationery.js?v=1.15.0';
 import { createAtmosphere } from './atmosphere.js?v=1.15.0';
 import { prepareMaterials } from './materials.js?v=1.15.0';
@@ -192,8 +193,22 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     }
     models.set(project.id, {
       group, lid, project, bounds, axis, angle, setLoad,
+      hitPoints: project.kind === 'binder' ? meshPoints(group, group.getObjectByName('Spine_' + project.id)) : null,
       home: group.position.clone(), rotation: group.quaternion.clone(), outlineBounds: localBounds(group),
     });
+  }
+  const binders = [...models.values()].filter(model => model.project.kind === 'binder');
+  arrangeBinderRow(binders.map(model => model.group), {
+    left: deskLayout.organizer.openings[0][0], surface: deskLayout.table.surfaceY,
+  });
+  for (const model of binders) {
+    model.home.copy(model.group.position); model.rotation.copy(model.group.quaternion);
+  }
+  // Keep area shortcuts above the actual, more closely packed materials.
+  for (const name of ['Llengua', 'Matemàtiques']) {
+    const row = binders.filter(model => model.project.area === name);
+    const center = row.reduce((sum, model) => sum + model.home.x, 0) / row.length;
+    areas[name].center[0] = center; areas[name].label[0] = center;
   }
   await Promise.all([...models.values()].map(async model => {
     if (!model.project.preview) return;
@@ -306,13 +321,18 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       return;
     }
     for (const model of models.values()) {
-      const { project, bounds, home, rotation } = model;
+      const { project, bounds, home, rotation, hitPoints } = model;
       if (narrow.matches && currentArea !== 'Taula' && project.area !== currentArea) {
         project.button.hidden = true;
         continue;
       }
       const points = [];
-      for (const x of [bounds[0][0], bounds[1][0]]) {
+      if (hitPoints) {
+        for (const point of hitPoints) {
+          const world = point.clone().applyQuaternion(rotation).add(home);
+          if (world.clone().applyMatrix4(camera.matrixWorldInverse).z <= -camera.near) points.push(projectPoint(world));
+        }
+      } else for (const x of [bounds[0][0], bounds[1][0]]) {
         for (const y of [bounds[0][1], bounds[1][1]]) {
           for (const z of [bounds[0][2], bounds[1][2]]) {
             const local = new THREE.Vector3(x, y, z).applyQuaternion(rotation).add(home);
@@ -326,13 +346,17 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       if (!points.length) { project.button.hidden = true; continue; }
       const left = Math.min(...points.map(p => p.x)), top = Math.min(...points.map(p => p.y));
       const right = Math.max(...points.map(p => p.x)), bottom = Math.max(...points.map(p => p.y));
-      project.button.hidden = points.every(point => point.depth > 1 || point.depth < -1) || right < 0 || left > lastWidth || bottom < 0 || top > lastHeight;
+      project.button.hidden = (hitPoints && points.length < 3) || right-left < .01 || bottom-top < .01 ||
+        points.every(point => point.depth > 1 || point.depth < -1) || right < 0 || left > lastWidth || bottom < 0 || top > lastHeight;
       project.button.tabIndex = project.button.hidden ? -1 : 0;
+      if (project.button.hidden) continue;
       const center = new THREE.Vector3(...bounds[0]).add(new THREE.Vector3(...bounds[1])).multiplyScalar(.5).applyQuaternion(rotation).add(home);
       const eyeDepth = -center.applyMatrix4(camera.matrixWorldInverse).z;
       Object.assign(project.button.style, {
         left: left + 'px', top: top + 'px', width: (right - left) + 'px', height: (bottom - top) + 'px',
         zIndex: String(Math.round(10000 / Math.max(.1, eyeDepth))),
+        clipPath: hitPoints ? 'polygon(' + convexHull(points).map(p =>
+          `${(p.x-left)/(right-left)*100}% ${(p.y-top)/(bottom-top)*100}%`).join(',') + ')' : '',
       });
     }
     for (const [area, settings] of Object.entries(areas)) {
@@ -684,6 +708,31 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     sampleInfo: reading.info, setMoment: lighting.setMoment, setRoomLight: lighting.setRoomLight };
 }
 
+function meshPoints(group, mesh) {
+  group.updateWorldMatrix(true, true);
+  const matrix = new THREE.Matrix4().multiplyMatrices(group.matrixWorld.clone().invert(), mesh.matrixWorld);
+  const position = mesh.geometry.getAttribute('position'), points = new Map();
+  for (let i = 0; i < position.count; i++) {
+    const point = new THREE.Vector3().fromBufferAttribute(position, i).applyMatrix4(matrix);
+    points.set(point.toArray().map(v => Math.round(v * 100000)).join(','), point);
+  }
+  return [...points.values()];
+}
+
+function convexHull(points) {
+  const cross = (o, a, b) => (a.x-o.x)*(b.y-o.y) - (a.y-o.y)*(b.x-o.x);
+  const sorted = [...points].sort((a, b) => a.x-b.x || a.y-b.y);
+  const half = values => {
+    const hull = [];
+    for (const p of values) {
+      while (hull.length > 1 && cross(hull.at(-2), hull.at(-1), p) <= 0) hull.pop();
+      hull.push(p);
+    }
+    hull.pop(); return hull;
+  };
+  return [...half(sorted), ...half(sorted.reverse())];
+}
+
 function localBounds(group) {
   group.updateWorldMatrix(true, true);
   const inverse = group.matrixWorld.clone().invert();
@@ -711,10 +760,7 @@ function createHoverOutline(surface) {
         const point = model.group.localToWorld(new THREE.Vector3(x, y, z)).project(camera);
         points.push({ x: (point.x + 1) * width / 2, y: (1 - point.y) * height / 2 });
       }
-      const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-      points.sort((a, b) => a.x - b.x || a.y - b.y);
-      const half = values => { const hull = []; for (const point of values) { while (hull.length > 1 && cross(hull.at(-2), hull.at(-1), point) <= 0) hull.pop(); hull.push(point); } return hull.slice(0, -1); };
-      const hull = [...half(points), ...half([...points].reverse())];
+      const hull = convexHull(points);
       path.setAttribute('d', hull.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ') + ' Z');
     },
   };
