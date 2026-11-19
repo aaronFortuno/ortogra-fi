@@ -43,6 +43,9 @@ export async function createAtmosphere(scene, room, resources) {
   let windowVisible = false, plantVisible = false;
   return {
     leafTexture,
+    // xyz = opening centre in the room; w = squared radius of an equal-area disc.
+    windowOpening: new THREE.Vector4(window.position.x, window.position.y, window.position.z,
+      view.geometry.parameters.width * view.geometry.parameters.height / Math.PI),
     setWeather(uniforms) {
       view.material.onBeforeCompile = shader => {
         Object.assign(shader.uniforms, uniforms, { deskSkyTint: skyTint });

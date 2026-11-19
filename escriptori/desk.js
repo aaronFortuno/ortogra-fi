@@ -279,7 +279,7 @@ async function start() {
   try {
     loading.update(0, 'Preparant l’escriptori…');
     const [manifest] = await Promise.all([
-      fetch(new URL('assets/desk/loading.json?v=1.11.0', base)).then(response => {
+      fetch(new URL('assets/desk/loading.json?v=1.13.0', base)).then(response => {
         if (!response.ok) throw new Error('No s’ha pogut carregar el pla de recursos.');
         return response.json();
       }),
@@ -287,7 +287,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.12.0');
+    const { createDesk } = await import('./scene.js?v=1.13.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({

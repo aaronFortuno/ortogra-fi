@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
 import { DeskNavigation } from './navigation.js?v=1.11.0';
-import { createAtmosphere } from './atmosphere.js?v=1.12.0';
-import { prepareMaterials } from './materials.js?v=1.12.0';
+import { createAtmosphere } from './atmosphere.js?v=1.13.0';
+import { prepareMaterials } from './materials.js?v=1.13.0';
 import { createReadingPages } from './reading.js?v=1.11.0';
-import { createDaylight } from './daylight.js?v=1.12.0';
+import { createDaylight } from './daylight.js?v=1.13.0';
 import { createPaperView } from './paper-view.js?v=1.11.0';
 import { createContactShadows } from './contact-shadows.js?v=1.11.0';
 import { createShelfOcclusion } from './shelf-occlusion.js?v=1.11.0';
 import { createLabelTexture } from './labels.js?v=1.11.0';
 import { createReliefs } from './reliefs.js?v=1.11.0';
 import { createObjectJourney } from './journey.js?v=1.11.0';
-import { createCloudShadows } from './weather.js?v=1.11.0';
+import { createCloudShadows } from './weather.js?v=1.13.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const narrow = matchMedia('(max-width: 700px)');
@@ -180,7 +180,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       }
     },
     onReadingPower: value => { readingPower = value; readingLight.intensity = readingIntensity() * readingBlend; } });
-  const weather = createCloudShadows(scene, daylight);
+  const weather = createCloudShadows(scene, daylight, lighting.prepareWindowShader);
   atmosphere.setWeather(weather.uniforms);
 
   function requestRender(geometryChanged = true) {

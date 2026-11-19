@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // A soft, drifting mask affects only the scene's sole directional light (Sun).
 // Ceiling/reading lights, ambient light and unlit printed ink remain unchanged.
-export function createCloudShadows(scene, sun) {
+export function createCloudShadows(scene, sun, prepareWindowShader) {
   const size = 128, data = new Uint8Array(size * size);
   const smooth = x => x * x * (3 - 2 * x);
   const hash = (x, y, n) => { const v = Math.sin((x % n) * 127.1 + (y % n) * 311.7 + n * 13.7) * 43758.5453; return v - Math.floor(v); };
@@ -35,8 +35,9 @@ export function createCloudShadows(scene, sun) {
       shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\ndeskWeatherWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       shader.fragmentShader = declarations + shader.fragmentShader;
       shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', lightChunk);
+      prepareWindowShader(shader);
     };
-    material.customProgramCacheKey = () => key + '|solar-clouds-v1'; material.needsUpdate = true;
+    material.customProgramCacheKey = () => key + '|solar-clouds-v1|window-sky-v1'; material.needsUpdate = true;
   }
   scene.traverse(node => { if (node.isMesh) for (const material of Array.isArray(node.material) ? node.material : [node.material]) prepare(material); });
   function update(seconds) {

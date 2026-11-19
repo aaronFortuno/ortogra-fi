@@ -2,6 +2,14 @@
 
 Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Tela i llum de finestra · 1.13
+
+La referència d’aquesta passada és `fe44a97`. La tela dels lloms i de la capsa utilitza els escaneigs originals de Book Pattern. El tint de la coberta queda visible entre els fils. La trama és més fina, el relleu de la normal és més suau i la rugositat mínima és més alta. Les transformacions estan registrades a `assets/desk/pbr/sources.json`. Els dos WebP junts ocupen 58.730 bytes menys. El manifest inicial suma 10.416.185 bytes en 16 recursos.
+
+El cel que es veu des de la taula es representa amb una obertura orientada cap a l’interior i d’àrea equivalent a la finestra. La llum difusa depèn de l’àrea aparent i de la inclinació de la superfície que la rep. L’oclusió del prestatge s’aplica després. El terme s’anul·la de nit. El sol conserva el seu mapa d’ombres i els núvols, i el plafó i el llum de lectura conserven els seus controls. El càlcul aprofita la passada de material existent.
+
+Les sis parelles de captures a `output/desk/teixit-llum/` comparteixen enquadrament i hora solar. A la taula de dia, totes dues versions registren 186 crides de dibuix, 79.347 triangles i 32 textures. El retall de 288 × 422 píxels del full imprès de Trama és idèntic. En quatre càrregues locals d’escriptori per versió, la mediana de preparació ha passat d’1,37 a 1,45 segons. Les proves d’interacció en escriptori i mòbil han acabat sense errors de consola.
+
 ## Passada de realisme · 1.12
 
 La veta del roure segueix l’eix llarg de cada peça. Els mapes de color, normals i rugositat comparteixen la mateixa escala perquè els porus coincideixin amb el dibuix de la xapa. El vernís distingeix la zona d’escriptura del fons dels separadors.

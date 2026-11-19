@@ -5,7 +5,7 @@ import { deskLayout } from './desk-layout.js?v=1.10.0';
 export async function prepareMaterials(room, scene, renderer, resources) {
   const loader = new THREE.TextureLoader();
   const texture = async name => {
-    const url = new URL('../assets/desk/pbr/' + name + '.webp', import.meta.url).href;
+    const url = new URL('../assets/desk/pbr/' + name, import.meta.url).href;
     const map = await resources.load(url, objectURL => loader.loadAsync(objectURL));
     map.wrapS = map.wrapT = THREE.RepeatWrapping;
     map.flipY = false;
@@ -13,10 +13,12 @@ export async function prepareMaterials(room, scene, renderer, resources) {
     return map;
   };
   const [cloth, clothNormal, clothRough, oak, oakNormal, oakRough, studio] = await Promise.all([
-    ...['book-color', 'book-normal', 'book-rough', 'oak-color', 'oak-normal', 'oak-rough'].map(texture),
+    ...['book-color.webp?v=1.13.0', 'book-normal.webp', 'book-rough.webp?v=1.13.0',
+      'oak-color.webp', 'oak-normal.webp', 'oak-rough.webp'].map(texture),
     resources.load(new URL('../assets/desk/pbr/studio.hdr', import.meta.url).href, objectURL => new HDRLoader().loadAsync(objectURL)),
   ]);
   oak.colorSpace = THREE.SRGBColorSpace;
+  for (const map of [cloth, clothNormal, clothRough]) map.repeat.set(1.28, 1.28);
   // The veneer scan runs along U. Keep the pores and the finish registered
   // as the cathedral grain stretches along each board's longest face.
   for (const map of [oak, oakNormal, oakRough]) map.repeat.set(.52, 1.65);
@@ -38,7 +40,7 @@ export async function prepareMaterials(room, scene, renderer, resources) {
       material.name = source.name;
       material.map = cloth;
       material.normalMap = clothNormal;
-      material.normalScale.set(.48, .48);
+      material.normalScale.set(.38, .38);
       material.roughnessMap = clothRough;
       material.roughness = 1;
       material.sheen = .22;

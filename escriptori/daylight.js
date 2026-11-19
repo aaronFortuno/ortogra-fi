@@ -26,6 +26,8 @@ export function createDaylight({ scene, renderer, canvas, atmosphere, ambient, d
   daylight.shadow.bias = -.0006;
   daylight.shadow.radius = 2.5;
   const sunColor = new THREE.Color(), sky = new THREE.Color(), ground = new THREE.Color();
+  const windowRadiance = { value: new THREE.Color() };
+  const windowOpening = { value: atmosphere.windowOpening };
   let applied;
 
   function apply(state) {
@@ -37,10 +39,10 @@ export function createDaylight({ scene, renderer, canvas, atmosphere, ambient, d
     ambient.groundColor.copy(ground.set('#9e7952').lerp(new THREE.Color('#8b8974'), state.day));
     const power = state.roomPower;
     ambient.intensity = .045 + .145 * Math.max(state.day, power) + .17 * state.day + .13 * power;
-    // Shift part of the uniform daylight into the existing hemisphere on
-    // the window side. The aperture and the shelf AO then read together.
+    // Keep a diffuse room bounce; direct sky fill comes from the finite opening.
     fill.position.set(5 - 13 * state.day, 5 - 2 * state.day, 4);
-    fill.color.set('#dce9fa'); fill.intensity = .025 + .52 * state.day + .095 * power;
+    fill.color.set('#dce9fa'); fill.intensity = .025 + .12 * state.day + .095 * power;
+    windowRadiance.value.copy(fill.color).multiplyScalar(8 * state.day);
     roomLight.intensity = 85 * power;
     // At night the ceiling must still anchor the furniture to the room. Skip
     // this second shadow pass entirely while daylight lights the interior.
@@ -81,6 +83,25 @@ export function createDaylight({ scene, renderer, canvas, atmosphere, ambient, d
   window.addEventListener('pageshow', () => refresh(true));
   refresh(true);
   return {
+    prepareWindowShader(shader) {
+      shader.uniforms.deskWindowRadiance = windowRadiance;
+      shader.uniforms.deskWindowOpening = windowOpening;
+      shader.fragmentShader = 'uniform vec3 deskWindowRadiance;\nuniform vec4 deskWindowOpening;\n' + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_end>', `
+        #ifdef RE_IndirectDiffuse
+        if (deskWindowRadiance.g > 0.0) {
+          vec3 toWindow = (viewMatrix * vec4(deskWindowOpening.xyz, 1.0)).xyz - geometryPosition;
+          float invDistance = inversesqrt(dot(toWindow, toWindow) + deskWindowOpening.w);
+          vec3 direction = toWindow * invDistance;
+          // The window opens into the room along +X. Both projected cosines
+          // and the apparent area fall off smoothly as the opening recedes.
+          float apertureCos = max(0.0, -dot(direction, viewMatrix[0].xyz));
+          float surfaceCos = max(0.0, dot(direction, geometryNormal));
+          irradiance += deskWindowRadiance * (deskWindowOpening.w * invDistance * invDistance * apertureCos * surfaceCos);
+        }
+        #endif
+        #include <lights_fragment_end>`);
+    },
     setTheme(value) { dark = value; refresh(); },
     setMoment(value) { manual = value; refresh(); },
     setRoomLight(value) { roomOverride = value === null ? null : Boolean(value); refresh(); },
