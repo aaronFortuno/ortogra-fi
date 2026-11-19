@@ -1,48 +1,26 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
 import { DeskNavigation } from './navigation.js?v=1.2.0';
-import { createAtmosphere } from './atmosphere.js?v=1.6.0';
+import { createAtmosphere } from './atmosphere.js?v=1.9.0';
 import { prepareMaterials } from './materials.js?v=1.8.0';
-import { createReadingPages } from './reading.js?v=1.8.0';
-import { createDaylight } from './daylight.js?v=1.8.0';
+import { createReadingPages } from './reading.js?v=1.9.0';
+import { createDaylight } from './daylight.js?v=1.9.0';
 import { createPaperView } from './paper-view.js?v=1.8.0';
-import { createContactShadows } from './contact-shadows.js?v=1.8.0';
-import { createObjectJourney } from './journey.js?v=1.7.0';
+import { createContactShadows } from './contact-shadows.js?v=1.9.0';
+import { createShelfOcclusion } from './shelf-occlusion.js?v=1.9.0';
+import { createLabelTexture } from './labels.js?v=1.9.0';
+import { createReliefs } from './reliefs.js?v=1.9.0';
+import { createObjectJourney } from './journey.js?v=1.9.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const narrow = matchMedia('(max-width: 700px)');
 const journeyDuration = 2500;
 const areas = {
-  Llengua: { center: [-4.48, 2.05, -.2], width: 3.8, label: [-3.92, 3.99, .0] },
-  Matemàtiques: { center: [-.6, 2.05, -.2], width: 3.15, label: [-.6, 3.99, .0] },
-  Medi: { center: [1.93, 1.8, -.2], width: 3.15, label: [1.93, 3.99, .0] },
-  Utilitats: { center: [4.5, -.2, 1.1], width: 3.3, label: [4.5, .25, 1.25] },
+  Llengua: { center: [-4.48, .25, -.2], width: 3.8, label: [-3.92, 2.19, .0] },
+  Matemàtiques: { center: [-.6, .25, -.2], width: 3.15, label: [-.6, 2.19, .0] },
+  Medi: { center: [1.93, .0, -.2], width: 3.15, label: [1.93, 2.19, .0] },
+  Utilitats: { center: [4.5, -.5, 1.15], width: 3.3, label: [4.5, .25, 1.25] },
 };
-
-function tapeTexture(project) {
-  const vertical = project.kind === 'binder';
-  const canvas = document.createElement('canvas');
-  canvas.width = vertical ? 256 : 1024;
-  canvas.height = vertical ? 1024 : 256;
-  const context = canvas.getContext('2d');
-  context.fillStyle = '#f5edda';
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.translate(canvas.width / 2, canvas.height / 2);
-  if (vertical) context.rotate(-Math.PI / 2);
-  const text = project.name + ' · ' + project.purpose;
-  let size = 68;
-  context.font = '600 ' + size + 'px "Segoe UI", Arial, sans-serif';
-  while (context.measureText(text).width > 950) {
-    context.font = '600 ' + (--size) + 'px "Segoe UI", Arial, sans-serif';
-  }
-  context.fillStyle = '#253022';
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.fillText(text, 0, 0);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
 
 export async function createDesk({ canvas, projects, dark: initialDark, resources, onStage = () => {}, onLightingChange }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'low-power' });
@@ -78,27 +56,30 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   daylight.shadow.bias = -.001;
   daylight.shadow.radius = 5;
   scene.add(daylight);
-  const fill = new THREE.DirectionalLight('#e0ebf2', .45);
+  // Sky fill and reflected room light are diffuse, so the shelf's visibility
+  // field can occlude them. Unshadowed direct lights lit blocked recesses.
+  const fill = new THREE.HemisphereLight('#e0ebf2', '#858575', .45);
   fill.position.set(5, 5, 4);
   scene.add(fill);
-  const bounce = new THREE.PointLight('#ded0ad', 4, 18, 2);
+  const bounce = new THREE.HemisphereLight('#ded0ad', '#a47c52', .1);
   bounce.position.set(-5, 2, 3.5);
   scene.add(bounce);
-  // A neutral-cool desk light comes on for reading, without another shadow map.
-  const readingLight = new THREE.DirectionalLight('#e8f2ff', 0);
+  // A soft desk cone protects reading without lighting every recess behind it.
+  const readingLight = new THREE.SpotLight('#e8f2ff', 0, 15, Math.PI / 7.5, .65, 2);
   readingLight.position.set(-1.5, 6.5, 5);
   readingLight.target.position.set(.4, -.4, 2.5);
   scene.add(readingLight, readingLight.target);
-  let darkTheme = initialDark;
-  const readingIntensity = () => darkTheme ? 2.4 : 1.8;
+  let darkTheme = initialDark, readingPower = 1, readingBlend = 0;
+  const readingIntensity = () => (darkTheme ? 2.4 : 1.8) * 55 * readingPower;
 
-  const modelURL = new URL('../assets/desk/escriptori.glb?v=1.4.0', import.meta.url);
+  const modelURL = new URL('../assets/desk/escriptori.glb?v=1.9.0', import.meta.url);
   const modelBytes = await resources.buffer(modelURL.href);
   onStage(null, 'Preparant els arxivadors…');
   const asset = await new GLTFLoader().parseAsync(modelBytes, new URL('.', modelURL).href);
   const room = asset.scene;
   scene.add(room);
   const materials = await prepareMaterials(room, scene, renderer, resources);
+  const shelfOcclusion = createShelfOcclusion(room, materials);
   const reading = createReadingPages(document.querySelector('#project-detail'), [...materials].find(material => material.name === 'Paper'));
 
   const models = new Map();
@@ -120,6 +101,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   let firstFrame;
   const paperView = createPaperView({ camera, target: navigation.target, reading,
     animate, requestRender, getSize: () => ({ width: lastWidth, height: lastHeight }) });
+  const reliefs = createReliefs({ scene, camera, target: navigation.target, animate, requestRender });
   const outline = createHoverOutline(canvas.parentElement);
   const atmosphere = await createAtmosphere(scene, room, resources);
   for (const material of materials) if (material.name.startsWith('Leaves') || material.name.startsWith('LeafLight')) {
@@ -133,9 +115,17 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     const material = new THREE.MeshStandardMaterial({
       map: texture, side: THREE.DoubleSide, roughness: .88, color: '#fffdf6',
-      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, alphaTest: .45,
     });
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(...size), material);
+    const geometry = new THREE.PlaneGeometry(...size, 8, 24);
+    const vertices = geometry.attributes.position;
+    for (let i = 0; i < vertices.count; i++) {
+      const u = vertices.getX(i) / size[0] + .5, v = vertices.getY(i) / size[1] + .5;
+      const corner = Math.max(0, (u - .62) + (v - .84));
+      vertices.setZ(i, corner * corner * .15 + Math.sin(v * 39) * .0007);
+    }
+    geometry.computeVertexNormals();
+    const plane = new THREE.Mesh(geometry, material); plane.castShadow = plane.receiveShadow = true;
     plane.position.set(...position);
     if (horizontal) plane.rotation.x = -Math.PI / 2;
     parent.add(plane);
@@ -145,7 +135,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     const group = room.getObjectByName('Item_' + project.id);
     const lid = room.getObjectByName('Lid_' + project.id);
     if (!group || !lid) throw new Error('Falta el model de ' + project.name);
-    const label = tapeTexture(project);
+    const label = await createLabelTexture(project);
     let bounds, axis, angle;
     if (project.kind === 'binder') {
       addPlane(group, [.293, 1.41], [0, .12, .824], label);
@@ -178,7 +168,8 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }));
   const contactShadows = createContactShadows(room);
   const lighting = createDaylight({ scene, renderer, canvas, atmosphere, ambient, daylight, fill, bounce,
-    animate: update => animate('daylight', update), requestRender, dark: initialDark, onChange: onLightingChange });
+    animate: update => animate('daylight', update), requestRender, dark: initialDark, onChange: onLightingChange,
+    onReadingPower: value => { readingPower = value; readingLight.intensity = readingIntensity() * readingBlend; } });
 
   function requestRender(geometryChanged = true) {
     if (geometryChanged) controlsDirty = true;
@@ -193,10 +184,14 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       if (ratio === 1) { motions.delete(key); motion.resolve(); }
     }
     scene.updateMatrixWorld();
+    shelfOcclusion.update();
     contactShadows.update();
     camera.updateMatrixWorld();
     if (controlsDirty) { updateControls(); controlsDirty = false; }
-    if (active) reading.project(camera, canvas.getBoundingClientRect());
+    if (active) {
+      const rect = canvas.getBoundingClientRect(); reading.project(camera, rect);
+      if (active.project.reliefs?.length) reliefs.project(rect);
+    }
     outline.update(active ? null : models.get(hovered), camera, lastWidth, lastHeight);
     if ([...motions.keys()].some(key => key !== 'view')) renderer.shadowMap.needsUpdate = true;
     const living = !reducedMotion.matches && !document.hidden && !presenting && !contextLost && atmosphere.visible(camera);
@@ -247,16 +242,23 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
         for (const y of [bounds[0][1], bounds[1][1]]) {
           for (const z of [bounds[0][2], bounds[1][2]]) {
             const local = new THREE.Vector3(x, y, z).applyQuaternion(rotation).add(home);
+            // A rear corner crossing the eye plane projects to the opposite
+            // side of the screen and used to create giant invisible hit areas.
+            if (local.clone().applyMatrix4(camera.matrixWorldInverse).z > -camera.near) continue;
             points.push(projectPoint(local));
           }
         }
       }
+      if (!points.length) { project.button.hidden = true; continue; }
       const left = Math.min(...points.map(p => p.x)), top = Math.min(...points.map(p => p.y));
       const right = Math.max(...points.map(p => p.x)), bottom = Math.max(...points.map(p => p.y));
       project.button.hidden = points.every(point => point.depth > 1 || point.depth < -1) || right < 0 || left > lastWidth || bottom < 0 || top > lastHeight;
       project.button.tabIndex = project.button.hidden ? -1 : 0;
+      const center = new THREE.Vector3(...bounds[0]).add(new THREE.Vector3(...bounds[1])).multiplyScalar(.5).applyQuaternion(rotation).add(home);
+      const eyeDepth = -center.applyMatrix4(camera.matrixWorldInverse).z;
       Object.assign(project.button.style, {
         left: left + 'px', top: top + 'px', width: (right - left) + 'px', height: (bottom - top) + 'px',
+        zIndex: String(Math.round(10000 / Math.max(.1, eyeDepth))),
       });
     }
     for (const [area, settings] of Object.entries(areas)) {
@@ -269,12 +271,16 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }
   function initialView() {
     const aspect = lastWidth / lastHeight;
-    const target = narrow.matches ? new THREE.Vector3(...areas[currentArea].center) : new THREE.Vector3(0, 1.55, -.15);
-    const width = narrow.matches ? areas[currentArea].width : 13.8;
-    const distance = Math.max(narrow.matches ? 7 : 13.3, width / (2 * Math.tan(THREE.MathUtils.degToRad(16)) * aspect));
-    const direction = narrow.matches && currentArea === 'Utilitats'
+    const target = new THREE.Vector3(...areas[currentArea].center);
+    const width = areas[currentArea].width;
+    const distance = Math.max(narrow.matches ? 7 : 5.5, width / (2 * Math.tan(THREE.MathUtils.degToRad(16)) * aspect));
+    const direction = currentArea === 'Utilitats'
       ? new THREE.Vector3(0, .68, .73).normalize()
       : new THREE.Vector3(0, .21, .978).normalize();
+    if (currentArea === 'Utilitats') {
+      const up = new THREE.Vector3().crossVectors(direction, new THREE.Vector3(1, 0, 0));
+      target.addScaledVector(up, -(narrow.matches ? 128 : 80) / lastHeight * distance * Math.tan(THREE.MathUtils.degToRad(16)));
+    }
     return { target, position: target.clone().addScaledVector(direction, distance) };
   }
   function resize() {
@@ -283,7 +289,10 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     renderer.setSize(lastWidth, lastHeight, false);
     camera.aspect = lastWidth / lastHeight;
     camera.updateProjectionMatrix();
-    if (phase === 'inspecting') { cancelMotion('inspection'); paperView.resize(); }
+    if (phase === 'inspecting') {
+      if (reliefs.info().open) { cancelMotion('relief-view'); reliefs.resize(); }
+      else { cancelMotion('inspection'); paperView.resize(); }
+    }
     else if (!active || phase === 'reading') {
       const view = active ? readingView() : initialView();
       camera.position.copy(view.position);
@@ -316,7 +325,11 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }
   async function select(id) {
     const selected = models.get(id);
-    if (selected.project.samples?.length && !selected.sampleTextures) {
+    if (selected.project.reliefs?.length) {
+      await reliefs.prepare(selected.project);
+      const blank = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); blank.needsUpdate = true;
+      selected.sampleTextures = selected.project.samples.map(sample => ({ ...sample, texture: blank }));
+    } else if (selected.project.samples?.length && !selected.sampleTextures) {
       selected.sampleTextures = await Promise.all(selected.project.samples.map(async sample => {
         const texture = await new THREE.TextureLoader().loadAsync(sample.image);
         texture.colorSpace = THREE.SRGBColorSpace;
@@ -332,6 +345,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     const model = active;
     cancelMotion('hover-' + id);
     reading.mount(model);
+    if (model.project.reliefs?.length) reliefs.mount(model, reading.info().pages);
     // Upload and compile newly loaded samples before the animation clock starts.
     for (const sample of model.sampleTextures) renderer.initTexture(sample.texture);
     await renderer.compileAsync(scene, camera);
@@ -357,6 +371,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     const from = model.group.position.clone();
     const journey = prepareJourney(model, from, returnView);
     await animate('journey', journey, journeyDuration);
+    shelfOcclusion.update(true);
     contactShadows.onTable(model.group);
     phase = 'reading';
     canvas.dataset.selected = id;
@@ -385,20 +400,22 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     return createObjectJourney({
       model, from, to: destination, flatRotation, startView, endView: view, endFocus,
       camera, target: navigation.target, focusPoints: () => reading.points(narrow.matches),
-      onLid: opening => { readingLight.intensity = readingIntensity() * opening; },
+      onLid: opening => { readingBlend = opening; readingLight.intensity = readingIntensity() * opening; },
     });
   }
   async function home() {
     if (!active) return;
-    if (paperView.info().open) await leaveInspection();
+    if (paperView.info().open || reliefs.info().open) await leaveInspection();
     phase = 'closing';
     contactShadows.onTable(null);
     const model = active;
     const view = Math.abs(returnView.aspect - camera.aspect) < .01 ? returnView : initialView();
     const journey = prepareJourney(model, model.home, view);
     await animate('journey', t => journey(1 - t), journeyDuration);
+    shelfOcclusion.update(true);
     reading.unmount();
-    for (const sample of model.sampleTextures || []) sample.texture.dispose();
+    if (model.project.reliefs?.length) reliefs.unmount();
+    for (const texture of new Set((model.sampleTextures || []).map(sample => sample.texture))) texture.dispose();
     model.sampleTextures = null;
     active = null; hovered = null;
     phase = 'shelf';
@@ -411,6 +428,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }
   function readingView() {
     const points = reading.points(narrow.matches);
+    if (active.project.reliefs?.length) points.push(...reliefs.points(narrow.matches));
     if (active.project.kind === 'box' && !narrow.matches) {
       const bounds = new THREE.Box3().setFromObject(active.group);
       for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
@@ -418,7 +436,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       }
     }
     const target = new THREE.Box3().setFromPoints(points).getCenter(new THREE.Vector3());
-    const direction = new THREE.Vector3(0, .975, .22).normalize();
+    const direction = (active.project.reliefs?.length ? new THREE.Vector3(0, .82, .57) : new THREE.Vector3(0, .975, .22)).normalize();
     const right = new THREE.Vector3(1, 0, 0);
     const up = new THREE.Vector3().crossVectors(direction, right);
     const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
@@ -440,13 +458,20 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     requestRender();
   }
   function setArea(area) {
+    if (active) return Promise.resolve();
     currentArea = area;
     highlight(null);
-    resize();
+    const from = camera.position.clone(), oldTarget = navigation.target.clone(), oldRotation = camera.quaternion.clone();
+    const to = initialView(), proxy = camera.clone(); proxy.position.copy(to.position); proxy.lookAt(to.target);
+    navigation.enabled = false;
+    return animate('view', t => {
+      camera.position.lerpVectors(from, to.position, t); camera.quaternion.slerpQuaternions(oldRotation, proxy.quaternion, t);
+      navigation.target.lerpVectors(oldTarget, to.target, t);
+    }, 420).then(() => { navigation.enabled = true; navigation.update(); requestRender(); });
   }
   function setTheme(dark) {
     darkTheme = dark;
-    if (active) readingLight.intensity = readingIntensity();
+    if (active) readingLight.intensity = readingIntensity() * readingBlend;
     lighting.setTheme(dark);
     requestRender();
   }
@@ -519,11 +544,14 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     for (const direction of [-1, 1]) { cancelMotion('curl-' + direction); curlAmounts.set(direction, 0); }
     const direction = Math.sign(index - info.index);
     reading.startTurn(index);
-    await animate('pages', t => reading.turn(t, direction, narrow.matches));
-    reading.finishTurn(index); phase = 'reading'; resize();
+    await animate('pages', t => { if (!active.project.reliefs?.length) reading.turn(t, direction, narrow.matches); });
+    reading.finishTurn(index);
+    if (active.project.reliefs?.length) reliefs.setSamples(reading.info().pages);
+    phase = 'reading'; resize();
   }
   function curlSample(direction, amount) {
     if (phase !== 'reading') return;
+    if (active.project.reliefs?.length) return;
     const from = curlAmounts.get(direction) || 0;
     animate('curl-' + direction, t => {
       const value = THREE.MathUtils.lerp(from, amount, t);
@@ -535,21 +563,26 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     for (const direction of [-1, 1]) { cancelMotion('curl-' + direction); curlAmounts.set(direction, 0); }
     reading.curl(-1, 0, narrow.matches); reading.curl(1, 0, narrow.matches);
     phase = 'zooming';
-    await paperView.open(index); phase = 'inspecting'; paperView.resize();
-    canvas.dataset.presentation = 'sheet'; requestRender();
+    if (active.project.reliefs?.length) { await reliefs.inspect(index); phase = 'inspecting'; }
+    else { await paperView.open(index); phase = 'inspecting'; paperView.resize(); }
+    canvas.dataset.presentation = active.project.reliefs?.length ? 'relief' : 'sheet'; requestRender();
   }
   async function leaveInspection() {
-    if (!paperView.info().open || phase === 'zooming') return;
+    if ((!paperView.info().open && !reliefs.info().open) || phase === 'zooming') return;
     cancelMotion('inspection'); phase = 'zooming';
-    await paperView.close(readingView); phase = 'reading';
+    if (reliefs.info().open) { cancelMotion('relief-view'); await reliefs.close(readingView); }
+    else await paperView.close(readingView);
+    phase = 'reading';
     canvas.dataset.presentation = 'table'; requestRender();
   }
   function panInspection(x, y) { if (phase === 'inspecting') return paperView.pan(x, y); }
-  function scrollInspection(x, y) { if (phase === 'inspecting') return paperView.scroll(x, y); }
+  function scrollInspection(x, y) { if (phase === 'inspecting') return reliefs.info().open ? reliefs.zoom(y) : paperView.scroll(x, y); }
+  function orbitInspection(x, y) { if (phase === 'inspecting') return reliefs.orbit(x, y); }
   new ResizeObserver(() => { if (active && phase === 'reading') resize(); }).observe(document.querySelector('.description-page'));
   return { highlight, select, home, setTheme, setArea, setDetailVisible, moveView, setSample, curlSample,
-    inspectSheet, leaveInspection, panInspection, scrollInspection, inspectionInfo: paperView.info,
-    sampleInfo: reading.info, setMoment: lighting.setMoment };
+    inspectSheet, leaveInspection, panInspection, scrollInspection, orbitInspection,
+    resetInspection: reliefs.reset, reliefInfo: reliefs.info, inspectionInfo: () => reliefs.info().open ? reliefs.info() : paperView.info(),
+    sampleInfo: reading.info, setMoment: lighting.setMoment, setRoomLight: lighting.setRoomLight };
 }
 
 function localBounds(group) {

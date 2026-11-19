@@ -76,6 +76,9 @@ export function createReadingPages(detail, paperMaterial) {
       page.under.mesh.position.set(.008, .008, .005); page.under.mesh.rotation.z = .009;
       page.edge.scale.set(page.top.mesh.scale.x, page.top.mesh.scale.y, 1);
       resetLeaf(page);
+      if (currentModel.project.reliefs?.length) {
+        page.top.mesh.visible = page.under.mesh.visible = page.edge.visible = false;
+      } else page.edge.visible = true;
       const button = index ? secondHit : hit;
       button.setAttribute('aria-label', 'Amplia: ' + sample.title); button.dataset.index = String(index);
     }

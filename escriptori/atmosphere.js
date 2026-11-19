@@ -62,7 +62,9 @@ export async function createAtmosphere(scene, room, resources) {
   const bounds = new THREE.Box3(new THREE.Vector3(-8.45, 1.62, -.48), new THREE.Vector3(-8, 4.9, 2.48));
   const plant = room.getObjectByName('Pothos');
   const plantBounds = plant ? new THREE.Box3().setFromObject(plant) : new THREE.Box3();
-  const indoor = plant ? plant.getObjectsByProperty('isMesh', true).filter(mesh => mesh.name.startsWith('IndoorLeaf_')).map((mesh, index) => ({ mesh, home: mesh.quaternion.clone(), phase: index * 1.7 })) : [];
+  const leafNodes = [];
+  plant?.traverse(node => { if (/^IndoorLeaf_\d+$/.test(node.name)) leafNodes.push(node); });
+  const indoor = leafNodes.map((mesh, index) => ({ mesh, home: mesh.quaternion.clone(), phase: index * 1.7 }));
   let windowVisible = false, plantVisible = false;
   return {
     leafTexture,

@@ -18,12 +18,23 @@ export function createSampleBrowser({ getScene, track }) {
     document.querySelector('#sample-open-inline').textContent = paired ? 'Amplia la fitxa' : 'Amplia el primer full';
     const second = document.querySelector('#sample-open-second');
     second.textContent = paired ? 'Amplia el solucionari' : 'Amplia el segon full'; second.hidden = !pages[1];
+    if (pages[0]?.modelId) {
+      document.querySelector('#sample-open-inline').textContent = 'Primera maqueta'; second.textContent = 'Segona maqueta';
+      document.querySelector('#sample-open-inline').setAttribute('aria-label', 'Agafa i examina: ' + pages[0].title);
+      second.setAttribute('aria-label', 'Agafa i examina: ' + pages[1].title);
+      for (const [i, id] of ['sample-open', 'sample-open-answers'].entries()) document.getElementById(id).setAttribute('aria-label', 'Agafa i examina: ' + pages[i].title);
+    } else { document.querySelector('#sample-open-inline').removeAttribute('aria-label'); second.removeAttribute('aria-label'); }
   }
   async function show(index = 0) {
     if (busy || inspecting) return;
     busy = true; inspecting = true; previousFocus = document.activeElement;
     detail.dataset.inspecting = 'true'; inspection.hidden = tools.hidden = false;
     const sample = getScene().sampleInfo().pages[index];
+    const isRelief = Boolean(sample.modelId);
+    detail.dataset.inspectionKind = isRelief ? 'relief' : 'paper';
+    detail.querySelector('#relief-controls').hidden = !isRelief;
+    detail.querySelector('.inspection-hint').textContent = isRelief ? 'Arrossega per girar · Roda per acostar · Clic per tornar' : 'Mou el ratolí o arrossega · Clic per tornar';
+    inspection.setAttribute('aria-label', isRelief ? 'Maqueta 3D. Arrossega per girar, utilitza la roda o els botons per acostar-te. Fes clic o prem Escape per tornar a la caixa.' : 'Full ampliat. Mou el ratolí o arrossega per recórrer el full. Fes clic o prem Escape per tornar a l’arxivador.');
     document.querySelector('#inspection-title').textContent = sample.title;
     download.hidden = !sample.pdf;
     if (sample.pdf) download.href = sample.pdf; else download.removeAttribute('href');
@@ -36,7 +47,7 @@ export function createSampleBrowser({ getScene, track }) {
     busy = true;
     await getScene().leaveInspection();
     inspecting = false; busy = false; drag = null;
-    inspection.hidden = tools.hidden = true; delete detail.dataset.inspecting;
+    inspection.hidden = tools.hidden = true; delete detail.dataset.inspecting; delete detail.dataset.inspectionKind;
     previousFocus?.focus({ preventScroll: true }); update();
   }
   async function step(direction) {
@@ -66,7 +77,7 @@ export function createSampleBrowser({ getScene, track }) {
     if (busy) return;
     suppressClick = false;
     const { panX, panY } = getScene().inspectionInfo();
-    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX, panY, moved: false };
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, lastX: event.clientX, lastY: event.clientY, panX, panY, moved: false };
     inspection.setPointerCapture(event.pointerId);
   });
   inspection.addEventListener('pointermove', event => {
@@ -75,8 +86,13 @@ export function createSampleBrowser({ getScene, track }) {
     if (drag) {
       const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
       if (Math.hypot(dx, dy) > 6) drag.moved = true;
-      if (drag.moved) getScene().panInspection(drag.panX - dx * 3 / rect.width, drag.panY + dy * 3 / rect.height);
+      if (drag.moved) {
+        if (getScene().inspectionInfo().kind === 'relief') getScene().orbitInspection(event.clientX - drag.lastX, event.clientY - drag.lastY);
+        else getScene().panInspection(drag.panX - dx * 3 / rect.width, drag.panY + dy * 3 / rect.height);
+      }
+      drag.lastX = event.clientX; drag.lastY = event.clientY;
     } else if (event.pointerType === 'mouse' || event.pointerType === 'pen') {
+      if (getScene().inspectionInfo().kind === 'relief') return;
       const edge = value => Math.abs(value) < .2 ? 0 : Math.sign(value) * Math.min(1, (Math.abs(value) - .2) / .65);
       getScene().panInspection(edge((event.clientX - rect.left) / rect.width * 2 - 1), edge(1 - (event.clientY - rect.top) / rect.height * 2));
     }
@@ -109,13 +125,18 @@ export function createSampleBrowser({ getScene, track }) {
     if (event.target.closest('a')) return;
     if (inspecting && event.key.startsWith('Arrow')) {
       event.preventDefault();
-      getScene().scrollInspection(event.key === 'ArrowLeft' ? -100 : event.key === 'ArrowRight' ? 100 : 0,
-        event.key === 'ArrowUp' ? -100 : event.key === 'ArrowDown' ? 100 : 0);
+      const x = event.key === 'ArrowLeft' ? -50 : event.key === 'ArrowRight' ? 50 : 0;
+      const y = event.key === 'ArrowUp' ? -50 : event.key === 'ArrowDown' ? 50 : 0;
+      if (getScene().inspectionInfo().kind === 'relief') getScene().orbitInspection(x, y);
+      else getScene().scrollInspection(x * 2, y * 2);
     } else if (!inspecting && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
       event.preventDefault(); step(event.key === 'ArrowLeft' ? -1 : 1);
     }
   });
   download.addEventListener('click', () => track('descarrega_mostra_escriptori', { projecte: project.id }));
+  document.querySelector('#relief-zoom-in').addEventListener('click', () => getScene().scrollInspection(0, -150));
+  document.querySelector('#relief-zoom-out').addEventListener('click', () => getScene().scrollInspection(0, 150));
+  document.querySelector('#relief-reset').addEventListener('click', () => getScene().resetInspection());
   return { setProject(value) { project = value; inspecting = false; busy = false; delete detail.dataset.inspecting; update(); },
     closeInspection, isInspecting: () => inspecting, isBusy: () => busy };
 }

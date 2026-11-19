@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { deskLayout } from './desk-layout.js?v=1.9.0';
 
 // Local ambient occlusion at actual furniture joints. The GLB already contains
 // broad static AO; these narrow gradients restore the contact that its shared
@@ -24,22 +25,22 @@ export function createContactShadows(room) {
     for (const index of geometry.index.array) indices.push(index + start);
     geometry.dispose();
   };
-  // Source dimensions: tools/build-desk-assets.py. The backing ends at z=-1.6625.
-  // All gradients lie on exposed material, outside the opaque wooden joint.
-  addStrip({ width: 12.02, height: .19, position: [0, 3.49, -1.659], reverse: true });
-  addStrip({ width: 12.02, height: .13, position: [0, 1.285, -1.659] });
-  for (const x of [-6, -1.7, .68, 3.2, 6]) {
-    if (x > -6) addStrip({ width: .115, height: 2.32, position: [x - .1175, 2.4, -1.659], across: true, reverse: true });
-    if (x < 6) addStrip({ width: .115, height: 2.32, position: [x + .1175, 2.4, -1.659], across: true });
+  const organizer = deskLayout.organizer, table = deskLayout.table;
+  const backingContactZ = organizer.backingFrontZ + .0035;
+  // All gradients lie at actual organiser/desktop joints. There is no ceiling
+  // board or raised base: never draw their former horizontal shadow strips.
+  addStrip({ width: 12.02, height: .13, position: [0, table.surfaceY + .065, backingContactZ] });
+  for (const x of organizer.dividerXs) {
+    if (x > -6) addStrip({ width: .115, height: 2.32, position: [x - .1175, .6, backingContactZ], across: true, reverse: true });
+    if (x < 6) addStrip({ width: .115, height: 2.32, position: [x + .1175, .6, backingContactZ], across: true });
   }
   // A few centimetres of recess beside/below the furniture, rather than a
   // single large dark patch behind the entire shelf.
-  addStrip({ width: 12.18, height: .13, position: [0, .997, -1.706], reverse: true });
-  addStrip({ width: .11, height: 2.47, position: [-6.115, 2.42, -1.706], across: true, reverse: true });
-  addStrip({ width: .11, height: 2.47, position: [6.115, 2.42, -1.706], across: true });
-  addStrip({ width: 15.42, height: .14, position: [0, -.51, -1.706] });
+  addStrip({ width: .11, height: 2.38, position: [-6.115, .61, deskLayout.wallFrontZ + .004], across: true, reverse: true });
+  addStrip({ width: .11, height: 2.38, position: [6.115, .61, deskLayout.wallFrontZ + .004], across: true });
+  addStrip({ width: 15.42, height: .14, position: [0, table.surfaceY + .07, deskLayout.wallFrontZ + .004] });
   // On the table the same contact fades forward from the back edge.
-  addStrip({ width: 15.42, height: .14, position: [0, -.577, -1.58], horizontal: true, reverse: true });
+  addStrip({ width: 15.42, height: .14, position: [0, table.contactY, table.backEdgeZ + .07], horizontal: true, reverse: true });
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
@@ -55,13 +56,13 @@ export function createContactShadows(room) {
   for (const object of objects) {
     const footprint = contactFootprint(object);
     if (!footprint) continue;
-    const shelf = !['Item_pauta', 'Item_pentagrama'].includes(object.name);
+    const inOrganizer = !['Item_pauta', 'Item_pentagrama'].includes(object.name);
     const material = shadowMaterial(footprint.texture, .24);
-    clipToSupport(material, shelf ? [-6.1, 6.1, -1.695, .255] : [-7.75, 7.75, -1.65, 4.95]);
+    clipToSupport(material, inOrganizer ? organizer.contactBounds : table.bounds);
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(footprint.width, footprint.depth), material);
     mesh.name = 'Contact_' + object.name;
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(footprint.x, shelf ? 1.223 : -.577, footprint.z);
+    mesh.position.set(footprint.x, table.contactY, footprint.z);
     root.add(mesh);
     contacts.push({ object, mesh, home: object.getWorldPosition(new THREE.Vector3()), rotation: object.quaternion.clone(), x: footprint.x, z: footprint.z });
   }
@@ -76,7 +77,7 @@ export function createContactShadows(room) {
     tableContact = null;
   }
   // Call once after the object has finished opening, and with null before it
-  // returns to the shelf. This is a local ambient-contact approximation, not a
+  // returns to the organiser. This is a local ambient-contact approximation, not a
   // solar shadow: it stays beneath the actual support footprint at any hour.
   function onTable(object) {
     clearTableContact();
@@ -84,15 +85,15 @@ export function createContactShadows(room) {
     object.updateWorldMatrix(true, true);
     const footprint = contactFootprint(object, { padding: .12, blur: 9, band: .035, separate: true });
     if (!footprint) return;
-    const gap = Math.max(0, footprint.low + .58);
+    const gap = Math.max(0, footprint.low - table.surfaceY);
     const opacity = .18 * (1 - smooth(.025, .16, gap));
     if (opacity < .001) { footprint.texture.dispose(); return; }
     const material = shadowMaterial(footprint.texture, opacity);
-    clipToSupport(material, [-7.75, 7.75, -1.65, 4.95]);
+    clipToSupport(material, table.bounds);
     tableContact = new THREE.Mesh(new THREE.PlaneGeometry(footprint.width, footprint.depth), material);
     tableContact.name = 'OpenMaterialTableContact';
     tableContact.rotation.x = -Math.PI / 2;
-    tableContact.position.set(footprint.x, -.5765, footprint.z);
+    tableContact.position.set(footprint.x, table.contactY + .0005, footprint.z);
     root.add(tableContact);
   }
   function update() {

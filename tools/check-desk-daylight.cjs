@@ -56,6 +56,7 @@ async function choose(page, day, time) {
     assert.ok(progress.every((value,index)=>!index||value>=progress[index-1]));
     assert.equal(await page.locator('#workspace').getAttribute('aria-busy'),'false');
     assert.equal(await page.locator('#desk-canvas').getAttribute('data-lighting'),'day');
+    await page.screenshot({path:path.join(output,'organizer-day.png')});
     await page.locator('[data-view=left]').click();
     await page.screenshot({path:path.join(output,'lighting-morning.png')});
     await page.locator('#light-toggle').click();
@@ -81,6 +82,24 @@ async function choose(page, day, time) {
     assert.equal(await page.locator('#workspace').getAttribute('data-dim'),'true');
     assert.ok(await page.locator('.desk-intro').evaluate(e=>Number(getComputedStyle(e).color.match(/\d+/)[0])>180),'The heading must remain readable in the night scene with a light UI');
     await page.screenshot({path:path.join(output,'lighting-night-front.png')});
+    assert.equal(await page.locator('#room-light-toggle').getAttribute('aria-pressed'),'true');
+    await page.locator('#room-light-toggle').click();
+    await page.waitForFunction(()=>document.querySelector('#desk-canvas').dataset.roomLight==='off');
+    assert.equal(await page.locator('#room-light-toggle').getAttribute('aria-pressed'),'false');
+    assert.equal(await page.locator('#desk-canvas').getAttribute('data-lighting'),'night');
+    await page.screenshot({path:path.join(output,'lighting-night-off.png')});
+    await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+    assert.equal(await page.locator('#desk-canvas').getAttribute('data-room-light'),'off','Automatic clock refresh must preserve the manual switch');
+    await page.locator('[data-theme-toggle]').click();
+    assert.equal(await page.locator('#desk-canvas').getAttribute('data-room-light'),'off','Changing the interface theme must not switch on the room light');
+    await page.locator('[data-theme-toggle]').click();
+    await page.locator('#room-light-toggle').click();
+    assert.equal(await page.locator('#desk-canvas').getAttribute('data-room-light'),'on');
+    await page.locator('#light-toggle').click();
+    assert.equal(await page.locator('#room-light-auto').isDisabled(),false);
+    await page.locator('#room-light-auto').click();
+    assert.equal(await page.locator('#desk-canvas').getAttribute('data-room-light'),'auto');
+    await page.locator('.light-close').click();
     await page.locator('[data-project=trama]').click();
     await page.locator('#project-detail.is-visible').waitFor();
     await page.screenshot({path:path.join(output,'lighting-reading-night.png')});
@@ -111,11 +130,17 @@ async function choose(page, day, time) {
     const phone=await mobile.newPage();await fixClock(phone);
     await phone.goto(origin+'/escriptori/');
     await phone.locator('#workspace[data-ready=true]').waitFor({timeout:60000});
+    const toolbar=await phone.locator('.desk-view-tools').boundingBox();
+    assert.ok(toolbar.x>=0&&toolbar.x+toolbar.width<=321,'The light switch and view controls fit a narrow phone');
     await phone.locator('#light-toggle').click();
     const box=await phone.locator('#light-panel').boundingBox();
     assert.ok(box.x>=0&&box.x+box.width<=321&&box.y>=0&&box.y+box.height<568);
     await choose(phone,'2026-11-18','23:00');
     assert.equal(await phone.locator('#desk-canvas').getAttribute('data-lighting'),'night');
+    await phone.locator('.light-close').click();
+    await phone.locator('#room-light-toggle').tap();
+    assert.equal(await phone.locator('#desk-canvas').getAttribute('data-room-light'),'off');
+    await phone.locator('#light-toggle').click();
     assert.ok(await phone.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await phone.screenshot({path:path.join(output,'lighting-controls-mobile.png')});
     await mobile.close();
@@ -129,6 +154,6 @@ async function choose(page, day, time) {
     assert.ok(await fallback.locator('#projectes.is-open').isVisible());
     assert.ok(Number(await fallback.locator('.loading-meter').getAttribute('aria-valuenow'))<100);
     await failed.close();
-    console.log('PASS: real loading progress, ready after render, seasonal daylight, night room light, manual/automatic clock, theme independence, mobile controls and failure fallback.');
+    console.log('PASS: real loading progress, seasonal daylight, room-light switch with persistent manual choice and automatic reset, theme independence, mobile controls and failure fallback.');
   } finally {await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

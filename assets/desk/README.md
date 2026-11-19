@@ -23,3 +23,10 @@ Prompt del jardí: «Use case: photorealistic-natural. Asset type: background ph
 Prompt del teixit: «Use case: product-mockup. Asset type: seamless flat surface albedo texture for physically based 3D rendering of a fabric-covered ring binder. A flat macro photograph of real fine bookbinding cloth, a tight woven linen-cotton crosshatch with tiny irregular natural fibers, subtle tonal variation and very fine pores. Neutral pale grey, high key around RGB 225-240, no coloured cast. Texture fills the entire square edge to edge, orthographic top down, perfectly even diffuse lighting, no shadows, no highlights, no directional lighting, no vignette, no perspective, no folds, no objects, no text, no watermark. Realistic textile surface only, seamlessly tileable at all four edges. Fine weave, not a thick hessian or coarse sack. One square 1024 texture.»
 
 Els models propis i els recursos generats formen part del prototip sota MIT. Els recursos de Poly Haven conserven la seva llicència CC0.
+
+
+## Revisió del 19 de novembre de 2026
+
+L’organitzador es recolza sobre la taula, amb divisors, un llistó de fixació i cargols. Els sis nodes interactius s’han baixat 1,8 unitats en Y; orígens locals, rotacions, frontisses i escales es conserven. No hi ha balda inferior ni sostre profund. S’han afegit grapadora, cinta adhesiva, estoig amb bolígrafs i papers irregulars, i una planta de 26 fulles corbades amb nervis integrats i cinc verds. La textura d’oclusió s’ha tornat a coure a 64 mostres.
+
+El GLB té 4.609.712 bytes i 127.479 triangles. `loading.json` reflecteix la mida real dels 16 recursos inicials. Els [tres relleus 3D](reliefs/README.md) són recursos separats i no s’inclouen en aquesta càrrega inicial. `shelf-occlusion.js` afegeix al navegador la variació d’oclusió causada pels objectes mòbils, sense modificar el mapa estàtic.

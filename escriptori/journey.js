@@ -10,7 +10,7 @@ export function createObjectJourney({ model, from, to, flatRotation, startView, 
   const controls = [
     from.clone(),
     from.clone().add(new THREE.Vector3(0, folder ? .9 : .06, folder ? .4 : 3.5)),
-    from.clone().add(new THREE.Vector3(0, folder ? 1.25 : .10, folder ? 1 : 3.5)),
+    from.clone().add(new THREE.Vector3(0, folder ? 1.25 : .65, folder ? 1 : 3.5)),
     to.clone().add(new THREE.Vector3(0, .8, .45)),
     to.clone(),
   ];

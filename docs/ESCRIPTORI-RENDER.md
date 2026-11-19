@@ -1,6 +1,6 @@
 # Materials, llum i moviment de l’escriptori
 
-Revisió acotada del 18 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
+Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
 ## Aplicat en aquesta iteració
 
@@ -18,7 +18,7 @@ Totes les eines mostren dos fulls de material real i tres exemples diferents, se
 
 `paper-view.js` desa la posició, orientació i punt de mira exactes de la vista de taula. L’ampliació desplaça la càmera sobre la normal del full, sense obrir un segon visor ni substituir el material per una imatge HTML. La vista deixa part del full fora de pantalla: el punter, l’arrossegament tàctil, la roda i les fletxes desplacen el punt de mira dins dels límits del document. Clic o Escape recupera la vista de taula; el següent Escape desa l’objecte. Si s’ha canviat la mida de la finestra, s’adapta l’enquadrament de retorn. Les textures dels sis fulls es carreguen en obrir i es destrueixen en tancar, sense acumular les de totes les eines a la GPU.
 
-Una llum direccional més freda s’encén en obrir i s’apaga en tancar, sense mapa d’ombres addicional. La cara impresa utilitza `MeshBasicMaterial` amb blanc `#fbfdff` i `toneMapped: false`: preserva la tinta del PDF i evita que la llum o els reflexos rentin les lletres. Les vores mantenen el material físic. Aquests fulls fins no reben autoombres que puguin deixar ratlles sobre el text; continuen projectant ombra sobre el suport. Les tapes, el paper de base i les anelles mantenen els materials físics. És una decisió de llegibilitat per al document, mentre la resta de l’objecte continua responent a la llum.
+Un focus més fred, limitat a la zona de lectura, s’encén en obrir i s’apaga en tancar, sense mapa d’ombres addicional; el con evita tornar a il·luminar els recessos de l’organitzador amb una direccional global. La cara impresa utilitza `MeshBasicMaterial` amb blanc `#fbfdff` i `toneMapped: false`: preserva la tinta del PDF i evita que la llum o els reflexos rentin les lletres. Les vores mantenen el material físic. Aquests fulls fins no reben autoombres que puguin deixar ratlles sobre el text; continuen projectant ombra sobre el suport. Les tapes, el paper de base i les anelles mantenen els materials físics. És una decisió de llegibilitat per al document, mentre la resta de l’objecte continua responent a la llum.
 
 ## Cicle solar
 
@@ -36,7 +36,7 @@ La càmera es desplaça respecte del centre del material en moviment, centrant-h
 
 Les parets tenen gra d’arrebossat procedural en coordenades de món, amb mostreig triplanar: la mida dels porus no depèn dels retalls UV del GLB. La textura de 512² es genera localment, sense cap descàrrega. El color i la rugositat varien molt lleument; el relleu es manté discret per evitar soroll a distància. El roure conserva els mapes PBR amb rugositat 1 i menys reflex d’entorn; el metall té rugositat 0,3. La intensitat del mapa d’oclusió precalculat s’ha ajustat sense tornar a coure el GLB.
 
-La llum artificial nocturna és un focus interior ample amb atenuació per distància, en lloc d’una direccional que projectava ombres físicament inadequades de la paret lateral. El mapa d’ombres nocturn s’activa només quan intervé aquesta llum. La llum solar conserva el seu mapa i té el biaix ajustat per recuperar contacte sense autoombres a la tinta. El refresc limitat a 4 Hz també s’aplica a la nit mentre es mou la vegetació interior; durant una animació d’objecte les ombres es refresquen amb la geometria.
+La llum artificial nocturna és un focus interior ample amb atenuació per distància, en lloc d’una direccional que projectava ombres físicament inadequades de la paret lateral. El mapa d’ombres nocturn s’activa només quan intervé aquesta llum. La llum solar conserva el seu mapa i té el biaix ajustat per recuperar contacte sense autoombres a la tinta. Les aportacions de cel i rebot ara són hemisfèriques: les llums directes sense ombra feien arribar llum a un fons tapat pels arxivadors. El refresc limitat a 4 Hz també s’aplica a la nit mentre es mou la vegetació interior; durant una animació d’objecte les ombres es refresquen amb la geometria.
 
 `contact-shadows.js` afegeix una malla de gradients estrets als encaixos reals dels mobles i petjades petites calculades a partir dels vèrtexs inferiors de cada objecte. Les petjades es retallen als suports i es retiren progressivament quan el material s’aixeca, gira o surt de la balda; no queda una taca immòbil quan se l’emporta la càmera. És una aproximació local d’oclusió, separada de les ombres projectades per les fonts de llum, sense postprocessament per fotograma.
 
@@ -46,6 +46,20 @@ L’escena continua utilitzant il·luminació directa en temps real, reflexos d�
 
 Guardar captures amb la mateixa càmera, tema i mida: prestatge, finestra, arxivador obert, carpeta i capsa. Canviar una variable cada vegada. Revisar la llegibilitat del paper, el contacte dels objectes i les ombres en moviment abans de conservar el canvi. Les comprovacions es fan en local; l’autor valida el desplegament remot.
 
+
+## Organitzadors propers i desgast
+
+Els divisors i els sis objectes que abans eren al prestatge s’han abaixat 1,8 unitats. El pla de treball els suporta directament, sense balda inferior ni sostre profund: hi ha un llistó de fixació i cargols a la paret. `desk-layout.js` comparteix els límits físics amb els helpers de contacte i d’oclusió. La càmera inicial mira de prop la zona de Llengua; el selector d’àrea, també visible en ordinador, recorre la resta de la taula amb una transició de 420 ms. Les etiquetes prenen els logotips del mateix catàleg de la portada i es dibuixen sobre paper procedural envellit. Una malla subdividida aixeca discretament una cantonada. La planta i els objectes de taula es generen al mateix script de Blender, sense recursos externs nous.
+
+`shelf-occlusion.js` estima la visibilitat ambiental dins de l’organitzador a partir de l’obertura frontal, una aportació superior petita i les caixes orientades dels sis objectes reals. Una textura 3D de 64×16×8 (8 KiB) atenua la llum **indirecta** dels materials de fusta i paret; les ombres solars i de sostre continuen depenent de les seves llums. La visibilitat es reconstrueix només si canvia la geometria, a un màxim de 4 Hz, i de forma exacta en completar l’anada o el retorn. El càlcul geomètric inicial es desa en uns 96 KiB de memòria de CPU. La prova local de l’agent amb el GLB final ha mesurat uns 6 ms per reconstrucció; no és una promesa de rendiment en altres dispositius. El resultat pot comparar-se amb `setStrength(0)` en una prova local. No s’afegeix una paret negra superposada ni una passada de postprocessament.
+
+## Interruptor de sala
+
+`daylight.js` separa la data de prova, el tema de la interfície i l’interruptor. El valor inicial segueix l’hora; prémer la bombeta força encès o apagat fins que l’usuari torna a «Automàtica». Un refresc de rellotge, una tornada de pestanya o un canvi de tema conserva la tria manual. En apagar de nit es redueixen també els rebots i la llum de suport de lectura, mantenint només l’ambient exterior residual. Els canvis de potència duren 220 ms. La tria no es desa entre visites.
+
+## Maquetes físiques a la caixa
+
+`reliefs.js` carrega només per a Relleu Obert els tres GLB derivats dels 3MF originals. Hi ha dues còpies 3D dins de cada combinació de la caixa; les planes impreses d’aquest projecte queden amagades i les zones d’acció es projecten sobre els límits reals de cada maqueta. En inspeccionar-ne una es desacobla temporalment del seu pare, es porta a l’espai lliure de davant de la taula i la càmera adopta una vista obliqua. La rotació, el pivot i l’acostament actuen sobre la càmera al voltant del model. El retorn restaura el pare, la transformació i el punt de vista anteriors; canviar la mida de finestra adapta l’enquadrament. Els controls són compartits amb el visor de paper, amb instruccions específiques per al relleu, alternatives de teclat i botons d’acostament. No hi ha un canvas o un modal addicionals. Geometries i materials s’alliberen quan es desa la caixa. La preparació i les atribucions es detallen a `assets/desk/reliefs/README.md`.
 
 ## Referències per a l’ambient sonor i visual
 

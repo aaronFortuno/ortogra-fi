@@ -1,6 +1,6 @@
-import { createSampleBrowser } from './samples.js?v=1.8.0';
+import { createSampleBrowser } from './samples.js?v=1.9.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.6.0';
-import { createLightControls } from './light-controls.js?v=1.6.0';
+import { createLightControls } from './light-controls.js?v=1.9.0';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -69,6 +69,11 @@ async function loadProjects() {
     if (!response.ok) throw new Error('No s’han pogut carregar les mostres.');
     return response.json();
   });
+  const reliefBase = new URL('assets/desk/reliefs/', base);
+  const reliefCatalogue = await fetch(new URL('manifest.json?v=1.9.0', reliefBase)).then(response => {
+    if (!response.ok) throw new Error('No s’han pogut carregar les maquetes.');
+    return response.json();
+  });
   for (const project of presentation) {
     const link = [...portal.querySelectorAll('.project-link')].find(link => {
       const domain = new URL(link.href).hostname;
@@ -78,9 +83,29 @@ async function loadProjects() {
     });
     if (!link) throw new Error('El projecte ha canviat al catàleg.');
     project.href = link.href;
+    const symbol = link.querySelector('.project-brand svg');
+    const imageSymbol = link.querySelector('.project-brand img');
+    if (symbol) {
+      const copy = symbol.cloneNode(true);
+      copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); copy.setAttribute('fill', 'none');
+      copy.setAttribute('stroke', '#2d493a'); copy.setAttribute('color', '#2d493a'); copy.setAttribute('stroke-width', '1.8');
+      copy.setAttribute('stroke-linecap', 'round'); copy.setAttribute('stroke-linejoin', 'round');
+      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      style.textContent = '.brand-dot{color:#ad6245;stroke:#ad6245}'; copy.prepend(style);
+      project.logo = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(copy.outerHTML);
+    } else if (imageSymbol) project.logo = new URL(imageSymbol.getAttribute('src'), base).href;
     project.preview = link.querySelector('.project-preview')?.getAttribute('src');
     if (project.preview) project.preview = new URL(project.preview, base).href;
     project.examples = sampleCatalogue[project.id];
+    if (project.id === 'relleu-obert') {
+      project.reliefs = reliefCatalogue.models.map(model => ({ ...model, url: new URL(model.url, reliefBase).href }));
+      const byId = new Map(project.reliefs.map(model => [model.id, model]));
+      const ids = ['agulles-montserrat', 'tamariu', 'sant-maurici'];
+      project.examples = [[ids[0], ids[1]], [ids[2], ids[0]], [ids[1], ids[2]]].map(pair => ({
+        title: pair.map(id => byId.get(id).title).join(' i '),
+        pages: pair.map(id => ({ title: byId.get(id).title, modelId: id, role: 'model', image: id.includes('montserrat') ? 'relleu-montserrat.webp' : 'relleu-' + id + '.webp' })),
+      }));
+    }
     if (project.examples?.length !== 3 || project.examples.some(example => example.pages.length !== 2)) throw new Error('Falten exemples de ' + project.name);
     project.samples = project.examples.flatMap((example, exampleIndex) => example.pages.map((sample, pageIndex) => ({
       ...sample, exampleIndex, pageIndex, image: new URL(sample.image, sampleBase).href,
@@ -140,10 +165,12 @@ async function openProject(project, button) {
   document.querySelector('#project-purpose').textContent = project.purpose;
   document.querySelector('#project-description').textContent = project.description;
   document.querySelector('#project-credits').hidden = project.id !== 'relleu-obert';
+  document.querySelector('#project-credits').open = false;
   document.querySelector('#sample-caption').textContent = project.id === 'sentit' ? 'Exemple de fitxa' : 'Una mirada al projecte';
   const entry = document.querySelector('#project-enter');
   entry.href = project.href;
-  entry.firstChild.textContent = 'Obre ' + project.name + ' ';
+  entry.querySelector('.project-entry-name').textContent = 'Obre ' + project.name;
+  entry.setAttribute('aria-label', 'Obre ' + project.name);
   detail.style.setProperty('--binder-color', project.color);
   detail.dataset.kind = project.kind;
   detail.dataset.preparing = 'true';
@@ -243,7 +270,7 @@ async function start() {
   try {
     loading.update(0, 'Preparant l’escriptori…');
     const [manifest] = await Promise.all([
-      fetch(new URL('assets/desk/loading.json?v=1.6.0', base)).then(response => {
+      fetch(new URL('assets/desk/loading.json?v=1.9.0', base)).then(response => {
         if (!response.ok) throw new Error('No s’ha pogut carregar el pla de recursos.');
         return response.json();
       }),
@@ -251,7 +278,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.8.0');
+    const { createDesk } = await import('./scene.js?v=1.9.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({

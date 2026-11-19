@@ -1,0 +1,250 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "agulles-montserrat",
+      "title": "Agulles de Montserrat",
+      "url": "agulles-montserrat.glb",
+      "width": 1.0,
+      "height": 0.5588871,
+      "depth": 1.0,
+      "triangles": 33794,
+      "sourceTriangles": 1250200,
+      "bytes": 753964,
+      "source": "agulles-montserrat.3mf",
+      "sourceSHA256": "503b65e65dc56c8483a4e3abd3aebb4d871248cd670f9984b4e7269fc311d6f4",
+      "sourceSizeMM": [
+        100.0,
+        100.0,
+        56.418182
+      ],
+      "normalisationScale": 0.01,
+      "parts": [
+        {
+          "name": "Terreny",
+          "color": "#c6b38dFF",
+          "sourceTriangles": 559610,
+          "materialIndex": 0,
+          "triangles": 7430
+        },
+        {
+          "name": "Aigües interiors",
+          "color": "#8dc5caFF",
+          "sourceTriangles": 23776,
+          "materialIndex": 1,
+          "triangles": 568
+        },
+        {
+          "name": "Edificis · Camins i carreteres",
+          "color": "#eee9dcFF",
+          "sourceTriangles": 90824,
+          "materialIndex": 2,
+          "triangles": 792
+        },
+        {
+          "name": "Sòl de bosc · Arbres",
+          "color": "#4e8966FF",
+          "sourceTriangles": 575990,
+          "materialIndex": 3,
+          "triangles": 25004
+        }
+      ],
+      "provenance": {
+        "terrain": {
+          "provider": "ICGC MET5",
+          "attribution": "Institut Cartogràfic i Geològic de Catalunya",
+          "url": "https://geoserveis.icgc.cat/icc_mdt/wcs/service",
+          "resolutionMeters": 5
+        },
+        "buildings": {
+          "provider": "ICGC · Referencial Topogràfic Territorial",
+          "license": "CC BY 4.0",
+          "url": "https://geoserveis.icgc.cat/vector01/rest/services/topografia_territorial/MapServer/10"
+        },
+        "catalogueLandforms": [
+          {
+            "id": "roca-foradada",
+            "name": "Roca Foradada",
+            "revision": "r3",
+            "attribution": "Open Place Models contributors. Surface elevations © Institut Cartogràfic i Geològic de Catalunya, CC BY 4.0.",
+            "license": "CC-BY-4.0",
+            "spatialDataLicense": "CC-BY-4.0"
+          }
+        ]
+      },
+      "strategy": "highest-source-surface-heightfield",
+      "resolution": [
+        128,
+        128
+      ],
+      "missingSurfaceSamples": 0
+    },
+    {
+      "id": "tamariu",
+      "title": "Tamariu",
+      "url": "tamariu.glb",
+      "width": 1.0,
+      "height": 0.2208511,
+      "depth": 1.0,
+      "triangles": 33794,
+      "sourceTriangles": 398214,
+      "bytes": 719220,
+      "source": "tamariu.3mf",
+      "sourceSHA256": "b5cce03a9536d37018fd9cc5c3d2b3bc5524e87f9151a34b2def7fe3c102cecf",
+      "sourceSizeMM": [
+        100.0,
+        100.0,
+        22.085108
+      ],
+      "normalisationScale": 0.01,
+      "parts": [
+        {
+          "name": "Terreny",
+          "color": "#c6b38dFF",
+          "sourceTriangles": 188376,
+          "materialIndex": 0,
+          "triangles": 7796
+        },
+        {
+          "name": "Mar · Aigües interiors",
+          "color": "#8dc5caFF",
+          "sourceTriangles": 1876,
+          "materialIndex": 1,
+          "triangles": 12306
+        },
+        {
+          "name": "Edificis · Camins i carreteres",
+          "color": "#eee9dcFF",
+          "sourceTriangles": 80526,
+          "materialIndex": 2,
+          "triangles": 3752
+        },
+        {
+          "name": "Sòl de bosc · Arbres · Prats i zones verdes",
+          "color": "#4e8966FF",
+          "sourceTriangles": 127436,
+          "materialIndex": 3,
+          "triangles": 9940
+        }
+      ],
+      "provenance": {
+        "terrain": {
+          "provider": "ICGC MET5",
+          "attribution": "Institut Cartogràfic i Geològic de Catalunya",
+          "url": "https://geoserveis.icgc.cat/icc_mdt/wcs/service",
+          "resolutionMeters": 5
+        },
+        "buildings": {
+          "provider": "Dirección General del Catastro · INSPIRE BU",
+          "license": "https://www.catastro.hacienda.gob.es/webinspire/documentos/Licencia.pdf",
+          "url": "https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx"
+        }
+      },
+      "strategy": "highest-source-surface-heightfield",
+      "resolution": [
+        128,
+        128
+      ],
+      "missingSurfaceSamples": 0
+    },
+    {
+      "id": "sant-maurici",
+      "title": "Estany de Sant Maurici",
+      "url": "sant-maurici.glb",
+      "width": 1.0,
+      "height": 0.3952687,
+      "depth": 1.0,
+      "triangles": 33794,
+      "sourceTriangles": 2834536,
+      "bytes": 692280,
+      "source": "sant-maurici.3mf",
+      "sourceSHA256": "1701f0756659ef53882fae332f583ceddddcb282492e6880b51ffeb929d335cc",
+      "sourceSizeMM": [
+        100.0,
+        100.0,
+        39.629158
+      ],
+      "normalisationScale": 0.01,
+      "parts": [
+        {
+          "name": "Relleu",
+          "color": "#aba397FF",
+          "sourceTriangles": 914640,
+          "materialIndex": 0,
+          "triangles": 8446
+        },
+        {
+          "name": "Sòl nu cartografiat",
+          "color": "#787d82FF",
+          "sourceTriangles": 17376,
+          "materialIndex": 1,
+          "triangles": 348
+        },
+        {
+          "name": "Aigües interiors",
+          "color": "#6da7b8FF",
+          "sourceTriangles": 184700,
+          "materialIndex": 2,
+          "triangles": 2578
+        },
+        {
+          "name": "Sòl de bosc · Vegetació simulada",
+          "color": "#5d855fFF",
+          "sourceTriangles": 1717820,
+          "materialIndex": 3,
+          "triangles": 22422
+        }
+      ],
+      "provenance": {
+        "terrain": {
+          "provider": "ICGC MET5",
+          "attribution": "Institut Cartogràfic i Geològic de Catalunya",
+          "url": "https://geoserveis.icgc.cat/icc_mdt/wcs/service",
+          "resolutionMeters": 5
+        },
+        "coverage": {
+          "provider": "ESA WorldCover 2021 v200",
+          "license": "CC BY 4.0",
+          "citation": "https://doi.org/10.5281/zenodo.7254221",
+          "url": "https://esa-worldcover.org/en/data-access"
+        },
+        "lakes": {
+          "provider": "OpenStreetMap · OpenFreeMap",
+          "license": "ODbL",
+          "attribution": "© OpenStreetMap contributors",
+          "url": "https://www.openstreetmap.org/copyright"
+        },
+        "waterways": {
+          "provider": "OpenStreetMap · OpenFreeMap",
+          "license": "ODbL",
+          "attribution": "© OpenStreetMap contributors",
+          "url": "https://www.openstreetmap.org/copyright"
+        },
+        "oceans": {
+          "provider": "OpenStreetMap · OpenFreeMap",
+          "license": "ODbL",
+          "attribution": "© OpenStreetMap contributors",
+          "url": "https://www.openstreetmap.org/copyright"
+        },
+        "forests": {
+          "provider": "OpenStreetMap · OpenFreeMap",
+          "license": "ODbL",
+          "attribution": "© OpenStreetMap contributors",
+          "url": "https://www.openstreetmap.org/copyright"
+        },
+        "trails": {
+          "provider": "OpenStreetMap · OpenFreeMap",
+          "license": "ODbL",
+          "attribution": "© OpenStreetMap contributors",
+          "url": "https://www.openstreetmap.org/copyright"
+        }
+      },
+      "strategy": "highest-source-surface-heightfield",
+      "resolution": [
+        128,
+        128
+      ],
+      "missingSurfaceSamples": 0
+    }
+  ]
+}

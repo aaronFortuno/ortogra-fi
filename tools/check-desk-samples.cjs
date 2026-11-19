@@ -10,15 +10,17 @@ const instrument = `
   window.deskSampleTest = {
     pose: () => ({ position:camera.position.toArray(), rotation:camera.quaternion.toArray(), forward:new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).toArray() }),
     paper: index => {const p=reading.sheetView(index);return {normal:p.normal.toArray(),up:p.up.toArray(),height:p.height};},
-    inspection:paperView.info,
+    inspection:()=>reliefs.info().open?reliefs.info():paperView.info(),
+    relief:reliefs.info,
+    reliefMesh:()=>{let triangles=0,meshes=0;scene.getObjectByName('ReliefSample_0')?.traverse(m=>{if(m.isMesh){meshes++;triangles+=(m.geometry.index?.count||m.geometry.attributes.position.count)/3;}});return{meshes,triangles};},
     phase:()=>phase,
     ink:()=>reading.info().pages.map(p=>p.image),
     curl:()=>Math.max(...scene.getObjectByName('PrintedSample').geometry.attributes.position.array.filter((_,i)=>i%3===2),...scene.getObjectByName('PrintedAnswer').geometry.attributes.position.array.filter((_,i)=>i%3===2)),
   };
 `;
 async function open(page, id, mobile) {
-  if (mobile && ['pauta', 'pentagrama'].includes(id)) await page.locator('[data-area=Utilitats]').click();
-  if (mobile && id === 'relleu-obert') await page.locator('[data-area=Medi]').click();
+  const area=['pauta','pentagrama'].includes(id)?'Utilitats':id==='relleu-obert'?'Medi':id==='fil-i-compte'?'Matemàtiques':'Llengua';
+  const button=page.locator(`[data-area="${area}"]`);if(await button.getAttribute('aria-pressed')!=='true')await button.click();
   await page.locator(`[data-project="${id}"]`).click();
   await page.locator('#project-detail.is-visible').waitFor();
   await page.waitForFunction(() => window.deskSampleTest.phase() === 'reading');
@@ -34,9 +36,19 @@ async function inspect(page, side, mobile, screenshot) {
   assert.equal(await page.locator('dialog[open]').count(), 1, 'Camera inspection must not open a second modal');
   const zoom = await page.evaluate(index => ({ pose:window.deskSampleTest.pose(),paper:window.deskSampleTest.paper(index) }), side);
   assert.ok(distance(before.position, zoom.pose.position) > .2, 'Actually move the camera nearer the paper');
-  const dot = zoom.pose.forward.reduce((sum, x, i) => sum + x * zoom.paper.normal[i], 0);
-  assert.ok(dot < -.99999, 'The enlarged view must be perpendicular to this physical sheet');
-  await page.waitForFunction(selector=>document.querySelector(selector).getBoundingClientRect().height > innerHeight - 116,side ? '#sample-open-answers' : '#sample-open');
+  const isRelief=await page.evaluate(()=>window.deskSampleTest.relief().open);
+  if(!isRelief){
+    const dot = zoom.pose.forward.reduce((sum, x, i) => sum + x * zoom.paper.normal[i], 0);
+    assert.ok(dot < -.99999, 'The enlarged view must be perpendicular to this physical sheet');
+    await page.waitForFunction(selector=>document.querySelector(selector).getBoundingClientRect().height > innerHeight - 116,side ? '#sample-open-answers' : '#sample-open');
+  }else{
+    const geometry=await page.evaluate(()=>window.deskSampleTest.reliefMesh());
+    assert.ok(geometry.meshes===4&&geometry.triangles>30000&&geometry.triangles<40000,'The sample must be an actual lightweight 3D mesh with four materials');
+    const initial=await page.evaluate(()=>window.deskSampleTest.relief());
+    await page.locator('#relief-zoom-in').click();
+    assert.ok((await page.evaluate(()=>window.deskSampleTest.relief())).distance<initial.distance);
+    await page.locator('#relief-reset').click();
+  }
   if (screenshot) await page.screenshot({path:path.join(output,screenshot)});
   if (side && await page.locator('#project-title').innerText() === 'Trama') {
     const downloading=page.waitForEvent('download'); await page.locator('#sample-pdf').click();
@@ -52,8 +64,16 @@ async function inspect(page, side, mobile, screenshot) {
     await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-100}]});
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     assert.equal(await page.locator('#project-detail').getAttribute('data-inspecting'),'true','Dragging must not act as the return click');
-    await page.waitForFunction(()=>window.deskSampleTest.inspection().panY < -.1);
+    if(isRelief)assert.ok((await page.evaluate(()=>window.deskSampleTest.relief())).pitch<.85);
+    else await page.waitForFunction(()=>window.deskSampleTest.inspection().panY < -.1);
   } else {
+    if(isRelief){
+      const original=await page.evaluate(()=>window.deskSampleTest.relief());
+      await page.mouse.move(area.x+area.width/2,area.y+area.height/2);await page.mouse.down();
+      await page.mouse.move(area.x+area.width/2+110,area.y+area.height/2+35,{steps:5});await page.mouse.up();
+      const rotated=await page.evaluate(()=>window.deskSampleTest.relief());
+      assert.ok(Math.abs(rotated.yaw-original.yaw)>.5&&Math.abs(rotated.pitch-original.pitch)>.1,'Dragging rotates and pivots the real model');
+    }else{
     await page.mouse.move(area.x + area.width / 2, area.y + 20);
     await page.waitForFunction(()=>window.deskSampleTest.inspection().panY > .9);
     const upper = await page.evaluate(()=>window.deskSampleTest.pose());
@@ -61,6 +81,7 @@ async function inspect(page, side, mobile, screenshot) {
     await page.waitForFunction(()=>window.deskSampleTest.inspection().panY < -.7);
     const lower = await page.evaluate(()=>window.deskSampleTest.pose());
     assert.ok(distance(upper.position,lower.position) > .1,'Reach both ends of the sheet');
+    }
   }
   if (mobile) await page.touchscreen.tap(area.x + 60, area.y + 60);
   else if (side) await page.locator('#sample-inspection').click({position:{x:60,y:60}});
@@ -111,8 +132,7 @@ async function inspect(page, side, mobile, screenshot) {
         assert.equal(await page.locator('.description-page').evaluate(e=>getComputedStyle(e).transform),'none');
         assert.equal(await page.locator('#project-description').evaluate(e=>getComputedStyle(e).fontSize),'16px');
         const initial=await page.evaluate(()=>window.deskSampleTest.ink());
-        await page.locator('#page-corner-next').hover();
-        await page.waitForFunction(()=>window.deskSampleTest.curl()>.02);
+        if(id!=='relleu-obert'){await page.locator('#page-corner-next').hover();await page.waitForFunction(()=>window.deskSampleTest.curl()>.02);}
         await page.locator('#sample-next').click();
         await page.waitForFunction(()=>document.querySelector('#sample-counter').textContent==='3 / 3');
         assert.ok(await page.locator('#sample-next').isDisabled());

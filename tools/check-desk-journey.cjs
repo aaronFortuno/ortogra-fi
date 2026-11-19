@@ -61,7 +61,7 @@ function checkFrames(frames, phase) {
             const factor = 256 / Math.max(original.width, original.height);
             small.width = Math.max(1, Math.round(original.width * factor)); small.height = Math.max(1, Math.round(original.height * factor));
             small.getContext('2d').drawImage(original, 0, 0, small.width, small.height); texture.image = small;`)
-          .replace('const motions = new Map();', 'const motions = new Map(); window.deskMoving = () => motions.has("view");')
+          .replace('const motions = new Map();', 'const motions = new Map(); window.deskMoving = () => motions.has("view"); window.deskOcclusion = () => shelfOcclusion.visibilityAt(new THREE.Vector3(-5.4,.3,-1.66));')
           .replace('const camera = new THREE.PerspectiveCamera(32, 1, .06, 75);', 'const camera = new THREE.PerspectiveCamera(32, 1, .06, 75); Object.defineProperty(window, "deskCamera", {get:()=>({position:camera.position.toArray(),rotation:camera.quaternion.toArray()})});')
           .replace('renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));', 'renderer.setPixelRatio(.3);')
           .replace('daylight.shadow.mapSize.set(2048, 2048);', 'daylight.shadow.mapSize.set(256, 256);');
@@ -77,9 +77,10 @@ function checkFrames(frames, phase) {
           await page.locator('[data-view=in]').click();
           await page.waitForFunction(()=>!window.deskMoving());
         }
-        if (id === 'relleu-obert') {await page.locator('[data-view=home]').click();await page.waitForFunction(()=>!window.deskMoving());}
-        if (id === 'pauta' && mobile) await page.locator('[data-area=Utilitats]').click();
+        if (id === 'relleu-obert') {await page.locator('[data-area=Medi]').click();await page.waitForFunction(()=>!window.deskMoving());}
+        if (id === 'pauta') {await page.locator('[data-area=Utilitats]').click();await page.waitForFunction(()=>!window.deskMoving());}
         const initial=await page.evaluate(()=>window.deskCamera);
+        const initialVisibility=id==='plec'?await page.evaluate(()=>window.deskOcclusion()):0;
         await page.evaluate(()=>{window.deskFrames=[];});
         await page.locator('[data-project='+id+']').click();
         if (id === 'plec' && process.argv.includes('--captures')) for (let i=1;i<=4;i++) {
@@ -91,6 +92,7 @@ function checkFrames(frames, phase) {
         const openingFrames = await page.evaluate(()=>window.deskFrames);
         await fs.writeFile(path.join(output,'journey-'+id+'-'+layout+(capture?'-captures':'')+'-opening.json'),JSON.stringify(openingFrames));
         checkFrames(openingFrames,'opening');
+        if(id==='plec')assert.ok(await page.evaluate(()=>window.deskOcclusion())>initialVisibility+.03,'Removing a binder lets more indirect light reach the backing');
         await page.keyboard.press('Escape');
         await page.waitForFunction(()=>!document.querySelector('#project-detail').open&&!document.querySelector('#shelf-controls').inert);
         const frames=await page.evaluate(()=>window.deskFrames);

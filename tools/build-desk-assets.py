@@ -7,16 +7,23 @@ The browser loads the GLB. The editable .blend stays in ignored output/.
 
 import math
 import random
+import tempfile
 from pathlib import Path
 
 import bpy
-from mathutils import Vector
+import bmesh
+from mathutils import Quaternion, Vector
 
 ROOT = Path(__file__).resolve().parents[1]
 DESTINATION = ROOT / 'assets' / 'desk'
 WORK = ROOT / 'output' / 'desk'
 DESTINATION.mkdir(parents=True, exist_ok=True)
 WORK.mkdir(parents=True, exist_ok=True)
+# Blender's image exporter needs a writable temporary directory on Windows.
+# Keep it local instead of relying on a protected AppData temporary directory.
+(WORK / 'tmp').mkdir(parents=True, exist_ok=True)
+tempfile.tempdir = str(WORK / 'tmp')
+bpy.context.preferences.filepaths.temporary_directory = str(WORK / 'tmp')
 random.seed(71)
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
@@ -60,10 +67,30 @@ silver = material('Steel', '#c2c1b6', .25, .9)
 dark_metal = material('DarkMetal', '#3a3934', .42, .6)
 cavity = material('Cavity', '#20231b', 1)
 tape = material('Tape', '#f5edda', .8)
+cover_wear = material('ExposedBinderBoard', '#b5ac8e', .96)
 leaf_green = material('Leaves', '#4a6435', .65)
 leaf_light = material('LeafLight', '#6c7a42', .67)
 stem_mat = material('Stems', '#626339', .8)
 soil = material('Soil', '#342b21', 1)
+
+
+def mesh_object(name, vertices, faces, mat, parent=None):
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update()
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.free()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.parent = parent
+    if mat:
+        mesh.materials.append(mat)
+    for polygon in mesh.polygons:
+        polygon.use_smooth = True
+    return obj
 def empty(name, position=(0, 0, 0), parent=None):
     obj = bpy.data.objects.new(name, None)
     bpy.context.collection.objects.link(obj)
@@ -166,15 +193,15 @@ box('DeskApron', (14.6, .44, .12), (0, -.96, 4.45), wood, bevel=.025)
 for x in [-6.8, 6.8]:
     for z in [-.9, 4.1]:
         box('DeskLeg', (.16, 3, .17), (x, -2.2, z), wood, bevel=.025)
-box('ShelfBase', (12.2, .16, 1.95), (0, 1.14, -.72), wood, bevel=.025)
-box('ShelfTop', (12.2, .13, 1.95), (0, 3.65, -.72), wood, bevel=.022)
+box('OrganizerWallRail', (12.2, .13, .12), (0, 1.85, -1.61), wood, bevel=.018)
 for x in [-6, -1.7, .68, 3.2, 6]:
-    box('ShelfDivider', (.12, 2.47, 1.94), (x, 2.41, -.72), wood, bevel=.018)
-# Pale backing panels and metal wall supports add depth and scale.
-box('ShelfBack', (12.05, 2.42, .035), (0, 2.42, -1.68), plaster, bevel=.008)
-for x in [-4.7, -.5, 4.6]:
-    box('ShelfBracket', (.07, .36, .06), (x, .93, -1.6), dark_metal, bevel=.012)
-    box('ShelfBracket', (.07, .055, .62), (x, 1.045, -1.32), dark_metal, bevel=.01)
+    box('ShelfDivider', (.12, 2.47, 1.94), (x, .61, -.72), wood, bevel=.018)
+    # Small fixing plates sit against the wall; no floating support below a shelf.
+    box('OrganizerFixing', (.20, .24, .016), (x, 1.60, -1.64), dark_metal, bevel=.008)
+    for height in [1.53, 1.67]:
+        screw = cylinder('OrganizerScrew', .017, .012, (x + .071, height, -1.625), silver)
+        screw.rotation_euler.x = math.pi / 2
+box('ShelfBack', (12.05, 2.42, .035), (0, .62, -1.68), wood, bevel=.008)
 
 for y in [1.6, 4.9]:
     box('WindowFrame', (.18, .1, 3), (-7.92, y, 1), wood, bevel=.015)
@@ -184,8 +211,8 @@ box('WindowSill', (.55, .12, 3.25), (-7.75, 1.54, 1), wood, bevel=.025)
 
 
 def binder(identifier, color, x, lean=0, yaw=0, depth=-.55):
-    # Place the lowest cover corner on the shelf, including when it leans.
-    height = 1.228 + 1.04 * math.cos(lean) + .225 * abs(math.sin(lean))
+    # Stand directly on the desktop, including when the binder leans.
+    height = 1.228 - 1.8 + 1.04 * math.cos(lean) + .225 * abs(math.sin(lean))
     group = empty('Item_' + identifier, (x, height, depth), dynamic)
     group.rotation_euler.y = -lean
     group.rotation_euler.z = yaw
@@ -209,6 +236,14 @@ def binder(identifier, color, x, lean=0, yaw=0, depth=-.55):
     torus('FingerRim', .074, .009, (0, -.8, .827), silver, group)
     torus('FingerLip', .067, .003, (0, -.8, .832), silver, group)
     box('BottomProtector', (.43, .018, .012), (0, -1.019, .818), silver, group, .004)
+    # Tiny, irregular chips reveal the board where the cloth meets a spine edge.
+    # They remain on the actual object when it travels to the table.
+    for side, end, size in [(-1, -1, .037), (1, -1, .027), (-1, 1, .022)]:
+        origin_x, origin_y = side * .219, end * 1.021
+        points = [(0, 0), (-side * size, 0), (-side * size * .62, -end * size * .48),
+                  (-side * size * .30, -end * size * 1.5), (0, -end * size * 1.9)]
+        vertices = [xyz((origin_x + x, origin_y + y, .8185)) for x, y in points]
+        mesh_object('SpineCornerWear_' + identifier, vertices, [tuple(range(len(vertices)))], cover_wear, group)
     for y in [-.34, .34]:
         ring = torus('RingMechanism', .145, .01, (.02, y, .665), silver, group, normal='y')
         ring.scale.x = 1.4
@@ -224,7 +259,7 @@ binder('fil-i-compte', '#aa823c', -.65, lean=-.065, yaw=-.018, depth=-.51)
 
 # A box and two closed folders exercise the same catalogue with different objects.
 blue = material('BoxFabric', '#53636a', .76)
-box_group = empty('Item_relleu-obert', (1.93, 1.62, -.36), dynamic)
+box_group = empty('Item_relleu-obert', (1.93, 1.62 - 1.8, -.36), dynamic)
 box_group.rotation_euler.z = .04
 box_group['kind'] = 'box'
 box('BoxBase', (1.9, .1, 1.4), (0, -.32, 0), blue, box_group, .024)
@@ -257,11 +292,31 @@ def folder(identifier, color, x, z, angle):
 folder('pentagrama', '#ad6245', 4.28, -.18, -.075)
 folder('pauta', '#9d9c76', 4.75, 2.65, .17)
 
-# A few ordinary papers and a pencil make the working surface lived-in.
+# The centre stays empty for the opened samples. Lived-in stationery sits to the
+# left of that working area, rather than in front of an interactive resource.
 notes = empty('DeskNotes', (-3.65, -.575, 1.58), room)
-for i, angle in enumerate([-.085, .035, -.018]):
-    sheet = box('LooseWorksheet', (1.45, .003, 2.05), ((i - 1) * .08, i * .004, (i - 1) * .075), paper, notes, .0008)
+for i, (angle, dx, dz) in enumerate([
+        (-.105, -.08, -.075), (.075, .12, -.045), (-.032, -.035, .12),
+        (.145, .10, .035), (-.045, -.015, .015)]):
+    vertices, faces = [], []
+    for row in range(22):
+        z = -1.025 + 2.05 * row / 21
+        for col in range(16):
+            x = -.725 + 1.45 * col / 15
+            corner = max(0, (x + .45) / 1.175) * max(0, (z - .45) / .575)
+            lift = (.055 if i == 4 else .012) * corner ** 3
+            vertices.append(xyz((x, lift + math.sin(z * 3 + i) * .0015, z)))
+    for row in range(21):
+        for col in range(15):
+            n = row * 16 + col
+            faces.append((n, n + 16, n + 17, n + 1))
+    sheet = mesh_object('LooseWorksheet', vertices, faces, paper, notes)
+    sheet.location = xyz((dx, i * .0038, dz))
     sheet.rotation_euler.z = angle
+    thickness = sheet.modifiers.new('Paper thickness', 'SOLIDIFY')
+    thickness.thickness = .0016
+    bpy.context.view_layer.objects.active = sheet
+    bpy.ops.object.modifier_apply(modifier=thickness.name)
 curve('PaperClip', [(-.56, .017, -.75), (-.56, .017, -.48), (-.44, .017, -.48), (-.44, .017, -.78), (-.52, .017, -.78), (-.52, .017, -.54)], .0035, silver, notes)
 loose_pencil = empty('LoosePencil', (-2.6, -.553, 1.6), room)
 loose_pencil.rotation_euler.x = math.pi / 2
@@ -271,7 +326,117 @@ cylinder('LoosePencilWood', .001, .12, (0, 1.02, 0), wood, loose_pencil, bottom=
 cylinder('LoosePencilGraphite', .001, .026, (0, 1.09, 0), dark_metal, loose_pencil, bottom=.006)
 
 
-# Curved leaves with a centre ridge, a hollow ceramic pot and visible soil.
+stapler = empty('DeskStapler', (-3.25, -.57, .1), room)
+stapler.rotation_euler.z = -.24
+stapler_plastic = material('StaplerEnamel', '#344c49', .34)
+rubber = material('StationeryRubber', '#30312d', .91)
+box('StaplerFoot', (.38, .028, .91), (0, .014, 0), rubber, stapler, .022)
+box('StaplerBase', (.355, .045, .88), (0, .043, 0), stapler_plastic, stapler, .025)
+box('StaplerAnvil', (.22, .009, .15), (0, .07, .315), silver, stapler, .007)
+for x in [-.035, .035]:
+    curve('StapleGroove', [(x - .018, .075, .29), (x, .075, .315), (x + .018, .075, .29)], .0014, dark_metal, stapler)
+box('StapleMagazine', (.225, .045, .64), (0, .102, -.035), silver, stapler, .008)
+profile = [(-.42, .11), (-.41, .205), (-.32, .25), (.18, .23), (.34, .18), (.35, .13)]
+vertices = [xyz((side, height, depth)) for side in [-.162, .162] for depth, height in profile]
+faces = [tuple(reversed(range(len(profile)))), tuple(range(len(profile), len(profile) * 2))]
+for i in range(len(profile)):
+    j = (i + 1) % len(profile)
+    faces.append((i, j, len(profile) + j, len(profile) + i))
+upper = mesh_object('StaplerUpper', vertices, faces, stapler_plastic, stapler)
+bevel = upper.modifiers.new('Moulded plastic edges', 'BEVEL')
+bevel.width = .018
+bevel.segments = 3
+bpy.context.view_layer.objects.active = upper
+bpy.ops.object.modifier_apply(modifier=bevel.name)
+hinge = cylinder('StaplerHinge', .026, .35, (0, .12, -.345), silver, stapler)
+hinge.rotation_euler.y = math.pi / 2
+
+
+def annulus(name, outer, inner, height, mat, parent, y=0):
+    vertices, faces = [], []
+    for radius, level in [(outer, 0), (outer, height), (inner, height), (inner, 0)]:
+        for i in range(64):
+            angle = i * math.tau / 64
+            vertices.append(xyz((radius * math.cos(angle), level + y, radius * math.sin(angle))))
+    for row in range(4):
+        next_row = (row + 1) % 4
+        for i in range(64):
+            j = (i + 1) % 64
+            faces.append((row * 64 + i, row * 64 + j, next_row * 64 + j, next_row * 64 + i))
+    return mesh_object(name, vertices, faces, mat, parent)
+
+
+adhesive = material('AdhesiveFilm', '#d4bb79', .24)
+cardboard = material('TapeCardboard', '#be9c6e', .92)
+tape_roll = empty('DeskTapeRoll', (-5, -.578, .7), room)
+tape_roll.rotation_euler.z = .3
+annulus('TapeRoll', .235, .145, .145, adhesive, tape_roll)
+annulus('TapeCore', .146, .125, .148, cardboard, tape_roll, -.001)
+vertices = [xyz((side, .139 + .017 * math.sin(i * math.pi / 7), .19 + i * .026))
+            for i in range(8) for side in [-.052, .052]]
+faces = [(i * 2, i * 2 + 1, i * 2 + 3, i * 2 + 2) for i in range(7)]
+mesh_object('TapeLooseEnd', vertices, faces, adhesive, tape_roll)
+
+
+case_cloth = material('Cloth_PencilCase', '#51616c', .92)
+case_lining = material('CaseLining', '#adac99', .95)
+case_piping = material('CasePiping', '#394853', .76)
+pen_case = empty('OpenPencilCase', (-4.75, -.578, 3.65), room)
+pen_case.rotation_euler.z = -.115
+box('CaseBottom', (1.46, .055, .74), (0, .03, 0), case_cloth, pen_case, .055)
+box('CaseLining', (1.35, .018, .64), (0, .065, 0), case_lining, pen_case, .025)
+for z in [-.35, .35]:
+    box('CaseLongSide', (1.4, .13, .047), (0, .11, z), case_cloth, pen_case, .02)
+for x in [-.7, .7]:
+    box('CaseEnd', (.047, .13, .64), (x, .11, 0), case_cloth, pen_case, .02)
+case_lid = empty('PencilCaseLid', (0, .16, -.35), pen_case)
+case_lid.rotation_euler.x = -math.pi * .68
+box('CaseLid', (1.43, .05, .69), (0, .015, .335), case_cloth, case_lid, .035)
+box('CaseLidLining', (1.33, .012, .59), (0, -.017, .335), case_lining, case_lid, .025)
+for parent, y in [(pen_case, .178), (case_lid, -.024)]:
+    z0, z1 = (-.32, .32) if parent == pen_case else (.025, .645)
+    edge = [(-.65, y, z0), (.65, y, z0), (.69, y, z0 + .05), (.69, y, z1 - .05),
+            (.65, y, z1), (-.65, y, z1), (-.69, y, z1 - .05), (-.69, y, z0 + .05), (-.65, y, z0)]
+    curve('CaseZipperRim', edge, .008, case_piping, parent)
+    for z in [z0, z1]:
+        for i in range(19):
+            box('ZipperTooth', (.026, .008, .014), (-.61 + i * .068, y + .003, z), silver, parent, .002)
+curve('ZipperPull', [(.62, .185, .28), (.7, .19, .27), (.735, .19, .32), (.70, .19, .36), (.64, .185, .33)], .007, silver, pen_case)
+
+
+# Unbranded, hexagonal clear-barrel ballpoints with an ink cartridge, a coloured
+# push-fit cap and a small metal nib. No logotype or proprietary geometry.
+clear_barrel = material('ClearPenPlastic', '#dedccf', .17)
+clear_barrel.node_tree.nodes.get('Principled BSDF').inputs['Alpha'].default_value = .36
+clear_barrel.diffuse_color = (.78, .78, .72, .36)
+clear_barrel.surface_render_method = 'DITHERED'
+pen_tip = material('PenTipPlastic', '#c4b896', .25)
+
+
+def ballpoint(name, position, angle, color, parent):
+    group = empty(name, position, parent)
+    group.rotation_euler = (0, math.pi / 2, angle)
+    ink = material(name + 'Ink', color, .3)
+    # Cone primitive along the local vertical; the enclosing group lays it flat.
+    bpy.ops.mesh.primitive_cylinder_add(vertices=6, radius=.023, depth=.88)
+    finish(bpy.context.object, 'PenBarrel', clear_barrel, (0, .57, 0), group)
+    cylinder('InkCartridge', .005, .89, (0, .55, 0), ink, group)
+    cylinder('PenNose', .022, .095, (0, .104, 0), pen_tip, group, bottom=.009)
+    cylinder('PenMetalNib', .009, .035, (0, .04, 0), silver, group, bottom=.0015)
+    cylinder('PenCap', .029, .20, (0, 1.055, 0), ink, group, bottom=.023)
+    cylinder('PenCapCrown', .021, .018, (0, 1.162, 0), ink, group, bottom=.027)
+    box('PenCapClip', (.012, .145, .012), (0, 1.045, .038), ink, group, .005)
+    return group
+
+
+for i, color in enumerate(['#304c7b', '#292c2c', '#923e39', '#3e664f']):
+    ballpoint('CaseBallpoint_' + str(i), (-.59 + (i % 2) * .045, .107 + i * .004, -.235 + i * .145),
+              -.055 + i * .037, color, pen_case)
+ballpoint('LooseBallpoint', (-4.1, -.546, 4.35), -.24, '#304c7b', room)
+
+
+# Separate leaves retain the IndoorLeaf_ names used by the browser's gentle
+# sway. Veins and petioles move with each blade instead of floating above it.
 plant = empty('Pothos', (-6.3, -.56, 2.38), living)
 profile = [(0, 0), (.3, 0), (.36, .12), (.4, .65), (.39, .69), (.365, .69), (.36, .12), (0, .07)]
 vertices, faces = [], []
@@ -292,40 +457,115 @@ pot.data.materials.append(ceramic)
 for polygon in pot.data.polygons:
     polygon.use_smooth = True
 cylinder('PotSoil', .36, .03, (0, .61, 0), soil, plant)
-for i in range(24):
-    azimuth = i * 2.4
-    radius = .2 + (i % 4) * .15
-    height = .92 + random.random() * 1.15
-    center = (math.cos(azimuth) * radius, height, math.sin(azimuth) * radius)
-    curve('Stem', [(0, .58, 0), (center[0] * .4, height * .7, center[2] * .4), center], .009, stem_mat, plant)
-    leaf_vertices, leaf_faces = [], []
-    length = .5 + random.random() * .3
-    for row in range(13):
-        t = row / 12
-        width = math.sin(t * math.pi) ** .7 * length * .34
-        for col in range(7):
-            side = col / 3 - 1
-            leaf_vertices.append((side * width, -length * t,
-                math.sin(t * math.pi) * .1 + math.cos(side * math.pi / 2) * .015 - side ** 2 * .045))
-    for row in range(12):
-        for col in range(6):
-            n = row * 7 + col
-            leaf_faces.append((n, n + 1, n + 8, n + 7))
-    mesh = bpy.data.meshes.new('Leaf')
-    mesh.from_pydata(leaf_vertices, [], leaf_faces)
-    uv = mesh.uv_layers.new(name='UVMap')
-    for polygon in mesh.polygons:
-        for loop_index in polygon.loop_indices:
-            vertex_index = mesh.loops[loop_index].vertex_index
-            uv.data[loop_index].uv = (vertex_index % 7 / 6, vertex_index // 7 / 12)
-    leaf = bpy.data.objects.new('IndoorLeaf_' + str(i), mesh)
-    bpy.context.collection.objects.link(leaf)
-    leaf.parent = plant
-    leaf.location = xyz(center)
-    leaf.rotation_euler = (.6 + random.random() * .6, random.random() * .5, azimuth)
-    leaf.data.materials.append(leaf_green if i % 3 else leaf_light)
+torus('PotRim', .378, .012, (0, .68, 0), ceramic, plant, normal='y')
+soil_pebble = material('SoilPerlite', '#968571', 1)
+for i in range(34):
+    angle = random.random() * math.tau
+    radius = .335 * math.sqrt(random.random())
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=.008 + random.random() * .009)
+    pebble = finish(bpy.context.object, 'PotSoilGrain', soil_pebble if i % 5 == 0 else soil,
+                   (math.cos(angle) * radius, .632, math.sin(angle) * radius), plant)
+    pebble.scale.z = .45
+
+leaf_palette = ['#506a32', '#3c5d2b', '#5d763e', '#4c6f37', '#6e8348']
+leaf_materials = [material('IndoorFoliage_' + str(i), color, .49 + i * .024)
+                  for i, color in enumerate(leaf_palette)]
+leaf_veins = material('IndoorLeafVeins', '#91a267', .75)
+for i in range(26):
+    azimuth = i * 2.39996 + random.uniform(-.14, .14)
+    radius = .14 + (i % 5) * .10
+    height = .85 + random.random() * 1.12
+    base = (math.cos(azimuth) * radius, height, math.sin(azimuth) * radius)
+    length = .46 + random.random() * .33
+    width_ratio = .27 + random.random() * .09
+    twist = random.uniform(-.055, .055)
+    curve('PlantPetiole', [(0, .59, 0), (base[0] * .42, height * .67, base[2] * .42), base],
+          .006 + random.random() * .002, stem_mat, plant)
+
+    def leaf_point(t, side):
+        width = math.sin(t * math.pi) ** .62 * length * width_ratio
+        width *= 1 + .25 * math.exp(-((t - .22) / .18) ** 2)
+        x = side * width * (1 + .1 * math.sin(t * 5.2 + i))
+        y = -length * t + .11 * length * side ** 2 * math.sin(t * math.pi) * math.exp(-t * 3)
+        z = length * (.12 * math.sin(t * math.pi) - .24 * t ** 3 + .043 * side ** 2) + twist * side * t
+        return (x, y, z)
+
+    vertices = [leaf_point(row / 18, col / 5 - 1) for row in range(19) for col in range(11)]
+    faces = []
+    for row in range(18):
+        for col in range(10):
+            n = row * 11 + col
+            faces.append((n, n + 1, n + 12, n + 11))
+    leaf = mesh_object('IndoorLeaf_' + str(i), vertices, faces, leaf_materials[i % len(leaf_materials)], plant)
+    leaf.location = xyz(base)
+    direction = Vector((math.cos(azimuth), math.sin(azimuth), random.uniform(-.4, .18))).normalized()
+    leaf.rotation_mode = 'QUATERNION'
+    leaf.rotation_quaternion = Quaternion(direction, random.uniform(-.30, .30)) @ Vector((0, -1, 0)).rotation_difference(direction)
+    uv = leaf.data.uv_layers.new(name='UVMap')
     for polygon in leaf.data.polygons:
+        for loop_index in polygon.loop_indices:
+            index = leaf.data.loops[loop_index].vertex_index
+            uv.data[loop_index].uv = (index % 11 / 10, index // 11 / 18)
+    # Vertex tints vary softly across one blade; geometry carries the raised vein.
+    colors = leaf.data.color_attributes.new(name='LeafTint', type='BYTE_COLOR', domain='CORNER')
+    shade = linear_hex(leaf_palette[i % len(leaf_palette)])
+    for polygon in leaf.data.polygons:
+        for loop_index in polygon.loop_indices:
+            index = leaf.data.loops[loop_index].vertex_index
+            side = abs(index % 11 / 5 - 1)
+            along = index // 11 / 18
+            value = .83 + .15 * math.sin(math.pi * along) + .03 * side
+            colors.data[loop_index].color = (shade[0] * value, shade[1] * value, shade[2] * value, 1)
+    mat = leaf.active_material
+    if not mat.node_tree.nodes.get('LeafTint'):
+        tint = mat.node_tree.nodes.new('ShaderNodeVertexColor')
+        tint.name = 'LeafTint'
+        tint.layer_name = 'LeafTint'
+        mat.node_tree.nodes.get('Principled BSDF').inputs['Base Color'].default_value = (1, 1, 1, 1)
+        mat.node_tree.links.new(tint.outputs['Color'], mat.node_tree.nodes.get('Principled BSDF').inputs['Base Color'])
+    # Curves take world-style xyz points; convert the blade's local Blender points
+    # back once so the curve helper preserves their local coordinate system.
+    def vein_curve(name, points, thickness):
+        local = [(p[0], p[2] + .0015, -p[1]) for p in points]
+        obj = curve(name, local, thickness, leaf_veins, leaf)
+        obj.data.bevel_resolution = 0
+        obj.data.resolution_u = 4
+    vein_curve('LeafMidrib', [leaf_point(t, 0) for t in [.04, .3, .58, .82, .98]], .0018)
+    for t in [.2, .36, .52, .68, .82]:
+        for side in [-1, 1]:
+            vein_curve('LeafSideVein', [leaf_point(t, 0), leaf_point(t + .05, side * .5), leaf_point(t + .105, side * .92)], .00075)
+
+
+# Bake the little vein tubes into each blade, keeping only two primitives per
+# moving leaf instead of hundreds of independent draw calls in the browser.
+bpy.context.view_layer.update()
+depsgraph = bpy.context.evaluated_depsgraph_get()
+for leaf in [obj for obj in plant.children if obj.name.startswith('IndoorLeaf_')]:
+    original = leaf.data
+    vertices = [tuple(vertex.co) for vertex in original.vertices]
+    faces = [tuple(polygon.vertices) for polygon in original.polygons]
+    blade_faces = len(faces)
+    blade_colors = [tuple(color.color) for color in original.color_attributes['LeafTint'].data]
+    for vein in list(leaf.children):
+        evaluated = vein.evaluated_get(depsgraph)
+        tube = evaluated.to_mesh()
+        start = len(vertices)
+        vertices.extend(tuple(vein.matrix_local @ vertex.co) for vertex in tube.vertices)
+        faces.extend(tuple(start + index for index in polygon.vertices) for polygon in tube.polygons)
+        evaluated.to_mesh_clear()
+        bpy.data.objects.remove(vein, do_unlink=True)
+    combined = bpy.data.meshes.new(leaf.name + 'Detailed')
+    combined.from_pydata(vertices, [], faces)
+    combined.materials.append(original.materials[0])
+    combined.materials.append(leaf_veins)
+    colors = combined.color_attributes.new(name='LeafTint', type='BYTE_COLOR', domain='CORNER')
+    for index, color in enumerate(colors.data):
+        color.color = blade_colors[index] if index < len(blade_colors) else (1, 1, 1, 1)
+    for index, polygon in enumerate(combined.polygons):
         polygon.use_smooth = True
+        polygon.material_index = 0 if index < blade_faces else 1
+    leaf.data = combined
+    bpy.data.meshes.remove(original)
 
 cup = empty('PencilCup', (6.05, -.57, 1.2), room)
 cylinder('CupBody', .24, .54, (0, .27, 0), ceramic, cup, bottom=.2)
@@ -404,7 +644,9 @@ def bake_ambient():
     surface.data.uv_layers[0].active_render = True
 
 
+print('DESK_STAGE modelled; baking static ambient occlusion with 64 samples', flush=True)
 bake_ambient()
+print('DESK_STAGE baked; packing and exporting the model', flush=True)
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.wm.save_as_mainfile(filepath=str(WORK / 'escriptori.blend'))
 bpy.ops.export_scene.gltf(filepath=str(DESTINATION / 'escriptori.glb'),
