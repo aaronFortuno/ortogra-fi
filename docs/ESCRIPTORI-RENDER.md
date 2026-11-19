@@ -2,6 +2,10 @@
 
 Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Frases de preparació aleatòries · 1.16.1
+
+El repertori creix fins a vint frases. Cada càrrega comença amb l’ordre barrejat, inclosa la primera frase. Cada cicle les mostra totes una vegada; en acabar es tornen a barrejar evitant repetir la darrera frase just després. Es conserven els cinc segons entre missatges i les transicions de 220 ms.
+
 ## Espai sòlid i resposta als gestos · 1.16
 
 Abans de treure un material se’n mostregen 65 posicions de cada recorregut de sortida i retorn, inclosa l’obertura de la tapa i la diferència de posició que introdueix el hover. L’envolupant entre cada parella de posicions, amb un marge de 0,055 unitats, reserva l’espai que ocuparà. Els estris que hi interfereixen s’aparten abans de començar el recorregut continu de 2.500 ms. Relleu Obert reserva també la zona frontal on es deixen les maquetes. Els materials s’aixequen una mica més en sortir per passar sobre els papers baixos. Els objectes apartats es queden a la nova posició, sense tornar automàticament al lloc anterior.

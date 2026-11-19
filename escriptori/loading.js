@@ -14,11 +14,36 @@ export function createLoadingIndicator(element) {
     'Comprovant que la grapadora encara té grapes…',
     'Posant a mà els materials de demà…',
     'Deixant un raconet de taula per a tu…',
+    'Rescatant un llapis del fons del calaix…',
+    'Allunyant la tassa de les fitxes noves…',
+    'Fent veure que la taula està endreçada…',
+    'Trobant parella als taps dels retoladors…',
+    'Desfent un embús a la perforadora…',
+    'Decidint si aquest paper encara pot servir…',
+    'Allisant una cantonada una mica tossuda…',
+    'Posant cada cosa al seu lloc. Més o menys…',
+    'Separant les fitxes de la llista de la compra…',
+    'Buscant el principi del rotllo de cinta…',
+    'Fent lloc a les idees que encara han de venir…',
+    'Comprovant que avui sí que tenim goma…',
   ];
+  function shuffle(previous) {
+    for (let i = messages.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [messages[i], messages[j]] = [messages[j], messages[i]];
+    }
+    if (messages[0] === previous) [messages[0], messages[1]] = [messages[1], messages[0]];
+  }
+  shuffle();
+  if (message) message.textContent = messages[0];
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let messageIndex = 0, swapTimer;
   const changeMessage = () => {
-    messageIndex = (messageIndex + 1) % messages.length;
+    messageIndex++;
+    if (messageIndex === messages.length) {
+      shuffle(messages[messageIndex - 1]);
+      messageIndex = 0;
+    }
     message.textContent = messages[messageIndex];
     message.classList.remove('is-changing');
   };
