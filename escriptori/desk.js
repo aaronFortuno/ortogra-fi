@@ -1,7 +1,7 @@
 import { createSampleBrowser } from './samples.js?v=1.11.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.16.1';
 import { createLightControls } from './light-controls.js?v=1.16.0';
-import { createAmbientAudio } from './ambient-audio.js?v=1.18.0';
+import { createAmbientAudio } from './ambient-audio.js?v=1.19.0';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -302,7 +302,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.18.0');
+    const { createDesk } = await import('./scene.js?v=1.19.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({

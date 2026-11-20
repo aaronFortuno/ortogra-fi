@@ -1,5 +1,7 @@
 # Ambient exterior de l’escriptori
 
+Els efectes interiors enregistrats de grapadora, paper i contactes es documenten separadament a [Sons dels objectes de taula](foley/README.md). No modifiquen els sis fragments d'ambient d'aquest document.
+
 El vent, els ocells i el vehicle provenen d’enregistraments CC0. Per al pati s’ha utilitzat «Playground with kids playing» de Mixkit. Tots sis fragments se serveixen des d’ortogra.fi.
 
 | Fitxer | Contingut | Durada descodificada | Canals | Pes |

@@ -2,6 +2,18 @@
 
 Revisió del 20 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Boca de la grapadora, rodolament i foley · 1.19
+
+El GLB havia fusionat les peces de la grapadora per material: els noms de Blender ja no existien, i la primera animació girava un grup buit. `stapler-mechanism.js` recupera els components connexos de les malles soldant posicions coincidents i separa capçal, carregador i cos fix, conservant materials i atributs. El capçal i el carregador tenen recorreguts diferents perquè el mecanisme metàl·lic no travessi la base. Les peces tornen a la posició inicial en acabar els 220 ms; amb moviment reduït s'aplica el resultat directament. La boca inicial mira cap a l'espai lliure de la taula.
+
+`stapler-paper.js` detecta una vora de full pròxima a la boca. La marca verda assenyala l'entrada. En deixar-lo anar, el full passa per davant del cos, baixa i llisca dins de la ranura. Una deformació suau aixeca la vora sobre l'enclusa i deixa descansar la resta del paper sobre la taula. Un segon full se situa una mica més amunt. Es poden grapar i moure junts; arrossegar la grapadora o obrir un material allibera els fulls de la ranura. És un acoblament guiat per a fulls solts, no una simulació lliure d'inserció de qualsevol objecte dins del mecanisme.
+
+Les boles tenen radi, proporcions i fases de plecs diferents a cada rebregat. El gir es fa al voltant del centre local de la bola, amb l'eix horitzontal derivat del desplaçament i l'angle proporcional a la distància recorreguda. La forma irregular modifica el recolzament. Els límits de les boles es calculen a partir dels vèrtexs transformats: girar la caixa local sencera inflava el volum i les deixava flotant. Un impuls es frena progressivament, els obstacles retornen part de la velocitat i dues boles es poden transmetre moviment. Els papers baixos es tracten com superfícies de rodolament, evitant que la seva caixa envolupant bloquegi una bola ben recolzada. No hi ha un motor de física general ni simulació de rebots verticals.
+
+Els sons sintetitzats se substitueixen per set retalls d'enregistraments CC0, compartits i carregats en activar el so. Fonts, llicències i preparació a [Foley](../assets/desk/audio/foley/README.md). El reproductor utilitza mostres a la velocitat original i respecta silenci i pausa; no genera oscil·ladors ni soroll artificial. Les verificacions numèriques i de reproducció no equivalen a una validació auditiva humana.
+
+`tools/check-desk-tactile.cjs` utilitza el ratolí per inserir dos fulls, grapar-los i comprovar el desplaçament dels vèrtexs visibles del capçal. Verifica formes diferents, rodolament horitzontal i recolzament, integritat i descodificació dels set àudios i zero oscil·ladors. Inclou 320 px amb tema fosc i moviment reduït. Captures locals: `output/desk/slot-paper-*.png`.
+
 ## Grapadora i paper rebregat · 1.18
 
 Fer clic a la grapadora pressiona el capçal al voltant de la frontissa durant 220 ms i reprodueix un clic metàl·lic sintetitzat, amb el control de silenci compartit. La boca comprova tres punts sobre les malles reals dels fulls. Sense paper expulsa una grapa plegada; amb paper hi fixa la grapa. Dos o més fulls es reagrupen sota un node rígid comú, sense modificar-ne les posicions relatives. Es pot ampliar o unir un conjunt existent, es normalitzen les referències als suports evitant cicles, i el conjunt continua participant en col·lisions, caigudes, recollida i apartament per obrir materials. Les grapes fixades segueixen la deformació del full.

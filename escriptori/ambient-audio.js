@@ -1,4 +1,4 @@
-import { objectAudio } from './object-audio.js?v=1.18.0';
+import { objectAudio } from './object-audio.js?v=1.19.0';
 
 // Each exterior layer schedules its own next entrance on the audio clock.
 export function createAmbientAudio(button) {
@@ -88,6 +88,7 @@ export function createAmbientAudio(button) {
       if (!AudioContext) throw new Error('Audio unavailable');
       if (!context) {
         context = new AudioContext(); master = context.createGain(); master.gain.value = 0;
+        effects=objectAudio(context);
         // Soften the upper frequencies as though they arrive through a window.
         filter = context.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = .65;
         filter.frequency.value = open ? 7200 : 1500;

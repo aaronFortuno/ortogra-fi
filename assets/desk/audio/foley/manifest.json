@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "sources": {
+    "stapler": {
+      "creator": "simone_ds",
+      "title": "stapler.wav",
+      "url": "https://freesound.org/people/simone_ds/sounds/366080/",
+      "preview": "https://cdn.freesound.org/previews/366/366080_6040409-hq.mp3",
+      "sha256": "bdb579ae2012f17b90d4b87dc1d53ea19aacf8fb494f1b3e9b7f1cf230bf92f2"
+    },
+    "crumple": {
+      "creator": "Anthousai",
+      "title": "paper - crumple 02.wav",
+      "url": "https://freesound.org/people/Anthousai/sounds/398897/",
+      "preview": "https://cdn.freesound.org/previews/398/398897_5923045-hq.mp3",
+      "sha256": "c6c35e5a6e46def5fa37fa597577f1149e019cc9efc08b36c47c8c5d4294dd34"
+    },
+    "page": {
+      "creator": "OwlStorm",
+      "title": "Page Turn (1)",
+      "url": "https://freesound.org/people/OwlStorm/sounds/151220/",
+      "preview": "https://cdn.freesound.org/previews/151/151220_140737-hq.mp3",
+      "sha256": "41f51725007894483999812091faf74d0d341092c0a24c55c0778fe245ea45f4"
+    },
+    "tap": {
+      "creator": "zembacraftworks",
+      "title": "Tap on Wooden Table",
+      "url": "https://freesound.org/people/zembacraftworks/sounds/427393/",
+      "preview": "https://cdn.freesound.org/previews/427/427393_8617763-hq.mp3",
+      "sha256": "0c1ac8e87fc7df30b60f51fb7edb75343fd1a475bec99f104e69a422106b02de"
+    },
+    "pen": {
+      "creator": "ervintracks",
+      "title": "Pencil Drop",
+      "url": "https://freesound.org/people/ervintracks/sounds/567435/",
+      "preview": "https://cdn.freesound.org/previews/567/567435_8646874-hq.mp3",
+      "sha256": "359bfdab70d740aa8702f1b7fcc03206df4d4209ca9e2ab8d21dd87e67573dd5"
+    }
+  },
+  "clips": [
+    {
+      "id": "stapler",
+      "file": "stapler.mp3",
+      "source": "stapler",
+      "start": 0.27,
+      "end": 0.85,
+      "gainDb": -11.299,
+      "duration": 0.58,
+      "bytes": 7881,
+      "sha256": "353900ca7366ab4655e6534dc265539c5999155596b8df9c689a9df68338490a",
+      "rmsDbFS": -37.24,
+      "peakDbFS": -10.7
+    },
+    {
+      "id": "paper-crumple",
+      "file": "paper-crumple.mp3",
+      "source": "crumple",
+      "start": 0.08,
+      "end": 1.22,
+      "gainDb": -3.337,
+      "duration": 1.1400226757369614,
+      "bytes": 14464,
+      "sha256": "ce4fb9881e1a8bc219de8c7bc7d3073f89617ce96a6ffda7f90f35e1cec0b2c3",
+      "rmsDbFS": -38.05,
+      "peakDbFS": -10.78
+    },
+    {
+      "id": "paper-roll",
+      "file": "paper-roll.mp3",
+      "source": "crumple",
+      "start": 0.5,
+      "end": 0.92,
+      "gainDb": -3.337,
+      "duration": 0.42,
+      "bytes": 6000,
+      "sha256": "7628ffb8e430579c1e8887eeab0028a935eb2a2e4a694d272d01f9e53044905b",
+      "rmsDbFS": -38.02,
+      "peakDbFS": -10.58
+    },
+    {
+      "id": "page-turn",
+      "file": "page-turn.mp3",
+      "source": "page",
+      "start": 0,
+      "end": 0.55,
+      "gainDb": 8.64,
+      "duration": 0.55,
+      "bytes": 7568,
+      "sha256": "f5d76bfaf48a400ca8758f9802b3cd57e6c4aa07a03bbf8caac8b045df6196f8",
+      "rmsDbFS": -31.13,
+      "peakDbFS": -10.09
+    },
+    {
+      "id": "paper-move",
+      "file": "paper-move.mp3",
+      "source": "page",
+      "start": 0.05,
+      "end": 0.34,
+      "gainDb": 8.64,
+      "duration": 0.29,
+      "bytes": 4433,
+      "sha256": "03f88d02b627381487ee27f58519594fbe2bffdcda8b987420c8d30243f076ef",
+      "rmsDbFS": -28.47,
+      "peakDbFS": -10.2
+    },
+    {
+      "id": "table-tap",
+      "file": "table-tap.mp3",
+      "source": "tap",
+      "start": 0.1,
+      "end": 0.5,
+      "gainDb": -19.342,
+      "duration": 0.4,
+      "bytes": 5687,
+      "sha256": "45da654a551457bd089fd84086e11ff3b85691c9e735423517f3a5fe9b06a68b",
+      "rmsDbFS": -27.27,
+      "peakDbFS": -10.46
+    },
+    {
+      "id": "pen-drop",
+      "file": "pen-drop.mp3",
+      "source": "pen",
+      "start": 0,
+      "end": 0.7,
+      "gainDb": -2.417,
+      "duration": 0.6999773242630386,
+      "bytes": 9135,
+      "sha256": "970d5a10fa4e3f67fdac400d9f2d97edf5a32d1149cae38bdd7335db1ebde65f",
+      "rmsDbFS": -43.75,
+      "peakDbFS": -11.44
+    }
+  ]
+}

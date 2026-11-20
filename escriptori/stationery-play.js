@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { prepareStapler } from './stapler-mechanism.js?v=1.19.0';
+import { createPaperSlot } from './stapler-paper.js?v=1.19.0';
 
 // Deliberate, quick reversals rather than a long drag or tiny pointer jitter.
 export function recordShake(grip,event){
@@ -14,16 +16,13 @@ export function recordShake(grip,event){
   return s.turns>=5&&s.path>=(event.pointerType==='touch'?200:300);
 }
 
-export function createStationeryPlay({room,items,fallen,register,remove,refresh,refreshItem,invalidate,land,redraw,reduced,sound,action}){
-  const stapler=items.find(i=>i.node.name==='DeskStapler'),pressPivot=new THREE.Group();
+export function createStationeryPlay({room,items,fallen,register,remove,refresh,refreshItem,invalidate,land,setWorld,supportPlan,redraw,reduced,sound,action}){
+  const stapler=items.find(i=>i.node.name==='DeskStapler'),pressPivot=stapler?prepareStapler(stapler.node):null;
   let press=null,serial=0,bundleSerial=0,geometry,material;
   const loose=[],flights=new Set(),down=new THREE.Vector3(0,-1,0),ray=new THREE.Raycaster();
-  if(stapler){
-    pressPivot.name='StaplerPress';pressPivot.position.set(0,.15,-.345);stapler.node.add(pressPivot);
-    for(const name of ['StaplerUpper','StapleMagazine','StaplerDriver']){
-      const part=stapler.node.getObjectByName(name);if(part)pressPivot.attach(part);
-    }
-  }
+  // Face the mouth towards the usable desktop instead of its left edge.
+  if(stapler){stapler.node.rotation.y=.48;stapler.rotation.copy(stapler.node.quaternion);refreshItem(stapler);}
+  const slot=stapler?createPaperSlot({room,stapler,items,reduced,refreshItem,refresh,invalidate,land,setWorld,supportPlan,redraw}):null;
   function staple(){
     if(!geometry){
       const points=[[-.012,-.004,.027],[-.054,-.004,.012],[-.055,.003,0],[.055,.003,0],[.054,-.004,.012],[.012,-.004,.027]];
@@ -65,6 +64,7 @@ export function createStationeryPlay({room,items,fallen,register,remove,refresh,
       bundle.node.attach(page.node);page.bundle=bundle;
     }
     bundle.bundlePages=members;bundle.mass=members.length*.12;
+    bundle.docked=members.find(p=>p.docked)?.docked||null;members.forEach(p=>p.docked=null);
     bundle.supports=new Set(previousSupports.filter(s=>!members.includes(s)&&!roots.has(s)&&s!==bundle));
     // Existing props resting on either sheet now rest on the joined stack.
     for(const item of items)if(item!==bundle)item.supports=new Set([...item.supports].map(s=>members.includes(s)||roots.has(s)?bundle:s).filter(s=>s!==item));
@@ -105,10 +105,14 @@ export function createStationeryPlay({room,items,fallen,register,remove,refresh,
     }
     redraw();
   }
-  function finishPress(){if(!press)return;if(!press.emitted)emit();pressPivot.rotation.x=0;press=null;stapler.busy=false;refresh();}
+  function finishPress(){if(!press)return;if(!press.emitted)emit();pressPivot.rotation.x=0;pressPivot.userData.magazine.rotation.x=0;press=null;stapler.busy=false;refresh();}
   function finishFlights(){for(const item of flights){item.node.position.copy(item.flight.to);item.flight=null;refreshItem(item);land(item);}flights.clear();}
   return {
     resolve:item=>item.bundle||item,
+    preview:(item,point)=>slot?.preview(item,point),
+    release:item=>slot?.release(item),
+    detach:item=>slot?.detach(item),
+    hold:item=>slot?.hold(item),
     tap(item){
       if(item!==stapler)return false;
       if(press)return true;
@@ -120,11 +124,12 @@ export function createStationeryPlay({room,items,fallen,register,remove,refresh,
       item.sheet.crumple(reduced.matches);item.kind='paperball';item.velocity.set(0,0,0);item.spin=0;
       invalidate(item);sound('crumple','paper');action('rebrega_full',{objecte:item.node.name});redraw();return true;
     },
-    finish(){finishPress();finishFlights();},
+    finish(){finishPress();finishFlights();slot?.finish();},
     update(time){
-      let moving=false;
+      let moving=slot?.update(time)||false;
       if(press){
         const t=Math.min(1,Math.max(0,(time-press.start)/220));pressPivot.rotation.x=.19*Math.sin(Math.PI*t);
+        pressPivot.userData.magazine.rotation.x=.103*Math.sin(Math.PI*t);
         if(t>=.45&&!press.emitted){press.emitted=true;emit();}
         if(t===1)finishPress();else refreshItem(stapler);moving=true;
       }

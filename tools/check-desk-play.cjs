@@ -33,7 +33,7 @@ const sceneProbe=`
 (async()=>{
   const browser=await chromium.launch({channel:'chrome',headless:true});
   try{
-    for(const mobile of [false,true]){
+    for(const mobile of process.argv.includes('--mobile')?[true]:[false,true]){
       const ctx=await browser.newContext({viewport:mobile?{width:320,height:568}:{width:1440,height:960},reducedMotion:mobile?'reduce':'no-preference',colorScheme:mobile?'dark':'light'});
       await ctx.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());
       const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -88,7 +88,8 @@ const sceneProbe=`
       await page.mouse.move(pick.x,pick.y);await page.mouse.down();assert.equal(await page.evaluate(()=>deskPlay.grip()),sheet.name,JSON.stringify({sheet,pick,hit:await page.evaluate(p=>deskPlay.pick(p.x,p.y),pick)}));
       for(let n=0;n<9;n++)await page.mouse.move(pick.x+(n%2? -65:65),pick.y,{steps:6});
       await page.mouse.up();
-      await page.waitForFunction(()=>{const i=deskPlay.get('LooseWorksheet_2');return i.ball&&!i.drop&&i.max[0]-i.min[0]<.60&&i.max[2]-i.min[2]<.60},{},{timeout:10000});
+      try{await page.waitForFunction(()=>{const i=deskPlay.get('LooseWorksheet_2');return i.ball&&!i.drop&&i.max[0]-i.min[0]<.60&&i.max[2]-i.min[2]<.60},{},{timeout:10000});}
+      catch(e){console.log('Crumple failure',mobile,await get('LooseWorksheet_2'));throw e;}
       const ball=await get(sheet.name);assert.ok(ball.min[1]>=-.585&&ball.min[1]<-.53,'The ball settles on the tabletop after the morph');
       await page.screenshot({path:'output/desk/minigames-'+(mobile?'mobile':'desktop')+'.png'});
       // A joined stack and a paper ball can still be cleared for a resource.

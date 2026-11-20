@@ -23,7 +23,7 @@ export function prepareSheet(node) {
     for(const a of face)for(const b of face)if(a!==b)neighbours[a].add(b);
   }
   sites.forEach((p,i)=>p.neighbours=[...neighbours[i]].map(j=>({index:j,distance:Math.hypot(p.x-sites[j].x,p.z-sites[j].z)})));
-  let current=new Float32Array(sites.length), motion=null, ball=false, ballMotion=null;
+  let current=new Float32Array(sites.length), motion=null, ball=false, ballMotion=null,ballCenter,ballRadius;
   const followers=[];
   function nearest(x,z){let best=0,distance=Infinity;sites.forEach((p,i)=>{const d=(p.x-x)**2+(p.z-z)**2;if(d<distance){distance=d;best=i;}});return best;}
   function follow(){
@@ -37,6 +37,8 @@ export function prepareSheet(node) {
   }
   return { sites,
     get crumpled(){return ball;},
+    get ballCenter(){return ballCenter;},
+    get ballRadius(){return ballRadius;},
     freeze(){motion=null;},
     follow(node){
       const site=nearest(node.position.x,node.position.z),vertex=vertexSite.indexOf(site),a=geometry.attributes.position;
@@ -47,16 +49,19 @@ export function prepareSheet(node) {
       const a=geometry.attributes.position,from=a.array.slice(),to=from.slice();
       const x0=Math.min(...sites.map(p=>p.x)),x1=Math.max(...sites.map(p=>p.x));
       const z0=Math.min(...sites.map(p=>p.z)),z1=Math.max(...sites.map(p=>p.z));
-      const bottom=Math.min(...sites.map(p=>p.y)),radius=.215;
+      const bottom=Math.min(...sites.map(p=>p.y)),radius=.185+Math.random()*.04;
+      const sx=.9+Math.random()*.2,sy=.9+Math.random()*.2,sz=.9+Math.random()*.2;
+      const phases=Array.from({length:4},()=>Math.random()*Math.PI*2);
+      ballRadius=radius*(sx+sy+sz)/3;ballCenter=new THREE.Vector3(0,bottom+radius*sy,0);
       for(let i=0;i<a.count;i++){
         const u=(base[i*3]-x0)/(x1-x0),v=(base[i*3+2]-z0)/(z1-z0);
-        const theta=.07+v*(Math.PI-.14)+.055*Math.sin(u*29+v*13);
-        const phi=u*Math.PI*2+.16*Math.sin(v*21)+.06*Math.sin(u*41-v*17);
-        const crease=.89+.075*Math.sin(u*49+v*17)+.065*Math.sin(u*31-v*43)+.04*Math.cos(u*83+v*61);
+        const theta=.07+v*(Math.PI-.14)+.055*Math.sin(u*29+v*13+phases[0]);
+        const phi=u*Math.PI*2+.16*Math.sin(v*21+phases[1])+.06*Math.sin(u*41-v*17+phases[2]);
+        const crease=.89+.075*Math.sin(u*49+v*17+phases[2])+.065*Math.sin(u*31-v*43+phases[0])+.04*Math.cos(u*83+v*61+phases[3]);
         const r=radius*crease+(base[i*3+1]-sites[vertexSite[i]].y)*.5;
-        to[i*3]=Math.sin(theta)*Math.cos(phi)*r;
-        to[i*3+1]=bottom+radius+Math.cos(theta)*r;
-        to[i*3+2]=Math.sin(theta)*Math.sin(phi)*r;
+        to[i*3]=Math.sin(theta)*Math.cos(phi)*r*sx;
+        to[i*3+1]=ballCenter.y+Math.cos(theta)*r*sy;
+        to[i*3+2]=Math.sin(theta)*Math.sin(phi)*r*sz;
       }
       node.material=node.material.clone();node.material.flatShading=true;node.material.needsUpdate=true;
       ballMotion={from,to,start:performance.now()-(instant?220:0)};

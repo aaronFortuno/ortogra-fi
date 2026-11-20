@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
 import { overlaps, solidBounds, routeOutside } from './table-space.js?v=1.16.0';
-import { prepareSheet, createTableSupport } from './table-support.js?v=1.18.0';
-import { createStationeryPlay } from './stationery-play.js?v=1.18.0';
+import { prepareSheet, createTableSupport } from './table-support.js?v=1.19.0';
+import { createStationeryPlay } from './stationery-play.js?v=1.19.0';
 
 const surface = deskLayout.table.surfaceY, floor = -3.705;
 const definitions = [
@@ -39,8 +39,9 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   const up = new THREE.Vector3(0,1,0);
   const supportSystem=createTableSupport(surface), supportDirty=new Set();
   function refreshItem(item) {
-    item.bounds.setFromObject(item.node);
-    solidBounds(item.node,item.solid);
+    const ball=Boolean(item.sheet?.crumpled);
+    item.bounds.setFromObject(item.node,ball);
+    if(ball)item.solid.copy(item.bounds);else solidBounds(item.node,item.solid);
   }
   function refresh() {
     for (const item of items) refreshItem(item);
@@ -68,6 +69,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   }
   function land(item,isFloor){
     refreshItem(item);
+    if(item.docked)return;
     if(isFloor===undefined){
       const c=item.solid.getCenter(new THREE.Vector3());
       isFloor=c.z>deskLayout.table.bounds[3]||Math.abs(c.x)>deskLayout.table.bounds[1];
@@ -82,7 +84,9 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   }
   function collisions(item, box, ignored) {
     const hits=roots().filter(other=>other!==item && other!==ignored && !fallen.has(other) && !related(item,other) &&
-      !(item.kind==='paper' && other.kind==='paper') && overlaps(box,collisionBox(other)));
+      !(item.kind==='paper' && other.kind==='paper') &&
+      !(item.kind==='paperball'&&other.kind==='paper'&&(item.supports.has(other)||other.solid.max.y-other.solid.min.y<.20))&&
+      overlaps(box,collisionBox(other)));
     return {hits,fixed:fixedSolids.some(b=>overlaps(box,b))};
   }
   function stepMove(item, delta, push, ignored) {
@@ -92,6 +96,11 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     if(!contacts.fixed && !contacts.hits.length){invalidate(item);return true;}
     let displaced=push && !contacts.fixed;
     if(displaced) for(const other of contacts.hits){
+      if(item.kind==='paperball'&&other.kind==='paperball'&&!other.drop&&!other.slide){
+        const normal=other.solid.getCenter(new THREE.Vector3()).sub(item.solid.getCenter(new THREE.Vector3()));normal.y=0;normal.normalize();
+        const impulse=Math.max(0,item.velocity.clone().sub(other.velocity).dot(normal))*.65;
+        other.velocity.addScaledVector(normal,impulse);item.velocity.addScaledVector(normal,-impulse);
+      }
       if(other.mass>=item.mass || other.drop || other.slide){displaced=false;continue;}
       finishPulse(other);refreshItem(other);
       if(stepMove(other,delta.clone().multiplyScalar(1.05),false,item)){
@@ -114,11 +123,27 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     }
     return !blocked;
   }
-  function rotateItem(item, angle) {
-    const old=item.node.quaternion.clone();item.node.rotateOnWorldAxis(up,angle);refreshItem(item);
+  function rotateItem(item, angle,axis=up) {
+    const old=item.node.quaternion.clone(),position=item.node.getWorldPosition(new THREE.Vector3());
+    const center=item.sheet?.crumpled?item.node.localToWorld(item.sheet.ballCenter.clone()):null;
+    item.node.rotateOnWorldAxis(axis,angle);
+    if(center){
+      item.node.updateWorldMatrix(true,false);
+      setWorld(item.node,item.node.getWorldPosition(new THREE.Vector3()).add(center.sub(item.node.localToWorld(item.sheet.ballCenter.clone()))));
+    }
+    refreshItem(item);
     const c=collisions(item,collisionBox(item));
-    if(c.fixed||c.hits.length){item.node.quaternion.copy(old);refreshItem(item);return false;}
+    if(c.fixed||c.hits.some(i=>!center||!item.supports.has(i))){item.node.quaternion.copy(old);setWorld(item.node,position);refreshItem(item);return false;}
     return true;
+  }
+  function rollBall(item,delta){
+    if(!item.sheet?.crumpled||delta.lengthSq()<1e-10)return;
+    const axis=new THREE.Vector3().crossVectors(up,delta).normalize();
+    rotateItem(item,delta.length()/item.sheet.ballRadius,axis);
+    if(!grip&&!item.drop){
+      const plan=supportSystem.plan(item,supportBodies(item)),p=item.node.getWorldPosition(new THREE.Vector3());
+      item.supports=plan.supports;p.y=plan.y;setWorld(item.node,p);refreshItem(item);
+    }
   }
   refresh();
   for(const item of items)item.flatHeight=item.node.getWorldPosition(new THREE.Vector3()).y-item.solid.min.y;
@@ -129,7 +154,8 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     item.supports=new Set(below.filter(other=>supportSystem.crosses(item.solid,other.solid)&&
       Math.abs(item.solid.min.y-other.solid.max.y)<.065));
   }
-  const play=createStationeryPlay({room,items,fallen,register,remove,refresh,refreshItem,invalidate,land,redraw,reduced,sound,action});
+  const play=createStationeryPlay({room,items,fallen,register,remove,refresh,refreshItem,invalidate,land,setWorld,
+    supportPlan:(item,excluded)=>supportSystem.plan(item,supportBodies(item).filter(i=>i!==excluded)),redraw,reduced,sound,action});
   function aim(event) {
     const rect = canvas.getBoundingClientRect();
     pointer.set((event.clientX-rect.left)/rect.width*2-1, 1-(event.clientY-rect.top)/rect.height*2);
@@ -206,6 +232,9 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       parent: item.node.parent,
       world: item.node.getWorldPosition(new THREE.Vector3()), localHit:item.node.worldToLocal(target.point.clone()),
       lastPoint:point.clone(),lastTime:event.timeStamp,velocity:new THREE.Vector3(),spin:0,moved: false, lastSound: -Infinity };
+    if(item.sheet?.crumpled){
+      const centre=item.node.localToWorld(item.sheet.ballCenter.clone());grip.ballCenterY=centre.y;grip.ballOffset=centre.sub(grip.world);
+    }
     canvas.setPointerCapture(event.pointerId); event.preventDefault();
     canvas.style.cursor = 'grabbing';
   });
@@ -216,7 +245,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       lastHover = event.timeStamp;
       const target = hit(event), next = target?.leaf || target?.item;
       canvas.style.cursor = target ? 'grab' : '';
-      canvas.title=target?.item.node.name==='DeskStapler'?'Clica per grapar · Arrossega per moure':
+      canvas.title=target?.item.node.name==='DeskStapler'?'Clica per grapar · Acosta la vora d’un full a la boca':
         target?.item.sheet&&!target.item.sheet.crumpled?'Arrossega el full · Sacseja’l per rebregar-lo':'';
       if (target && (target.leaf || next!==hover) && event.timeStamp-lastBrush > 75) {
         react(target, event.movementX < 0 ? -1 : 1,event); lastBrush = event.timeStamp;
@@ -233,6 +262,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     fixedSolids=obstacles();
     if (!grip.moved) {
       room.attach(item.node); grip.moved = true;
+      play.detach(item);
       invalidate(item);item.supports.clear();item.sheet?.flatten(reduced.matches);
       item.bounds.getCenter(center);
       grip.offset = center.sub(grip.world).clone();
@@ -249,10 +279,19 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     grip.spin=THREE.MathUtils.clamp(torque/dt,-1.5,1.5);
     grip.lastPoint.copy(point);grip.lastTime=event.timeStamp;
     point.sub(grip.anchor).add(grip.world);
+    if(item.sheet?.crumpled&&grip.ballOffset){
+      const offset=item.node.localToWorld(item.sheet.ballCenter.clone()).sub(item.node.getWorldPosition(new THREE.Vector3()));
+      point.add(grip.ballOffset).sub(offset);
+    }
     const sideLimit = 8.00 - grip.halfWidth;
     const cx = THREE.MathUtils.clamp(point.x + grip.offset.x, -sideLimit, sideLimit);
     const cz = THREE.MathUtils.clamp(point.z + grip.offset.z, Math.abs(cx)<6.22 ? .26+grip.depth : -.9, 7.6);
     point.set(cx-grip.offset.x, Math.max(surface + grip.height, grip.world.y) + .12, cz-grip.offset.z);
+    if(item.sheet?.crumpled&&grip.ballOffset){
+      const offset=item.node.localToWorld(item.sheet.ballCenter.clone()).sub(item.node.getWorldPosition(new THREE.Vector3()));
+      point.y=Math.max(surface+item.sheet.ballRadius,grip.ballCenterY??grip.world.y+grip.ballOffset.y)+.12-offset.y;
+    }
+    if(play.preview(item,point))canvas.title='Deixa anar per ficar el full a la grapadora';
     // Carry the prop above the surfaces along this step. Unlike a footprint
     // extruded down to the desk, real vertical bounds allow stacked objects.
     const current=item.node.getWorldPosition(new THREE.Vector3());
@@ -261,6 +300,10 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       point.y=Math.max(point.y,other.solid.max.y+grip.height+.10);
     setWorld(item.node,new THREE.Vector3(current.x,point.y,current.z));refreshItem(item);
     moveItem(item,new THREE.Vector3(point.x-current.x,0,point.z-current.z),true);
+    if(item.sheet?.crumpled){
+      const movement=item.node.getWorldPosition(new THREE.Vector3()).sub(current);movement.y=0;rollBall(item,movement);
+      grip.height=item.node.getWorldPosition(new THREE.Vector3()).y-item.solid.min.y;
+    }
     play.shake(item,event,grip);
     if (event.timeStamp-grip.lastSound > 380 && Math.hypot(event.movementX || 0, event.movementY || 0) > 0) {
       sound('slide', item.kind); grip.lastSound = event.timeStamp;
@@ -276,7 +319,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   }
   function settle(item) {
     const { targetY, isFloor, x, angle } = item.drop;
-    item.node.position.x = x; item.node.rotation.z = angle;
+    if(!item.sheet?.crumpled){item.node.position.x = x; item.node.rotation.z = angle;}
     item.node.position.y = targetY; item.drop = null;
     if (isFloor) fallen.add(item); else fallen.delete(item);
     recover.hidden = !fallen.size;
@@ -287,6 +330,9 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     const { item, leaf, moved } = grip;
     suppressClick = true;
     if (moved) {
+      if(play.release(item)){
+        action('mou_objecte',{objecte:item.node.name,tipus:item.kind});grip=null;canvas.style.cursor='';return;
+      }
       const box = item.solid.clone();
       box.getCenter(center);
       const landOnFloor = center.z > deskLayout.table.bounds[3] || Math.abs(center.x) > deskLayout.table.bounds[1];
@@ -302,18 +348,18 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
         }
       }
       land(item,landOnFloor);
-      item.velocity.copy(grip.velocity).multiplyScalar(item.kind==='pen'?.13:.055).clampLength(0,.5);
+      item.velocity.copy(grip.velocity).multiplyScalar(item.kind==='paperball'?.40:item.kind==='pen'?.13:.055).clampLength(0,item.kind==='paperball'?1.6:.5);
       item.spin=grip.spin*(item.kind==='pen'?.5:.18);
       if(reduced.matches){item.velocity.set(0,0,0);item.spin=0;}
       // Friction on a support should not slide a freshly placed prop off it.
-      if(item.supports.size){item.velocity.multiplyScalar(.15);item.spin*=.15;}
+      if(item.supports.size&&item.kind!=='paperball'){item.velocity.multiplyScalar(.15);item.spin*=.15;}
       const at=item.node.getWorldPosition(new THREE.Vector3());
       if(Math.hypot(at.x-grip.world.x,at.z-grip.world.z)>.01)action('mou_objecte',{objecte:item.node.name,tipus:item.kind});
     } else if(play.tap(item)){ /* The stapler is pressed instead of nudged. */ }
     else if (leaf) react({item,leaf,point:grip.point},1);
     else {
       const direction=camera.getWorldDirection(new THREE.Vector3());direction.y=0;direction.normalize();
-      kick(item,direction,item.kind==='pen'?.16:item.kind==='paper'?.035:.065,grip.point);
+      kick(item,direction,item.kind==='paperball'?.13:item.kind==='pen'?.16:item.kind==='paper'?.035:.065,grip.point);
       sound('touch',item.kind);
     }
     grip = null; canvas.style.cursor = '';
@@ -405,6 +451,8 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
           refreshItem(item);invalidate(item);moving=true;
           if(item.sheet.crumpled){
             if(grip?.item===item){
+              grip.ballOffset??=item.node.localToWorld(item.sheet.ballCenter.clone()).sub(item.node.getWorldPosition(new THREE.Vector3()));
+              grip.ballCenterY??=item.node.localToWorld(item.sheet.ballCenter.clone()).y;
               grip.height=item.node.getWorldPosition(new THREE.Vector3()).y-item.bounds.min.y;
               grip.depth=(item.bounds.max.z-item.bounds.min.z)/2;grip.halfWidth=(item.bounds.max.x-item.bounds.min.x)/2;
             }else supportDirty.add(item);
@@ -428,8 +476,16 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
           !item.drop&&!item.slide&&!item.flight&&!item.busy&&grip?.item!==item&&!fallen.has(item)&&roots().includes(item)){
           fixedSolids=obstacles();
           if(!rotateItem(item,item.spin*dt))item.spin*=.25;
-          if(!moveItem(item,item.velocity.clone().multiplyScalar(dt),true)){item.velocity.multiplyScalar(.15);item.spin*=.4;}
-          const friction=item.kind==='pen'?3.4:6;
+          const before=item.node.getWorldPosition(new THREE.Vector3()),delta=item.velocity.clone().multiplyScalar(dt);
+          if(!moveItem(item,delta,true)){
+            if(item.kind==='paperball'){
+              const actual=item.node.getWorldPosition(new THREE.Vector3()).sub(before);
+              for(const axis of ['x','z'])if(Math.abs(actual[axis]-delta[axis])>.001)item.velocity[axis]*=-.38;
+            }else item.velocity.multiplyScalar(.15);
+            item.spin*=.4;
+          }
+          const travelled=item.node.getWorldPosition(new THREE.Vector3()).sub(before);travelled.y=0;rollBall(item,travelled);
+          const friction=item.kind==='paperball'?2.0:item.kind==='pen'?3.4:6;
           item.velocity.multiplyScalar(Math.exp(-friction*dt));item.spin*=Math.exp(-5*dt);
           if(reduced.matches){item.velocity.set(0,0,0);item.spin=0;}
           if(item.velocity.lengthSq()<=1e-5&&Math.abs(item.spin)<=.01){item.velocity.set(0,0,0);item.spin=0;land(item);}
