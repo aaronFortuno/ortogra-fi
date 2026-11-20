@@ -36,7 +36,7 @@ export function createPaperSlot({room,stapler,items,reduced,refreshItem,refresh,
     release(item){
       const insert=item.insertion;clearPreview(item);if(!insert)return false;
       const from=item.node.getWorldPosition(new THREE.Vector3()),end=insert.end.clone();
-      const layers=items.filter(i=>i!==item&&i.docked).reduce((n,i)=>n+(i.bundlePages?.length||1),0);
+      const layers=items.filter(i=>i!==item&&i.docked).length;
       setWorld(item.node,end);refreshItem(item);
       const plan=supportPlan(item,stapler);end.y=plan.y;setWorld(item.node,end);refreshItem(item);
       const height=stapler.node.localToWorld(new THREE.Vector3(0,.078+layers*.004,.315)).y;

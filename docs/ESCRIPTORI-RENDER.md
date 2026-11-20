@@ -2,6 +2,18 @@
 
 Revisió del 20 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Fulls grapats amb unió flexible · 1.20
+
+Els fulls grapats conserven el seu node, selecció, massa, recolzaments i deformació. S'elimina el grup rígid de l'escena; el conjunt passa a ser només informació sobre les unions entre pàgines. Agafar un full concret el converteix en guia, i els altres l'acompanyen amb gir, amortiment i flexió. La grapa es fixa a coordenades baricèntriques d'un triangle de cada full: segueix el mateix punt material durant la flexió i el rebregat, en comptes de conservar una coordenada de món o del grup.
+
+`paper-links.js` recorre les unions des del full que s'està agafant. Les estrebades aporten gir als fulls arrossegats; una deformació local al voltant de la grapa permet mantenir les vores lliures recolzades. Els contactes es tornen a calcular quan canvien la posició, l'orientació o els suports. Una petita arruga acumulada conserva el rastre dels moviments més bruscos. Qualsevol full es pot convertir en bola independentment, i dues boles poden seguir unides. Les unions no creen cossos nous ni afegeixen geometria, textures o passades de renderitzat. El treball està acotat als cinc fulls de l'escena i dotze unions per full; quan s'assenten deixa d'actualitzar-se. Amb moviment reduït s'aturen els girs residuals en deixar anar el full.
+
+La recollida conserva les unions entre els fulls caiguts. Per deixar lliure un recorregut es mouen primer els estris petits; si els papers han quedat massa oberts, una animació de 220 ms els apila al voltant de les grapes i els aparta. Aquesta subjecció és temporal durant l'endreça: no tornen a convertir-se en un objecte rígid. Continua sent una aproximació guiada per a aquesta taula, sense una simulació completa de làmines, torsió o contacte del paper amb si mateix.
+
+La detecció de dependències considera tots els fulls units per evitar cicles de suport entre un estri i els papers que té sota. En aixecar un full, els objectes que hi descansaven tornen a recolzar-se a la taula; no es realimenta la seva alçada amb la deformació del full arrossegat.
+
+`tools/check-desk-paper-links.cjs` utilitza el ratolí per seleccionar cadascun de dos fulls, comprova el gir relatiu i la continuïtat de la grapa, els recolzaments sobre un objecte, les arrugues del full arrossegat, el rebregat independent de tots dos fulls i la recollida. Inclou escriptori amb animació i mòbil de 320 px amb tema fosc i moviment reduït. Les captures són a `output/desk/flexible-staple-*.png`. Les proves generals actualitzen les expectatives de selecció: es tria el full real, no un identificador de grup.
+
 ## Boca de la grapadora, rodolament i foley · 1.19
 
 El GLB havia fusionat les peces de la grapadora per material: els noms de Blender ja no existien, i la primera animació girava un grup buit. `stapler-mechanism.js` recupera els components connexos de les malles soldant posicions coincidents i separa capçal, carregador i cos fix, conservant materials i atributs. El capçal i el carregador tenen recorreguts diferents perquè el mecanisme metàl·lic no travessi la base. Les peces tornen a la posició inicial en acabar els 220 ms; amb moviment reduït s'aplica el resultat directament. La boca inicial mira cap a l'espai lliure de la taula.

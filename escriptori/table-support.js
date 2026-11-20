@@ -24,29 +24,84 @@ export function prepareSheet(node) {
   }
   sites.forEach((p,i)=>p.neighbours=[...neighbours[i]].map(j=>({index:j,distance:Math.hypot(p.x-sites[j].x,p.z-sites[j].z)})));
   let current=new Float32Array(sites.length), motion=null, ball=false, ballMotion=null,ballCenter,ballRadius;
-  const followers=[];
-  function nearest(x,z){let best=0,distance=Infinity;sites.forEach((p,i)=>{const d=(p.x-x)**2+(p.z-z)**2;if(d<distance){distance=d;best=i;}});return best;}
+  const followers=[],pose=base.slice(),offsets=new Float32Array(sites.length*3);
+  let wrinkle=0,offsetMotion=null;
+  const crease=sites.map(p=>.035*Math.abs(Math.sin(p.x*14+p.z*9)*Math.sin(p.z*11-p.x*5)));
   function follow(){
+    for(const f of followers)f.node.position.copy(f.pin.local());
+  }
+  function commit(){
     const a=geometry.attributes.position;
-    for(const f of followers){f.node.position.fromBufferAttribute(a,f.vertex).add(f.offset);}
+    for(let i=0;i<a.count;i++){
+      const site=vertexSite[i],j=site*3;
+      a.setXYZ(i,pose[i*3]+offsets[j],pose[i*3+1]+offsets[j+1]+(ball?0:crease[site]*wrinkle),pose[i*3+2]+offsets[j+2]);
+    }
+    a.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();follow();
   }
   function apply(values){
-    const a=geometry.attributes.position;
-    for(let i=0;i<a.count;i++)a.setXYZ(i,base[i*3],base[i*3+1]+values[vertexSite[i]],base[i*3+2]);
-    a.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();follow();
+    for(let i=0;i<geometry.attributes.position.count;i++){
+      pose[i*3]=base[i*3];pose[i*3+1]=base[i*3+1]+values[vertexSite[i]];pose[i*3+2]=base[i*3+2];
+    }
+    commit();
+  }
+  function pin(point){
+    const a=geometry.attributes.position,triangle=new THREE.Triangle(),closest=new THREE.Vector3(),bary=new THREE.Vector3();
+    let distance=Infinity,vertices,weights,origin;
+    for(let t=0;t<(index?.count||a.count);t+=3){
+      const ids=[0,1,2].map(j=>index?index.getX(t+j):t+j);
+      triangle.set(...ids.map(i=>new THREE.Vector3().fromBufferAttribute(a,i)));
+      triangle.closestPointToPoint(point,closest);const d=closest.distanceToSquared(point);
+      if(d<distance&&triangle.getBarycoord(closest,bary)){distance=d;vertices=ids;weights=bary.toArray();origin=closest.clone();}
+    }
+    const extra=point.clone().sub(origin),rest=new THREE.Vector3();
+    vertices.forEach((i,j)=>rest.addScaledVector(new THREE.Vector3().fromArray(base,i*3),weights[j]));
+    const kernel=Float32Array.from(sites,p=>Math.exp(-((p.x-rest.x)**2+(p.z-rest.z)**2)/.35));
+    const sample=(bare=false)=>{
+      const p=extra.clone();vertices.forEach((i,j)=>{
+        const v=bare?new THREE.Vector3().fromArray(pose,i*3):new THREE.Vector3().fromBufferAttribute(a,i);
+        if(bare&&!ball)v.y+=crease[vertexSite[i]]*wrinkle;p.addScaledVector(v,weights[j]);
+      });return p;
+    };
+    return {vertices,weights,kernel,local:sample,world:(bare=false)=>node.localToWorld(sample(bare))};
   }
   return { sites,
     get crumpled(){return ball;},
     get ballCenter(){return ballCenter;},
     get ballRadius(){return ballRadius;},
+    get changing(){return Boolean(motion||ballMotion||offsetMotion);},
+    get wrinkle(){return wrinkle;},
+    pin,
+    setPins(constraints){
+      offsetMotion=null;
+      const next=new Float32Array(offsets.length);
+      for(let pass=0;pass<4;pass++)for(const c of constraints){
+        const p=c.pin.local(true),sum=new THREE.Vector3();let normal=0;
+        c.pin.vertices.forEach((v,j)=>{
+          const s=vertexSite[v],w=c.pin.weights[j];sum.addScaledVector(new THREE.Vector3().fromArray(next,s*3),w);normal+=c.pin.kernel[s]*w;
+        });
+        const delta=node.worldToLocal(c.target.clone()).sub(p).sub(sum);
+        for(let i=0;i<sites.length;i++)for(let k=0;k<3;k++)next[i*3+k]+=delta.getComponent(k)*c.pin.kernel[i]/Math.max(.001,normal);
+      }
+      let changed=false;
+      for(let i=0;i<next.length;i++)if(Math.abs(next[i]-offsets[i])>.00008){changed=true;break;}
+      if(changed){offsets.set(next);commit();}return changed;
+    },
+    relaxPins(instant=false){
+      if(instant){offsets.fill(0);offsetMotion=null;commit();}
+      else offsetMotion={from:offsets.slice(),start:performance.now()};
+    },
+    rumple(amount){
+      const next=THREE.MathUtils.clamp(wrinkle+amount,0,1);
+      if(next-wrinkle<.002||ball)return false;wrinkle=next;commit();return true;
+    },
     freeze(){motion=null;},
     follow(node){
-      const site=nearest(node.position.x,node.position.z),vertex=vertexSite.indexOf(site),a=geometry.attributes.position;
-      followers.push({node,vertex,offset:node.position.clone().sub(new THREE.Vector3().fromBufferAttribute(a,vertex))});
+      followers.push({node,pin:pin(node.position)});
     },
     crumple(instant=false){
       if(ball)return false;ball=true;motion=null;
       const a=geometry.attributes.position,from=a.array.slice(),to=from.slice();
+      offsets.fill(0);pose.set(from);
       const x0=Math.min(...sites.map(p=>p.x)),x1=Math.max(...sites.map(p=>p.x));
       const z0=Math.min(...sites.map(p=>p.z)),z1=Math.max(...sites.map(p=>p.z));
       const bottom=Math.min(...sites.map(p=>p.y)),radius=.185+Math.random()*.04;
@@ -76,13 +131,19 @@ export function prepareSheet(node) {
     },
     flatten(instant=false){return this.target(new Float32Array(sites.length),instant);},
     update(time){
+      let relaxed=false;
+      if(offsetMotion){
+        const t=THREE.MathUtils.clamp((time-offsetMotion.start)/220,0,1),s=t*t*(3-2*t);
+        for(let i=0;i<offsets.length;i++)offsets[i]=offsetMotion.from[i]*(1-s);
+        if(t===1)offsetMotion=null;relaxed=true;
+      }
       if(ballMotion){
         const t=THREE.MathUtils.clamp((time-ballMotion.start)/220,0,1),s=t*t*(3-2*t),a=geometry.attributes.position;
-        for(let i=0;i<a.array.length;i++)a.array[i]=THREE.MathUtils.lerp(ballMotion.from[i],ballMotion.to[i],s);
-        a.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();follow();
+        for(let i=0;i<a.array.length;i++)pose[i]=THREE.MathUtils.lerp(ballMotion.from[i],ballMotion.to[i],s);
+        commit();
         if(t===1)ballMotion=null;return true;
       }
-      if(!motion)return false;
+      if(!motion){if(relaxed)commit();return relaxed;}
       const t=THREE.MathUtils.clamp((time-motion.start)/220,0,1),s=t*t*(3-2*t);
       for(let i=0;i<current.length;i++)current[i]=THREE.MathUtils.lerp(motion.from[i],motion.to[i],s);
       apply(current);if(t===1)motion=null;return true;

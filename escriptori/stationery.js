@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
 import { overlaps, solidBounds, routeOutside } from './table-space.js?v=1.16.0';
-import { prepareSheet, createTableSupport } from './table-support.js?v=1.19.0';
-import { createStationeryPlay } from './stationery-play.js?v=1.19.0';
+import { prepareSheet, createTableSupport } from './table-support.js?v=1.20.0';
+import { createStationeryPlay } from './stationery-play.js?v=1.20.0';
 
 const surface = deskLayout.table.surfaceY, floor = -3.705;
 const definitions = [
@@ -54,18 +54,25 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     });
   }
   const related = (a,b) => a.node.getObjectById(b.node.id) || b.node.getObjectById(a.node.id) ||
+    (a.bundle&&a.bundle===b.bundle)||
     (grip?.item===a && b.node===grip.parent);
   const collisionBox = item => item.solid.clone();
   function dependsOn(item,base,seen=new Set()){
-    if(seen.has(item))return false;seen.add(item);
-    return item.supports.has(base)||[...item.supports].some(i=>dependsOn(i,base,seen));
+    for(const member of item.bundle?.pages||[item]){
+      if(seen.has(member))continue;seen.add(member);
+      for(const support of member.supports){
+        if(support===base||support.bundle&&support.bundle===base.bundle||dependsOn(support,base,seen))return true;
+      }
+    }
+    return false;
   }
   function invalidate(base){
     for(const other of roots())if(other!==base&&dependsOn(other,base))supportDirty.add(other);
   }
   function supportBodies(item){
     return roots().filter(other=>other!==item&&!fallen.has(other)&&!related(item,other)&&
-      !other.drop&&!other.slide&&grip?.item!==other&&!dependsOn(other,item));
+      !other.drop&&!other.slide&&grip?.item!==other&&
+      !(grip?.item.bundle&&grip.item.bundle===other.bundle)&&!dependsOn(other,item));
   }
   function land(item,isFloor){
     refreshItem(item);
@@ -76,6 +83,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     }
     if(isFloor){item.supports.clear();item.sheet?.flatten(reduced.matches);drop(item,item.node.position.y+floor-item.solid.min.y+.001,true);return;}
     const plan=supportSystem.plan(item,supportBodies(item));
+    if(item.bundle&&!item.sheet.crumpled)plan.y+=item.bundle.pages.indexOf(item)*.002;
     item.supports=plan.supports;
     if(item.sheet&&!item.sheet.crumpled)item.sheet.target(plan.values,reduced.matches);
     const world=item.node.getWorldPosition(new THREE.Vector3());
@@ -155,7 +163,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       Math.abs(item.solid.min.y-other.solid.max.y)<.065));
   }
   const play=createStationeryPlay({room,items,fallen,register,remove,refresh,refreshItem,invalidate,land,setWorld,
-    supportPlan:(item,excluded)=>supportSystem.plan(item,supportBodies(item).filter(i=>i!==excluded)),redraw,reduced,sound,action});
+    supportPlan:(item,excluded)=>supportSystem.plan(item,supportBodies(item).filter(i=>i!==excluded)),redraw,reduced,sound,action,surface,floor});
   function aim(event) {
     const rect = canvas.getBoundingClientRect();
     pointer.set((event.clientX-rect.left)/rect.width*2-1, 1-(event.clientY-rect.top)/rect.height*2);
@@ -223,7 +231,8 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     suppressClick = false;
     if (grip && event.pointerId !== grip.id) { rollback(); return; }
     if (!enabled() || !navigation.enabled || navigation.pointers.size || event.button !== 0 || event.shiftKey) return;
-    const target = hit(event); if (!target || target.item.drop || target.item.slide || target.item.busy || target.item.flight) return;
+    const target = hit(event); if (!target || (target.item.drop&&!target.item.bundle) || target.item.slide || target.item.busy || target.item.flight) return;
+    if(target.item.bundle)target.item.drop=null;
     cancelView();
     const { item } = target; finishPulse(item);item.velocity.set(0,0,0);item.spin=0;
     plane.constant = -target.point.y;
@@ -296,7 +305,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     // extruded down to the desk, real vertical bounds allow stacked objects.
     const current=item.node.getWorldPosition(new THREE.Vector3());
     const swept=item.solid.clone().union(item.solid.clone().translate(new THREE.Vector3(point.x-current.x,0,point.z-current.z)));
-    for(const other of supportBodies(item))if(supportSystem.crosses(swept,other.solid))
+    for(const other of roots().filter(p=>p!==item&&!fallen.has(p)&&!related(item,p)&&!p.flight))if(supportSystem.crosses(swept,other.solid))
       point.y=Math.max(point.y,other.solid.max.y+grip.height+.10);
     setWorld(item.node,new THREE.Vector3(current.x,point.y,current.z));refreshItem(item);
     moveItem(item,new THREE.Vector3(point.x-current.x,0,point.z-current.z),true);
@@ -371,6 +380,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   }, true);
   recover.addEventListener('click', () => {
     let count=0;
+    play.prepareRecovery();
     for (const item of fallen) {
       const previous={parent:item.node.parent,position:item.node.position.clone(),rotation:item.node.quaternion.clone()};
       item.parent.add(item.node); item.node.position.copy(item.home); item.node.quaternion.copy(item.rotation);
@@ -382,55 +392,66 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
         const delta=route.at(-1).clone().sub(center);
         setWorld(item.node,item.node.getWorldPosition(new THREE.Vector3()).add(delta));
         fallen.delete(item);count++;
-        if(item.sheet?.crumpled||item.bundlePages||item.node.name.startsWith('LooseStaple_'))land(item);
+        if(item.sheet?.crumpled||item.bundle||item.node.name.startsWith('LooseStaple_'))land(item);
       }else{
         previous.parent.add(item.node);item.node.position.copy(previous.position);item.node.quaternion.copy(previous.rotation);
       }
       item.velocity.set(0,0,0);item.spin=0;
     }
-    recover.hidden = !fallen.size; refresh(); redraw();
+    play.recovered();recover.hidden = !fallen.size; refresh(); redraw();
     if(count)action('recull_objectes',{quantitat:count});
   });
-  async function clearSpace(regions) {
+  async function clearSpace(regions,packed=new Set()) {
     rollback();canvas.title='';play.finish();
     for(const item of items){
       finishPulse(item);if(item.drop)settle(item);item.velocity.set(0,0,0);item.spin=0;
     }
     refresh();
-    for(const item of roots()){
-      if(fallen.has(item)||!regions.some(b=>overlaps(item.solid,b)))continue;
-      const start=item.solid.getCenter(new THREE.Vector3()), origin=item.node.getWorldPosition(new THREE.Vector3());
-      const offset=start.clone().sub(origin), rest=item.solid.clone();
+    const handled=new Set();
+    const queue=roots().sort((a,b)=>Number(Boolean(a.bundle))-Number(Boolean(b.bundle)));
+    for(const item of queue){
+      if(handled.has(item))continue;
+      const members=play.members(item);members.forEach(p=>handled.add(p));
+      if(members.some(p=>fallen.has(p))||!members.some(p=>regions.some(b=>overlaps(p.solid,b))))continue;
+      const volume=new THREE.Box3();for(const p of members)volume.union(p.solid);
+      const origins=new Map(members.map(p=>[p,p.node.getWorldPosition(new THREE.Vector3())]));
+      const start=volume.getCenter(new THREE.Vector3()), origin=origins.get(item);
+      const offset=start.clone().sub(origin), rest=volume.clone();
       rest.translate(new THREE.Vector3(0,surface+.001-rest.min.y,0));
       // Flat paper is also a landing surface. Carry a stack over it and set
       // it down on top instead of treating every sheet as a wall to the ceiling.
-      const lowSupports=item.kind==='paper'?roots().filter(other=>other!==item&&!fallen.has(other)&&
+      const lowSupports=members.some(p=>p.kind==='paper')?roots().filter(other=>!members.includes(other)&&!fallen.has(other)&&
         ((other.kind==='paper'&&other.solid.max.y-other.solid.min.y<.14)||other.solid.max.y<surface+.09)):[];
-      const others=[...fixedSolids,...roots().filter(other=>other!==item&&!fallen.has(other)&&!lowSupports.includes(other)).map(other=>other.solid.clone())];
+      const others=[...fixedSolids,...roots().filter(other=>!members.includes(other)&&!fallen.has(other)&&!lowSupports.includes(other)).map(other=>other.solid.clone())];
       let route=routeOutside(rest,others,regions);
-      if(!route)return false;
+      if(!route){
+        if(item.bundle&&!packed.has(item.bundle)){packed.add(item.bundle);await play.pack(item,animate);return clearSpace(regions,packed);}
+        return false;
+      }
       route[0].copy(start);
       if(route.length===1)route.push(rest.getCenter(new THREE.Vector3()));
       if(lowSupports.length){
         const finish=route.at(-1).clone(),end=finish.clone().sub(offset);
         // Preview the final support without changing the rendered pose.
-        setWorld(item.node,end);refreshItem(item);
-        const plan=supportSystem.plan(item,supportBodies(item));finish.y=plan.y+offset.y;
-        setWorld(item.node,origin);refreshItem(item);
+        const delta=end.clone().sub(origin);let lift=-Infinity;
+        for(const p of members){setWorld(p.node,origins.get(p).clone().add(delta));refreshItem(p);}
+        for(const p of members){const plan=supportSystem.plan(p,supportBodies(p));lift=Math.max(lift,plan.y-p.node.getWorldPosition(new THREE.Vector3()).y);}
+        finish.y+=lift;
+        for(const p of members){setWorld(p.node,origins.get(p).clone());refreshItem(p);}
         const height=Math.max(start.y,...lowSupports.map(i=>i.solid.max.y+(rest.max.y-rest.min.y)/2+.035));
         route=[start,...route.map(p=>p.clone().setY(Math.max(p.y,height))),finish];
       }
       const lengths=[0];for(let i=1;i<route.length;i++)lengths.push(lengths[i-1]+route[i].distanceTo(route[i-1]));
       const total=lengths.at(-1);
-      item.slide=true;sound('slide',item.kind);
-      invalidate(item);item.supports.clear();refreshItem(item);
+      sound('slide',item.kind);
+      for(const p of members){p.slide=true;invalidate(p);p.supports.clear();refreshItem(p);}
       await animate('make-room',t=>{
         const d=t*total;let i=1;while(i<lengths.length-1&&lengths[i]<d)i++;
         const fraction=(d-lengths[i-1])/Math.max(1e-9,lengths[i]-lengths[i-1]);
-        const p=route[i-1].clone().lerp(route[i],fraction).sub(offset);
-        setWorld(item.node,p);refreshItem(item);redraw();
+        const delta=route[i-1].clone().lerp(route[i],fraction).sub(start);
+        for(const p of members){setWorld(p.node,origins.get(p).clone().add(delta));refreshItem(p);}redraw();
       },Math.min(700,320+total*90));
-      item.slide=false;refresh();land(item);if(item.drop)settle(item);
+      for(const p of members){p.slide=false;land(p);if(p.drop)settle(p);}refresh();
     }
     return true;
   }
@@ -441,14 +462,14 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       const dt=lastUpdate===undefined?0:Math.min(.033,Math.max(0,(time-lastUpdate)/1000));lastUpdate=time;
       let moving = play.update(time);
       for(const item of [...supportDirty]){
-        if(item.bundle){supportDirty.delete(item);continue;}
         if(item.drop||item.slide||grip?.item===item)continue;
         supportDirty.delete(item);
-        if(!fallen.has(item))land(item);
+        if(!fallen.has(item)){land(item);play.resupported(item);}
       }
       for (const item of items) {
         if(item.sheet?.update(time)){
           refreshItem(item);invalidate(item);moving=true;
+          play.deformed(item);
           if(item.sheet.crumpled){
             if(grip?.item===item){
               grip.ballOffset??=item.node.localToWorld(item.sheet.ballCenter.clone()).sub(item.node.getWorldPosition(new THREE.Vector3()));
@@ -509,7 +530,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
         }
         moving = true;
       }
-      return moving;
+      const joined=play.updateLinks(time,grip?.item);recover.hidden=!fallen.size;return joined||moving;
     }
   };
 }

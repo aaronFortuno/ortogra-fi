@@ -8,7 +8,7 @@ const probe=`
         for(let i=0;i<a.count;i++){p.fromBufferAttribute(a,i).applyMatrix4(m.matrixWorld);const q=s.node.worldToLocal(p.clone());if(q.z>.25){sum+=p.y;count++;}}});
       if(count)this.frames.push(sum/count);},
     get(name){const i=items.find(i=>i.node.name===name);refreshItem(i);return {name,position:i.node.getWorldPosition(new THREE.Vector3()).toArray(),min:i.solid.min.toArray(),max:i.solid.max.toArray(),
-      rotation:i.node.quaternion.toArray(),velocity:i.velocity.toArray(),busy:!!i.busy,drop:!!i.drop,docked:i.docked?.node.name,bundle:i.bundle?.node.name,ball:!!i.sheet?.crumpled,
+      rotation:i.node.quaternion.toArray(),velocity:i.velocity.toArray(),busy:!!i.busy,drop:!!i.drop,docked:i.docked?.node.name,bundle:i.bundle?.id,ball:!!i.sheet?.crumpled,
       supports:[...i.supports].map(s=>s.node.name),
       center:i.sheet?.crumpled?i.node.localToWorld(i.sheet.ballCenter.clone()).toArray():null,
       shape:i.sheet?.crumpled?Array.from(i.node.geometry.attributes.position.array).filter((_,j)=>j%19===0):null};},

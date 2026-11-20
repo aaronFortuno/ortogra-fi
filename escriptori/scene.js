@@ -3,7 +3,7 @@ import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js'
 import { DeskNavigation } from './navigation.js?v=1.16.0';
 import { prepareBinderLoad, arrangeBinderRow } from './binder-load.js?v=1.15.1';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
-import { createStationery } from './stationery.js?v=1.19.0';
+import { createStationery } from './stationery.js?v=1.20.0';
 import { createAtmosphere } from './atmosphere.js?v=1.16.0';
 import { prepareMaterials } from './materials.js?v=1.15.0';
 import { createReadingPages } from './reading.js?v=1.11.0';
