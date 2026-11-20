@@ -1,6 +1,16 @@
 # Materials, llum i moviment de l’escriptori
 
-Revisió del 19 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
+Revisió del 20 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
+
+## Recolzaments i paper flexible · 1.17
+
+La comprovació d’aterratge deixa d’acceptar només papers com a suport: un llapis pot reposar sobre un full, també corbat, i un full pot quedar sobre la grapadora, la cinta o un altre estri. Els volums de col·lisió conserven l’alçada real, sense extrudir-se fins a la taula. Durant l’arrossegament s’aixeca l’objecte sobre els estris que troba al recorregut; els materials fixes continuen bloquejant-lo. Un gest cancel·lat deixa l’objecte a l’últim punt accessible i l’assenta, sense retornar-lo al lloc on s’havia agafat.
+
+`table-support.js` reutilitza la malla dels cinc papers solts. Uneix els vèrtexs duplicats del gruix exportat i obté els veïns a partir dels triangles. Els contactes imposen alçades mínimes; una relaxació amb pendent acotat deixa caure les zones lliures i suavitza la corba. Les envolupants de triangles dels estris protegeixen tota la cel·la del paper perquè no sobresurtin puntes entre vèrtexs. Els objectes rígids mostregen la superfície real de sota amb raigs verticals. La deformació s’interpola durant 220 ms i actualitza normals, límits i ombres; amb moviment reduït s’aplica directament.
+
+Cada objecte conserva els seus suports. En moure’ls o canviar-ne la forma, els dependents tornen a assentar-se, evitant dependències circulars. Les cerques de contacte es fan quan canvien els suports; les malles només s’actualitzen mentre dura la transició. Es mantenen el GLB, les textures, els triangles i les passades de renderitzat. Continua sent una aproximació de superfície per a aquesta taula: no hi ha deformació lateral, plecs permanents, bolcades ni equilibri complet de piles.
+
+`tools/check-desk-support.cjs` prova l’arrossegament real d’un llapis sobre un full, paper corbat sobre la grapadora i sobre un llapis prim, absència de puntes que el travessin, un llapis sobre paper corbat, retirada del suport i cancel·lació sense salt a l’origen. També comprova que el full corbat i el seu suport s’aparten del recorregut d’un arxivador. Inclou caiguda animada, moviment reduït i 320 px en tema fosc. Les captures locals són a `output/desk/support-bent-paper.png`. Passen també les proves de sòlids i trajectòries, caiguda i recollida i gestos tàctils. La vista inicial de retorn continua amb 189 crides i 57.965 triangles en escriptori.
 
 ## Frases de preparació aleatòries · 1.16.1
 

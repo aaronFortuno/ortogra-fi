@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
 import { overlaps, solidBounds, routeOutside } from './table-space.js?v=1.16.0';
+import { prepareSheet, createTableSupport } from './table-support.js?v=1.17.0';
 
 const surface = deskLayout.table.surfaceY, floor = -3.705;
 const definitions = [
@@ -18,7 +19,8 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     if (!def) return;
     const item = { node, kind: def[1], parent: node.parent, home: node.position.clone(),
       rotation: node.quaternion.clone(), bounds: new THREE.Box3(), solid: new THREE.Box3(), pulse: null,
-      velocity: new THREE.Vector3(), spin: 0, mass: {paper:.12,pen:.3,tape:1,cloth:1.4,metal:2,cup:5}[def[1]] };
+      velocity: new THREE.Vector3(), spin: 0, supports:new Set(), sheet:prepareSheet(node),
+      mass: {paper:.12,pen:.3,tape:1,cloth:1.4,metal:2,cup:5}[def[1]] };
     owners.set(node, item); items.push(item);
   });
   const ray = new THREE.Raycaster(), pointer = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0));
@@ -27,6 +29,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   const candidate = [], intersections = [];
   let grip = null, hover = null, suppressClick = false, lastHover = -Infinity, lastBrush = -Infinity, lastUpdate, fixedSolids=[];
   const up = new THREE.Vector3(0,1,0);
+  const supportSystem=createTableSupport(surface), supportDirty=new Set();
   function refreshItem(item) {
     item.bounds.setFromObject(item.node);
     solidBounds(item.node,item.solid);
@@ -43,11 +46,31 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   }
   const related = (a,b) => a.node.getObjectById(b.node.id) || b.node.getObjectById(a.node.id) ||
     (grip?.item===a && b.node===grip.parent);
-  const collisionBox = item => {
-    const b=item.solid.clone();
-    if(!fallen.has(item)&&item.kind!=='paper') b.min.y=Math.min(b.min.y,surface+.001);
-    return b;
-  };
+  const collisionBox = item => item.solid.clone();
+  function dependsOn(item,base,seen=new Set()){
+    if(seen.has(item))return false;seen.add(item);
+    return item.supports.has(base)||[...item.supports].some(i=>dependsOn(i,base,seen));
+  }
+  function invalidate(base){
+    for(const other of roots())if(other!==base&&dependsOn(other,base))supportDirty.add(other);
+  }
+  function supportBodies(item){
+    return roots().filter(other=>other!==item&&!fallen.has(other)&&!related(item,other)&&
+      !other.drop&&!other.slide&&grip?.item!==other&&!dependsOn(other,item));
+  }
+  function land(item,isFloor){
+    refreshItem(item);
+    if(isFloor===undefined){
+      const c=item.solid.getCenter(new THREE.Vector3());
+      isFloor=c.z>deskLayout.table.bounds[3]||Math.abs(c.x)>deskLayout.table.bounds[1];
+    }
+    if(isFloor){item.supports.clear();item.sheet?.flatten(reduced.matches);drop(item,item.node.position.y+floor-item.solid.min.y+.001,true);return;}
+    const plan=supportSystem.plan(item,supportBodies(item));
+    item.supports=plan.supports;
+    if(item.sheet)item.sheet.target(plan.values,reduced.matches);
+    if(Math.abs(plan.y-item.node.position.y)>.0005)drop(item,plan.y,false);
+    invalidate(item);refreshItem(item);redraw();
+  }
   function collisions(item, box, ignored) {
     const hits=roots().filter(other=>other!==item && other!==ignored && !fallen.has(other) && !related(item,other) &&
       !(item.kind==='paper' && other.kind==='paper') && overlaps(box,collisionBox(other)));
@@ -57,7 +80,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     const old=item.node.getWorldPosition(new THREE.Vector3()), before=collisionBox(item);
     setWorld(item.node,old.clone().add(delta));refreshItem(item);
     const box=collisionBox(item), swept=before.clone().union(box), contacts=collisions(item,swept,ignored);
-    if(!contacts.fixed && !contacts.hits.length)return true;
+    if(!contacts.fixed && !contacts.hits.length){invalidate(item);return true;}
     let displaced=push && !contacts.fixed;
     if(displaced) for(const other of contacts.hits){
       if(other.mass>=item.mass || other.drop || other.slide){displaced=false;continue;}
@@ -69,7 +92,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     }
     const remaining=collisions(item,box,ignored);
     // Also stop a small, fast-moving pen tunnelling through a thin obstacle.
-    if(!remaining.fixed && !remaining.hits.length && displaced && contacts.hits.length)return true;
+    if(!remaining.fixed && !remaining.hits.length && displaced && contacts.hits.length){invalidate(item);return true;}
     setWorld(item.node,old);refreshItem(item);return false;
   }
   function moveItem(item, delta, push=false) {
@@ -89,6 +112,14 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     return true;
   }
   refresh();
+  for(const item of items)item.flatHeight=item.node.getWorldPosition(new THREE.Vector3()).y-item.solid.min.y;
+  // Register the papers already on the desk without changing their authored pose.
+  for(const item of roots()){
+    const below=roots().filter(other=>other!==item&&other.solid.min.y<item.solid.min.y-.001&&
+      other.solid.max.y<item.solid.min.y+.065&&!related(item,other));
+    item.supports=new Set(below.filter(other=>supportSystem.crosses(item.solid,other.solid)&&
+      Math.abs(item.solid.min.y-other.solid.max.y)<.065));
+  }
   function aim(event) {
     const rect = canvas.getBoundingClientRect();
     pointer.set((event.clientX-rect.left)/rect.width*2-1, 1-(event.clientY-rect.top)/rect.height*2);
@@ -145,9 +176,10 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   function rollback() {
     if (!grip) return;
     if (grip.moved) {
-      const { item, parent, startPos, rotation } = grip;
-      parent.add(item.node); item.node.position.copy(startPos); item.node.quaternion.copy(rotation);
-      refresh(); redraw();
+      const { item }=grip;
+      // A cancelled gesture leaves the prop at its last reachable position.
+      // Never jump all the way back to where the drag started.
+      item.velocity.set(0,0,0);item.spin=0;land(item);
     }
     grip = null; canvas.style.cursor = '';
   }
@@ -161,7 +193,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     plane.constant = -target.point.y;
     if (!ray.ray.intersectPlane(plane, point)) return;
     grip = { ...target, id: event.pointerId, x: event.clientX, y: event.clientY, anchor: point.clone(),
-      parent: item.node.parent, startPos: item.node.position.clone(), rotation: item.node.quaternion.clone(),
+      parent: item.node.parent,
       world: item.node.getWorldPosition(new THREE.Vector3()), localHit:item.node.worldToLocal(target.point.clone()),
       lastPoint:point.clone(),lastTime:event.timeStamp,velocity:new THREE.Vector3(),spin:0,moved: false, lastSound: -Infinity };
     canvas.setPointerCapture(event.pointerId); event.preventDefault();
@@ -189,6 +221,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     fixedSolids=obstacles();
     if (!grip.moved) {
       room.attach(item.node); grip.moved = true;
+      invalidate(item);item.supports.clear();item.sheet?.flatten(reduced.matches);
       item.bounds.getCenter(center);
       grip.offset = center.sub(grip.world).clone();
       grip.height = grip.world.y - item.bounds.min.y;
@@ -208,8 +241,12 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     const cx = THREE.MathUtils.clamp(point.x + grip.offset.x, -sideLimit, sideLimit);
     const cz = THREE.MathUtils.clamp(point.z + grip.offset.z, Math.abs(cx)<6.22 ? .26+grip.depth : -.9, 7.6);
     point.set(cx-grip.offset.x, Math.max(surface + grip.height, grip.world.y) + .12, cz-grip.offset.z);
-    // Lift first; then slide/push along solid footprints, without tunnelling.
+    // Carry the prop above the surfaces along this step. Unlike a footprint
+    // extruded down to the desk, real vertical bounds allow stacked objects.
     const current=item.node.getWorldPosition(new THREE.Vector3());
+    const swept=item.solid.clone().union(item.solid.clone().translate(new THREE.Vector3(point.x-current.x,0,point.z-current.z)));
+    for(const other of supportBodies(item))if(supportSystem.crosses(swept,other.solid))
+      point.y=Math.max(point.y,other.solid.max.y+grip.height+.10);
     setWorld(item.node,new THREE.Vector3(current.x,point.y,current.z));refreshItem(item);
     moveItem(item,new THREE.Vector3(point.x-current.x,0,point.z-current.z),true);
     if (event.timeStamp-grip.lastSound > 380 && Math.hypot(event.movementX || 0, event.movementY || 0) > 0) {
@@ -230,7 +267,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     item.node.position.y = targetY; item.drop = null;
     if (isFloor) fallen.add(item); else fallen.delete(item);
     recover.hidden = !fallen.size;
-    sound(isFloor ? 'floor' : 'land', item.kind); refresh();
+    sound(isFloor ? 'floor' : 'land', item.kind); refresh();invalidate(item);
   }
   canvas.addEventListener('pointerup', event => {
     if (!grip || grip.id !== event.pointerId) return;
@@ -240,10 +277,8 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       const box = item.solid.clone();
       box.getCenter(center);
       const landOnFloor = center.z > deskLayout.table.bounds[3] || Math.abs(center.x) > deskLayout.table.bounds[1];
-      let support = landOnFloor ? floor : surface;
       if (!landOnFloor) {
-        // Do not drop through another prop. Flat sheets can stack; a pen can
-        // be returned to its own slot, even after the case has moved.
+        // A pen can still be returned to its own slot after moving the case.
         if (/^CaseBallpoint_/.test(item.node.name)) {
           const slot = item.parent.localToWorld(item.home.clone());
           if (Math.hypot(slot.x-item.node.position.x, slot.z-item.node.position.z) < .20) {
@@ -252,20 +287,13 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
             grip = null; canvas.style.cursor = ''; refresh(); redraw(); return;
           }
         }
-        for (const other of roots()) {
-          if (other === item || other.drop || fallen.has(other) || related(item,other)) continue;
-          const b = other.solid;
-          if (box.min.x < b.max.x-.008 && box.max.x > b.min.x+.008 && box.min.z < b.max.z-.008 && box.max.z > b.min.z+.008) {
-            if (other.kind === 'paper') support = Math.max(support, b.max.y-.006);
-            else { rollback(); return; }
-          }
-        }
-        // Keep the contact plane at the true lowest vertex of each prop.
       }
-      drop(item, item.node.position.y + support - box.min.y + .001, landOnFloor);
+      land(item,landOnFloor);
       item.velocity.copy(grip.velocity).multiplyScalar(item.kind==='pen'?.13:.055).clampLength(0,.5);
       item.spin=grip.spin*(item.kind==='pen'?.5:.18);
       if(reduced.matches){item.velocity.set(0,0,0);item.spin=0;}
+      // Friction on a support should not slide a freshly placed prop off it.
+      if(item.supports.size){item.velocity.multiplyScalar(.15);item.spin*=.15;}
       const at=item.node.getWorldPosition(new THREE.Vector3());
       if(Math.hypot(at.x-grip.world.x,at.z-grip.world.z)>.01)action('mou_objecte',{objecte:item.node.name,tipus:item.kind});
     } else if (leaf) react({item,leaf,point:grip.point},1);
@@ -321,13 +349,14 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       const lengths=[0];for(let i=1;i<route.length;i++)lengths.push(lengths[i-1]+route[i].distanceTo(route[i-1]));
       const total=lengths.at(-1);
       item.slide=true;sound('slide',item.kind);
+      invalidate(item);item.supports.clear();refreshItem(item);
       await animate('make-room',t=>{
         const d=t*total;let i=1;while(i<lengths.length-1&&lengths[i]<d)i++;
         const fraction=(d-lengths[i-1])/Math.max(1e-9,lengths[i]-lengths[i-1]);
         const p=route[i-1].clone().lerp(route[i],fraction).sub(offset);
         setWorld(item.node,p);refreshItem(item);redraw();
       },Math.min(700,320+total*90));
-      item.slide=false;refresh();
+      item.slide=false;refresh();land(item);if(item.drop)settle(item);
     }
     return true;
   }
@@ -337,27 +366,36 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     update(time) {
       const dt=lastUpdate===undefined?0:Math.min(.033,Math.max(0,(time-lastUpdate)/1000));lastUpdate=time;
       let moving = false;
+      for(const item of [...supportDirty]){
+        if(item.drop||item.slide||grip?.item===item)continue;
+        supportDirty.delete(item);
+        if(!fallen.has(item))land(item);
+      }
       for (const item of items) {
+        if(item.sheet?.update(time)){refreshItem(item);invalidate(item);moving=true;}
         if (item.drop) {
           const d = item.drop, elapsed = Math.max(0, (time-d.start)/1000);
-          item.node.position.y = Math.max(d.targetY, d.y-(d.looseSheet ? 5.2 : 9.8)*elapsed*elapsed);
+          const rising=d.targetY>d.y,t=Math.min(1,elapsed/.22);
+          item.node.position.y = rising?THREE.MathUtils.lerp(d.y,d.targetY,t*t*(3-2*t)):
+            Math.max(d.targetY, d.y-(d.looseSheet ? 5.2 : 9.8)*elapsed*elapsed);
           if (d.looseSheet) {
             const progress = THREE.MathUtils.clamp((d.y-item.node.position.y)/(d.y-d.targetY), 0, 1);
             const flutter = Math.sin(progress*Math.PI) * Math.sin(elapsed*13);
             item.node.position.x = d.x + .11*flutter;
             item.node.rotation.z = d.angle + .18*flutter;
           }
-          if (reduced.matches || item.node.position.y <= d.targetY) settle(item);
+          if (reduced.matches || (rising?t===1:item.node.position.y<=d.targetY)) settle(item);
           moving = true;
         }
         if((item.velocity.lengthSq()>1e-5||Math.abs(item.spin)>.01) &&
           !item.drop&&!item.slide&&grip?.item!==item&&!fallen.has(item)&&roots().includes(item)){
           fixedSolids=obstacles();
           if(!rotateItem(item,item.spin*dt))item.spin*=.25;
-          if(!moveItem(item,item.velocity.clone().multiplyScalar(dt),true)){item.velocity.multiplyScalar(-.15);item.spin*=.4;}
+          if(!moveItem(item,item.velocity.clone().multiplyScalar(dt),true)){item.velocity.multiplyScalar(.15);item.spin*=.4;}
           const friction=item.kind==='pen'?3.4:6;
           item.velocity.multiplyScalar(Math.exp(-friction*dt));item.spin*=Math.exp(-5*dt);
           if(reduced.matches){item.velocity.set(0,0,0);item.spin=0;}
+          if(item.velocity.lengthSq()<=1e-5&&Math.abs(item.spin)<=.01){item.velocity.set(0,0,0);item.spin=0;land(item);}
           refreshItem(item);
           const c=item.solid.getCenter(new THREE.Vector3());
           if(c.z>deskLayout.table.bounds[3]||Math.abs(c.x)>deskLayout.table.bounds[1]){
