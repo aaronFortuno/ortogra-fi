@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
 import { overlaps, solidBounds, routeOutside } from './table-space.js?v=1.16.0';
-import { prepareSheet, createTableSupport } from './table-support.js?v=1.17.0';
+import { prepareSheet, createTableSupport } from './table-support.js?v=1.18.0';
+import { createStationeryPlay } from './stationery-play.js?v=1.18.0';
 
 const surface = deskLayout.table.surfaceY, floor = -3.705;
 const definitions = [
@@ -14,14 +15,21 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   const items = [], owners = new Map(), fallen = new Set();
   const recover = document.querySelector('#recover-stationery');
   room.updateWorldMatrix(true, true);
-  room.traverse(node => {
-    const def = definitions.find(([pattern]) => pattern.test(node.name));
-    if (!def) return;
-    const item = { node, kind: def[1], parent: node.parent, home: node.position.clone(),
+  function register(node,kind,mass={paper:.12,pen:.3,tape:1,cloth:1.4,metal:2,cup:5}[kind]){
+    const item = { node, kind, parent: node.parent, home: node.position.clone(),
       rotation: node.quaternion.clone(), bounds: new THREE.Box3(), solid: new THREE.Box3(), pulse: null,
-      velocity: new THREE.Vector3(), spin: 0, supports:new Set(), sheet:prepareSheet(node),
-      mass: {paper:.12,pen:.3,tape:1,cloth:1.4,metal:2,cup:5}[def[1]] };
-    owners.set(node, item); items.push(item);
+      velocity: new THREE.Vector3(), spin: 0, supports:new Set(), sheet:prepareSheet(node),mass };
+    owners.set(node,item);items.push(item);refreshItem(item);
+    item.flatHeight=item.solid.isEmpty()?0:node.getWorldPosition(new THREE.Vector3()).y-item.solid.min.y;
+    return item;
+  }
+  function remove(item){
+    invalidate(item);item.node.removeFromParent();owners.delete(item.node);fallen.delete(item);supportDirty.delete(item);
+    const index=items.indexOf(item);if(index>=0)items.splice(index,1);
+    recover.hidden=!fallen.size;
+  }
+  room.traverse(node => {
+    const def=definitions.find(([pattern])=>pattern.test(node.name));if(def)register(node,def[1]);
   });
   const ray = new THREE.Raycaster(), pointer = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0));
   const point = new THREE.Vector3(), center = new THREE.Vector3();
@@ -67,8 +75,9 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     if(isFloor){item.supports.clear();item.sheet?.flatten(reduced.matches);drop(item,item.node.position.y+floor-item.solid.min.y+.001,true);return;}
     const plan=supportSystem.plan(item,supportBodies(item));
     item.supports=plan.supports;
-    if(item.sheet)item.sheet.target(plan.values,reduced.matches);
-    if(Math.abs(plan.y-item.node.position.y)>.0005)drop(item,plan.y,false);
+    if(item.sheet&&!item.sheet.crumpled)item.sheet.target(plan.values,reduced.matches);
+    const world=item.node.getWorldPosition(new THREE.Vector3());
+    if(Math.abs(plan.y-world.y)>.0005)drop(item,item.node.parent.worldToLocal(world.setY(plan.y)).y,false);
     invalidate(item);refreshItem(item);redraw();
   }
   function collisions(item, box, ignored) {
@@ -120,6 +129,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     item.supports=new Set(below.filter(other=>supportSystem.crosses(item.solid,other.solid)&&
       Math.abs(item.solid.min.y-other.solid.max.y)<.065));
   }
+  const play=createStationeryPlay({room,items,fallen,register,remove,refresh,refreshItem,invalidate,land,redraw,reduced,sound,action});
   function aim(event) {
     const rect = canvas.getBoundingClientRect();
     pointer.set((event.clientX-rect.left)/rect.width*2-1, 1-(event.clientY-rect.top)/rect.height*2);
@@ -127,7 +137,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   }
   function hit(event) {
     aim(event); candidate.length = 0; intersections.length = 0;
-    for (const item of items) if (!fallen.has(item) && ray.ray.intersectsBox(item.bounds)) candidate.push(item.node);
+    for (const item of items) if (!fallen.has(play.resolve(item)) && ray.ray.intersectsBox(item.bounds)) candidate.push(item.node);
     if (!candidate.length) return null;
     ray.intersectObjects(candidate, true, intersections);
     const first = intersections[0];
@@ -139,7 +149,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     let leaf = null;
     for (let node = first.object; node; node = node.parent) {
       if (/^IndoorLeaf_\d+$/.test(node.name)) leaf = node;
-      if (owners.has(node)) return { item: owners.get(node), leaf, point: first.point };
+      if (owners.has(node)) return { item: play.resolve(owners.get(node)), leaf, point: first.point };
     }
     return null;
   }
@@ -187,7 +197,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     suppressClick = false;
     if (grip && event.pointerId !== grip.id) { rollback(); return; }
     if (!enabled() || !navigation.enabled || navigation.pointers.size || event.button !== 0 || event.shiftKey) return;
-    const target = hit(event); if (!target || target.item.drop || target.item.slide) return;
+    const target = hit(event); if (!target || target.item.drop || target.item.slide || target.item.busy || target.item.flight) return;
     cancelView();
     const { item } = target; finishPulse(item);item.velocity.set(0,0,0);item.spin=0;
     plane.constant = -target.point.y;
@@ -206,6 +216,8 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       lastHover = event.timeStamp;
       const target = hit(event), next = target?.leaf || target?.item;
       canvas.style.cursor = target ? 'grab' : '';
+      canvas.title=target?.item.node.name==='DeskStapler'?'Clica per grapar · Arrossega per moure':
+        target?.item.sheet&&!target.item.sheet.crumpled?'Arrossega el full · Sacseja’l per rebregar-lo':'';
       if (target && (target.leaf || next!==hover) && event.timeStamp-lastBrush > 75) {
         react(target, event.movementX < 0 ? -1 : 1,event); lastBrush = event.timeStamp;
       }
@@ -249,13 +261,14 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       point.y=Math.max(point.y,other.solid.max.y+grip.height+.10);
     setWorld(item.node,new THREE.Vector3(current.x,point.y,current.z));refreshItem(item);
     moveItem(item,new THREE.Vector3(point.x-current.x,0,point.z-current.z),true);
+    play.shake(item,event,grip);
     if (event.timeStamp-grip.lastSound > 380 && Math.hypot(event.movementX || 0, event.movementY || 0) > 0) {
       sound('slide', item.kind); grip.lastSound = event.timeStamp;
     }
     redraw();
   });
   function drop(item, targetY, isFloor) {
-    const looseSheet = isFloor && item.node.name.startsWith('LooseWorksheet_');
+    const looseSheet = isFloor && item.node.name.startsWith('LooseWorksheet_')&&!item.sheet?.crumpled;
     item.drop = { y: item.node.position.y, x: item.node.position.x, angle: item.node.rotation.z,
       looseSheet, targetY, isFloor, start: performance.now() };
     if (reduced.matches) settle(item);
@@ -296,7 +309,8 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       if(item.supports.size){item.velocity.multiplyScalar(.15);item.spin*=.15;}
       const at=item.node.getWorldPosition(new THREE.Vector3());
       if(Math.hypot(at.x-grip.world.x,at.z-grip.world.z)>.01)action('mou_objecte',{objecte:item.node.name,tipus:item.kind});
-    } else if (leaf) react({item,leaf,point:grip.point},1);
+    } else if(play.tap(item)){ /* The stapler is pressed instead of nudged. */ }
+    else if (leaf) react({item,leaf,point:grip.point},1);
     else {
       const direction=camera.getWorldDirection(new THREE.Vector3());direction.y=0;direction.normalize();
       kick(item,direction,item.kind==='pen'?.16:item.kind==='paper'?.035:.065,grip.point);
@@ -305,7 +319,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     grip = null; canvas.style.cursor = '';
   });
   for (const type of ['pointercancel','lostpointercapture']) canvas.addEventListener(type, e => { if (grip?.id === e.pointerId) rollback(); });
-  canvas.addEventListener('pointerleave', () => { hover = null; if (!grip) canvas.style.cursor = ''; });
+  canvas.addEventListener('pointerleave', () => { hover = null;canvas.title='';if (!grip) canvas.style.cursor = ''; });
   canvas.addEventListener('click', event => {
     if (suppressClick) { suppressClick = false; event.stopImmediatePropagation(); }
   }, true);
@@ -322,6 +336,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
         const delta=route.at(-1).clone().sub(center);
         setWorld(item.node,item.node.getWorldPosition(new THREE.Vector3()).add(delta));
         fallen.delete(item);count++;
+        if(item.sheet?.crumpled||item.bundlePages||item.node.name.startsWith('LooseStaple_'))land(item);
       }else{
         previous.parent.add(item.node);item.node.position.copy(previous.position);item.node.quaternion.copy(previous.rotation);
       }
@@ -331,7 +346,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     if(count)action('recull_objectes',{quantitat:count});
   });
   async function clearSpace(regions) {
-    rollback();
+    rollback();canvas.title='';play.finish();
     for(const item of items){
       finishPulse(item);if(item.drop)settle(item);item.velocity.set(0,0,0);item.spin=0;
     }
@@ -341,11 +356,24 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       const start=item.solid.getCenter(new THREE.Vector3()), origin=item.node.getWorldPosition(new THREE.Vector3());
       const offset=start.clone().sub(origin), rest=item.solid.clone();
       rest.translate(new THREE.Vector3(0,surface+.001-rest.min.y,0));
-      const others=[...fixedSolids,...roots().filter(other=>other!==item&&!fallen.has(other)).map(other=>other.solid.clone())];
-      const route=routeOutside(rest,others,regions);
+      // Flat paper is also a landing surface. Carry a stack over it and set
+      // it down on top instead of treating every sheet as a wall to the ceiling.
+      const lowSupports=item.kind==='paper'?roots().filter(other=>other!==item&&!fallen.has(other)&&
+        ((other.kind==='paper'&&other.solid.max.y-other.solid.min.y<.14)||other.solid.max.y<surface+.09)):[];
+      const others=[...fixedSolids,...roots().filter(other=>other!==item&&!fallen.has(other)&&!lowSupports.includes(other)).map(other=>other.solid.clone())];
+      let route=routeOutside(rest,others,regions);
       if(!route)return false;
       route[0].copy(start);
       if(route.length===1)route.push(rest.getCenter(new THREE.Vector3()));
+      if(lowSupports.length){
+        const finish=route.at(-1).clone(),end=finish.clone().sub(offset);
+        // Preview the final support without changing the rendered pose.
+        setWorld(item.node,end);refreshItem(item);
+        const plan=supportSystem.plan(item,supportBodies(item));finish.y=plan.y+offset.y;
+        setWorld(item.node,origin);refreshItem(item);
+        const height=Math.max(start.y,...lowSupports.map(i=>i.solid.max.y+(rest.max.y-rest.min.y)/2+.035));
+        route=[start,...route.map(p=>p.clone().setY(Math.max(p.y,height))),finish];
+      }
       const lengths=[0];for(let i=1;i<route.length;i++)lengths.push(lengths[i-1]+route[i].distanceTo(route[i-1]));
       const total=lengths.at(-1);
       item.slide=true;sound('slide',item.kind);
@@ -365,14 +393,23 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     clearSpace,
     update(time) {
       const dt=lastUpdate===undefined?0:Math.min(.033,Math.max(0,(time-lastUpdate)/1000));lastUpdate=time;
-      let moving = false;
+      let moving = play.update(time);
       for(const item of [...supportDirty]){
+        if(item.bundle){supportDirty.delete(item);continue;}
         if(item.drop||item.slide||grip?.item===item)continue;
         supportDirty.delete(item);
         if(!fallen.has(item))land(item);
       }
       for (const item of items) {
-        if(item.sheet?.update(time)){refreshItem(item);invalidate(item);moving=true;}
+        if(item.sheet?.update(time)){
+          refreshItem(item);invalidate(item);moving=true;
+          if(item.sheet.crumpled){
+            if(grip?.item===item){
+              grip.height=item.node.getWorldPosition(new THREE.Vector3()).y-item.bounds.min.y;
+              grip.depth=(item.bounds.max.z-item.bounds.min.z)/2;grip.halfWidth=(item.bounds.max.x-item.bounds.min.x)/2;
+            }else supportDirty.add(item);
+          }
+        }
         if (item.drop) {
           const d = item.drop, elapsed = Math.max(0, (time-d.start)/1000);
           const rising=d.targetY>d.y,t=Math.min(1,elapsed/.22);
@@ -388,7 +425,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
           moving = true;
         }
         if((item.velocity.lengthSq()>1e-5||Math.abs(item.spin)>.01) &&
-          !item.drop&&!item.slide&&grip?.item!==item&&!fallen.has(item)&&roots().includes(item)){
+          !item.drop&&!item.slide&&!item.flight&&!item.busy&&grip?.item!==item&&!fallen.has(item)&&roots().includes(item)){
           fixedSolids=obstacles();
           if(!rotateItem(item,item.spin*dt))item.spin*=.25;
           if(!moveItem(item,item.velocity.clone().multiplyScalar(dt),true)){item.velocity.multiplyScalar(.15);item.spin*=.4;}

@@ -26,6 +26,15 @@ export function objectAudio(context) {
   function play(action, material = 'pen') {
     if (context.state !== 'running' || voices.size >= 12) return;
     const t = context.currentTime, variation = .88 + Math.random() * .24;
+    if(action==='staple'){
+      strike(t,.052,1900*variation,.047);strike(t+.025,.075,330*variation,.035,true,.003);
+      strike(t+.065,.065,3700*variation,.029);return;
+    }
+    if(action==='crumple'){
+      for(let i=0;i<4;i++)strike(t+i*.045,.12,(2600+i*490)*variation,.034,false,.012);
+      return;
+    }
+    if(material==='paperball')material='paper';
     if (action === 'page' || material === 'paper' || material === 'leaf') {
       const page = action === 'page', landing = action === 'floor';
       const gain = page ? .050 : landing ? .037 : material === 'leaf' ? .009 : .025;

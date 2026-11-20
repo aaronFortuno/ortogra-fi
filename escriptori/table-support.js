@@ -23,14 +23,47 @@ export function prepareSheet(node) {
     for(const a of face)for(const b of face)if(a!==b)neighbours[a].add(b);
   }
   sites.forEach((p,i)=>p.neighbours=[...neighbours[i]].map(j=>({index:j,distance:Math.hypot(p.x-sites[j].x,p.z-sites[j].z)})));
-  let current=new Float32Array(sites.length), motion=null;
+  let current=new Float32Array(sites.length), motion=null, ball=false, ballMotion=null;
+  const followers=[];
+  function nearest(x,z){let best=0,distance=Infinity;sites.forEach((p,i)=>{const d=(p.x-x)**2+(p.z-z)**2;if(d<distance){distance=d;best=i;}});return best;}
+  function follow(){
+    const a=geometry.attributes.position;
+    for(const f of followers){f.node.position.fromBufferAttribute(a,f.vertex).add(f.offset);}
+  }
   function apply(values){
     const a=geometry.attributes.position;
     for(let i=0;i<a.count;i++)a.setXYZ(i,base[i*3],base[i*3+1]+values[vertexSite[i]],base[i*3+2]);
-    a.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();
+    a.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();follow();
   }
   return { sites,
+    get crumpled(){return ball;},
+    freeze(){motion=null;},
+    follow(node){
+      const site=nearest(node.position.x,node.position.z),vertex=vertexSite.indexOf(site),a=geometry.attributes.position;
+      followers.push({node,vertex,offset:node.position.clone().sub(new THREE.Vector3().fromBufferAttribute(a,vertex))});
+    },
+    crumple(instant=false){
+      if(ball)return false;ball=true;motion=null;
+      const a=geometry.attributes.position,from=a.array.slice(),to=from.slice();
+      const x0=Math.min(...sites.map(p=>p.x)),x1=Math.max(...sites.map(p=>p.x));
+      const z0=Math.min(...sites.map(p=>p.z)),z1=Math.max(...sites.map(p=>p.z));
+      const bottom=Math.min(...sites.map(p=>p.y)),radius=.215;
+      for(let i=0;i<a.count;i++){
+        const u=(base[i*3]-x0)/(x1-x0),v=(base[i*3+2]-z0)/(z1-z0);
+        const theta=.07+v*(Math.PI-.14)+.055*Math.sin(u*29+v*13);
+        const phi=u*Math.PI*2+.16*Math.sin(v*21)+.06*Math.sin(u*41-v*17);
+        const crease=.89+.075*Math.sin(u*49+v*17)+.065*Math.sin(u*31-v*43)+.04*Math.cos(u*83+v*61);
+        const r=radius*crease+(base[i*3+1]-sites[vertexSite[i]].y)*.5;
+        to[i*3]=Math.sin(theta)*Math.cos(phi)*r;
+        to[i*3+1]=bottom+radius+Math.cos(theta)*r;
+        to[i*3+2]=Math.sin(theta)*Math.sin(phi)*r;
+      }
+      node.material=node.material.clone();node.material.flatShading=true;node.material.needsUpdate=true;
+      ballMotion={from,to,start:performance.now()-(instant?220:0)};
+      return true;
+    },
     target(values,instant=false){
+      if(ball)return false;
       if(values.every((v,i)=>Math.abs(v-current[i])<.0001)){motion=null;return false;}
       if(instant){current=Float32Array.from(values);apply(current);motion=null;}
       else motion={from:current.slice(),to:Float32Array.from(values),start:performance.now()};
@@ -38,6 +71,12 @@ export function prepareSheet(node) {
     },
     flatten(instant=false){return this.target(new Float32Array(sites.length),instant);},
     update(time){
+      if(ballMotion){
+        const t=THREE.MathUtils.clamp((time-ballMotion.start)/220,0,1),s=t*t*(3-2*t),a=geometry.attributes.position;
+        for(let i=0;i<a.array.length;i++)a.array[i]=THREE.MathUtils.lerp(ballMotion.from[i],ballMotion.to[i],s);
+        a.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();follow();
+        if(t===1)ballMotion=null;return true;
+      }
       if(!motion)return false;
       const t=THREE.MathUtils.clamp((time-motion.start)/220,0,1),s=t*t*(3-2*t);
       for(let i=0;i<current.length;i++)current[i]=THREE.MathUtils.lerp(motion.from[i],motion.to[i],s);
@@ -80,7 +119,7 @@ export function createTableSupport(surface) {
   function contactPatches(bodies){
     const patches=[],a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3();
     for(const item of bodies){
-      if(item.sheet)continue;
+      if(item.sheet&&!item.sheet.crumpled)continue;
       item.node.updateWorldMatrix(true,true);
       item.node.traverse(mesh=>{
         if(!mesh.isMesh||(item.node.name==='Pothos'&&!mesh.name.startsWith('Pot')))return;
@@ -102,10 +141,10 @@ export function createTableSupport(surface) {
     plan(item,bodies){
       const supports=new Set(),origin=item.node.getWorldPosition(new THREE.Vector3());
       const near=bodies.filter(b=>crosses(item.solid,b.solid,.09));
-      if(item.sheet){
+      if(item.sheet&&!item.sheet.crumpled){
         const restY=surface+item.flatHeight+.002,shift=restY-origin.y;
         const world=item.sheet.sites.map(p=>new THREE.Vector3(p.x,p.y,p.z).applyMatrix4(item.node.matrixWorld));
-        const patches=contactPatches(near),papers=near.filter(b=>b.sheet);
+        const patches=contactPatches(near),papers=near.filter(b=>b.sheet&&!b.sheet.crumpled);
         const radius=Math.max(...item.sheet.sites.flatMap(p=>p.neighbours.map(n=>n.distance)))+.003;
         const constraints=world.map(p=>{
           const h=heightAt(p.x,p.z,papers,.058);

@@ -1,4 +1,4 @@
-import { objectAudio } from './object-audio.js?v=1.15.0';
+import { objectAudio } from './object-audio.js?v=1.18.0';
 
 // Each exterior layer schedules its own next entrance on the audio clock.
 export function createAmbientAudio(button) {

@@ -2,6 +2,18 @@
 
 Revisió del 20 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Grapadora i paper rebregat · 1.18
+
+Fer clic a la grapadora pressiona el capçal al voltant de la frontissa durant 220 ms i reprodueix un clic metàl·lic sintetitzat, amb el control de silenci compartit. La boca comprova tres punts sobre les malles reals dels fulls. Sense paper expulsa una grapa plegada; amb paper hi fixa la grapa. Dos o més fulls es reagrupen sota un node rígid comú, sense modificar-ne les posicions relatives. Es pot ampliar o unir un conjunt existent, es normalitzen les referències als suports evitant cicles, i el conjunt continua participant en col·lisions, caigudes, recollida i apartament per obrir materials. Les grapes fixades segueixen la deformació del full.
+
+Un arrossegament recte o petites vibracions no rebreguen el paper. El detector demana almenys cinc inversions ràpides, amb recorregut i amplada mínims, en una finestra de 1,8 segons. La malla del full solt es transforma durant 220 ms en una bola irregular amb arrugues i ombreig facetat. Conserva els triangles originals, passa a tractar-se com un volum rígid i recalcula l’aterratge després del canvi de forma. Els conjunts grapats no es rebreguen. La deformació és un efecte guiat, no una simulació de plasticitat del paper; recarregar la pàgina restaura els materials.
+
+La geometria i el material metàl·lic es creen al primer ús i es comparteixen entre grapes. S’acumulen com a màxim 24 grapes soltes, reciclant les més antigues, i dotze punts de grapa per full; repetir al mateix punt no hi superposa grapes noves. Els sons de grapadora i paper es generen localment. No hi ha nous fitxers multimèdia, textures ni passades de renderitzat; les grapes afegeixen malles només quan s’utilitzen. La càrrega inicial conserva les 189 crides i els 57.965 triangles de la vista d’escriptori. Les accions emeten `v2_grapa` i `v2_rebrega_full`, sense desar els moviments del punter i amb les mateixes exclusions de proves locals.
+
+En fer lloc per a un material, els papers i conjunts es poden aixecar sobre fulls, clips i llapis baixos i deixar-hi damunt. L’altura final es calcula sobre les superfícies reals abans de fer el recorregut. Els objectes amb un pare traslladat, com el clip del munt de fulls, converteixen l’alçada d’aterratge de coordenades de món a locals; així no es resta dues vegades l’alçada del munt.
+
+`tools/check-desk-play.cjs` comprova pressió en buit, grapa fixa, unió i arrossegament de dos fulls, ampliació a tres, sacsejada intencionada, compactació i aterratge de la bola, obertura d’un material amb els nous objectes, caiguda i recollida conjunta i límit de grapes. Inclou escriptori animat i mòbil de 320 px en fosc amb moviment reduït. Les captures locals són a `output/desk/minigames-*.png`.
+
 ## Recolzaments i paper flexible · 1.17
 
 La comprovació d’aterratge deixa d’acceptar només papers com a suport: un llapis pot reposar sobre un full, també corbat, i un full pot quedar sobre la grapadora, la cinta o un altre estri. Els volums de col·lisió conserven l’alçada real, sense extrudir-se fins a la taula. Durant l’arrossegament s’aixeca l’objecte sobre els estris que troba al recorregut; els materials fixes continuen bloquejant-lo. Un gest cancel·lat deixa l’objecte a l’últim punt accessible i l’assenta, sense retornar-lo al lloc on s’havia agafat.
