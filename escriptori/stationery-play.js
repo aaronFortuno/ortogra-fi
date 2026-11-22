@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { prepareStapler } from './stapler-mechanism.js?v=1.19.0';
-import { createPaperSlot } from './stapler-paper.js?v=1.20.0';
+import { createPaperSlot } from './stapler-paper.js?v=1.21.0';
 import { createPaperLinks } from './paper-links.js?v=1.20.0';
 
 // Deliberate, quick reversals rather than a long drag or tiny pointer jitter.
@@ -92,6 +92,7 @@ export function createStationeryPlay({room,items,fallen,register,remove,refresh,
     recovered:links.recovered,
     pack:links.pack,
     preview:(item,point)=>slot?.preview(item,point),
+    cancelPreview:item=>slot?.cancel(item),
     release(item){const inserted=slot?.release(item);links.release(item);return inserted;},
     detach(item){for(const p of links.members(item))slot?.detach(p);links.grab(item);},
     hold:item=>slot?.hold(item),
@@ -103,6 +104,7 @@ export function createStationeryPlay({room,items,fallen,register,remove,refresh,
     },
     shake(item,event,grip){
       if(!item.sheet||item.sheet.crumpled||!recordShake(grip,event))return false;
+      slot?.cancel(item);
       item.sheet.crumple(reduced.matches);item.kind='paperball';item.velocity.set(0,0,0);item.spin=0;
       links.changed(item);
       invalidate(item);sound('crumple','paper');action('rebrega_full',{objecte:item.node.name});redraw();return true;

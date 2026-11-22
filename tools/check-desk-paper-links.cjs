@@ -2,7 +2,9 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright');
 const origin='http://127.0.0.1:4187';
 const probe=`
   window.paperLinks={
-    grip:()=>grip?.item.node.name,joints:()=>play.joints(),
+    grip:()=>grip?.item.node.name,joints:()=>play.joints().map(b=>({...b,moving:b.moving||b.pages.some(name=>{
+      const i=items.find(i=>i.node.name===name);return i.velocity.lengthSq()>1e-5||Math.abs(i.spin)>.01||Math.abs(i.bundle.states.get(i).omega)>.008;
+    })})),
     get(name){const i=items.find(i=>i.node.name===name);refreshItem(i);return {name,parent:i.node.parent.name,bundle:i.bundle?.id,
       pages:i.bundle?.pages.map(p=>p.node.name),position:i.node.getWorldPosition(new THREE.Vector3()).toArray(),rotation:i.node.quaternion.toArray(),
       min:i.solid.min.toArray(),max:i.solid.max.toArray(),ball:!!i.sheet?.crumpled,changing:!!i.sheet?.changing,wrinkle:i.sheet?.wrinkle,drop:!!i.drop,fallen:fallen.has(i)};},
@@ -38,6 +40,7 @@ const view=`window.paperView={phase:()=>phase,project(v){camera.updateMatrixWorl
       await page.evaluate(()=>paperLinks.place('DeskStapler',-6.8,.6));
       if(!mobile)await page.emulateMedia({reducedMotion:'no-preference'});
       async function pick(name){
+        await page.waitForFunction(()=>paperLinks.joints().every(b=>!b.moving),{},{timeout:10000});
         const points=await page.evaluate(name=>paperLinks.candidates(name),name);
         for(const v of points){const p=await project(v);p.x=Math.round(p.x);p.y=Math.round(p.y);if(p.x<8||p.y<150||p.x>(mobile?312:1432)||p.y>(mobile?420:820))continue;
           if(await page.evaluate(p=>paperLinks.pick(p.x,p.y),p)===name)return {screen:p,world:v};}

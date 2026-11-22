@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
 import { overlaps, solidBounds, routeOutside } from './table-space.js?v=1.16.0';
 import { prepareSheet, createTableSupport } from './table-support.js?v=1.20.0';
-import { createStationeryPlay } from './stationery-play.js?v=1.20.0';
+import { createStationeryPlay } from './stationery-play.js?v=1.21.0';
 
 const surface = deskLayout.table.surfaceY, floor = -3.705;
 const definitions = [
@@ -221,6 +221,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     if (!grip) return;
     if (grip.moved) {
       const { item }=grip;
+      play.cancelPreview(item);
       // A cancelled gesture leaves the prop at its last reachable position.
       // Never jump all the way back to where the drag started.
       item.velocity.set(0,0,0);item.spin=0;land(item);
@@ -283,7 +284,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
     const dt=Math.max(.008,(event.timeStamp-grip.lastTime)/1000), travel=point.clone().sub(grip.lastPoint);
     const lever=item.node.localToWorld(grip.localHit.clone()).sub(item.solid.getCenter(new THREE.Vector3()));
     const torque=THREE.MathUtils.clamp((lever.z*travel.x-lever.x*travel.z)*.6/(.08+lever.lengthSq()),-.09,.09);
-    rotateItem(item,torque);
+    if(!item.insertion)rotateItem(item,torque);
     grip.velocity.lerp(travel.clone().divideScalar(dt),.35);grip.velocity.clampLength(0,4);
     grip.spin=THREE.MathUtils.clamp(torque/dt,-1.5,1.5);
     grip.lastPoint.copy(point);grip.lastTime=event.timeStamp;
@@ -300,18 +301,21 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
       const offset=item.node.localToWorld(item.sheet.ballCenter.clone()).sub(item.node.getWorldPosition(new THREE.Vector3()));
       point.y=Math.max(surface+item.sheet.ballRadius,grip.ballCenterY??grip.world.y+grip.ballOffset.y)+.12-offset.y;
     }
-    if(play.preview(item,point))canvas.title='Deixa anar per ficar el full a la grapadora';
     // Carry the prop above the surfaces along this step. Unlike a footprint
     // extruded down to the desk, real vertical bounds allow stacked objects.
     const current=item.node.getWorldPosition(new THREE.Vector3());
     const swept=item.solid.clone().union(item.solid.clone().translate(new THREE.Vector3(point.x-current.x,0,point.z-current.z)));
     for(const other of roots().filter(p=>p!==item&&!fallen.has(p)&&!related(item,p)&&!p.flight))if(supportSystem.crosses(swept,other.solid))
       point.y=Math.max(point.y,other.solid.max.y+grip.height+.10);
-    setWorld(item.node,new THREE.Vector3(current.x,point.y,current.z));refreshItem(item);
-    moveItem(item,new THREE.Vector3(point.x-current.x,0,point.z-current.z),true);
-    if(item.sheet?.crumpled){
-      const movement=item.node.getWorldPosition(new THREE.Vector3()).sub(current);movement.y=0;rollBall(item,movement);
-      grip.height=item.node.getWorldPosition(new THREE.Vector3()).y-item.solid.min.y;
+    const guided=play.preview(item,point);
+    canvas.title=item.insertion?'Deixa anar per col·locar el full · Allunya’l per desenganxar-lo':'';
+    if(!guided){
+      setWorld(item.node,new THREE.Vector3(current.x,point.y,current.z));refreshItem(item);
+      moveItem(item,new THREE.Vector3(point.x-current.x,0,point.z-current.z),true);
+      if(item.sheet?.crumpled){
+        const movement=item.node.getWorldPosition(new THREE.Vector3()).sub(current);movement.y=0;rollBall(item,movement);
+        grip.height=item.node.getWorldPosition(new THREE.Vector3()).y-item.solid.min.y;
+      }
     }
     play.shake(item,event,grip);
     if (event.timeStamp-grip.lastSound > 380 && Math.hypot(event.movementX || 0, event.movementY || 0) > 0) {

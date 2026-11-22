@@ -1,6 +1,16 @@
 # Materials, llum i moviment de l’escriptori
 
-Revisió del 20 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
+Revisió del 22 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
+
+## Anticipació magnètica de la grapadora · 1.21
+
+La zona de captura passa de 0,25 a 0,62 unitats. S'utilitza la silueta del paper original, amb una distància de seguretat respecte de les cantonades, per cercar un punt on hi càpiga la grapa. La llum de guia comença a aparèixer a 0,98 unitats i guanya intensitat amb la proximitat. A la zona de captura, el paper passa per davant del cos, baixa i llisca dins de la boca durant 220 ms, amb la vora doblegada sobre l'enclusa. Tot això es veu abans de deixar anar el punter; l'alliberament conserva la postura previsualitzada o acaba el mateix moviment si encara estava en curs.
+
+La sortida té un llindar de 0,86 unitats per evitar oscil·lacions a la vora de la captura. La intenció es calcula amb la posició lliure que demana el punter, no amb la del paper atret. En marxar, el full surt de la boca i recupera el seguiment lliure durant 220 ms; en cancel·lar el gest es neteja la previsualització. No s'hi atreuen boles de paper ni estris. El ressalt és una placa translúcida i un anell, sense llums reals ni ombres addicionals, fora de la jerarquia sòlida i no seleccionables. Només s'actualitzen mentre dura una transició; es respecta el moviment reduït.
+
+`tools/check-desk-tactile.cjs` arrossega un full fins a una distància superior a l'antic radi, espera la col·locació i la flexió amb el punter encara premut, comprova el ressalt, s'allunya i deixa anar fora de la zona. Després torna a inserir-lo, grapa dos fulls i conserva les proves de mecanisme, boles i sons. Inclou 320 px amb tema fosc i moviment reduït. Captures locals: `output/desk/magnetic-preview-*.png`.
+
+Referència visual aportada per l'autor: [Weatherglass](https://claude.ai/artifact/3bhygX763cPdpcHQYmfrPk). En la revisió visual destaquen els materials diferenciats de vidre i llautó, les ombres que situen els elements i el moviment d'aigua i núvols. Per a properes iteracions de l'escriptori, interessa especialment la coherència de llum, contacte i resposta al gest. No s'ha auditat el seu codi ni mesurat el seu rendiment.
 
 ## Fulls grapats amb unió flexible · 1.20
 
