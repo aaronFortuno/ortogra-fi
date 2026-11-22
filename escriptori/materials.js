@@ -17,7 +17,7 @@ export async function prepareMaterials(room, scene, renderer, resources) {
       'oak-color.webp', 'oak-normal.webp', 'oak-rough.webp'].map(texture),
     resources.load(new URL('../assets/desk/pbr/studio.hdr', import.meta.url).href, objectURL => new HDRLoader().loadAsync(objectURL)),
   ]);
-  oak.colorSpace = THREE.SRGBColorSpace;
+  oak.colorSpace = cloth.colorSpace = THREE.SRGBColorSpace;
   for (const map of [cloth, clothNormal, clothRough]) map.repeat.set(1.28, 1.28);
   // The veneer scan runs along U. Keep the pores and the finish registered
   // as the cathedral grain stretches along each board's longest face.
@@ -33,29 +33,30 @@ export async function prepareMaterials(room, scene, renderer, resources) {
   function prepare(source) {
     if (cache.has(source)) return cache.get(source);
     let material = source;
-    if (source.name.startsWith('Cloth_') || source.name === 'BoxFabric') {
+    const kind=source.name.replace(/(?:\.\d+)?_(?:Prop|Room)$/,'');
+    if (source.name.startsWith('Cloth_') || kind === 'BoxFabric') {
       material = new THREE.MeshPhysicalMaterial();
       THREE.MeshStandardMaterial.prototype.copy.call(material, source);
       material.defines = { STANDARD: '', PHYSICAL: '' };
       material.name = source.name;
       material.map = cloth;
       material.normalMap = clothNormal;
-      material.normalScale.set(.38, .38);
+      material.normalScale.set(.43, .43);
       material.roughnessMap = clothRough;
       material.roughness = 1;
-      material.sheen = .22;
+      material.sheen = .3;
       material.sheenColor.copy(source.color);
       material.sheenRoughness = .9;
-      material.envMapIntensity = .7;
+      material.envMapIntensity = .65;
     }
     if (source.name.startsWith('Oak')) {
       material.map = oak;
-      material.color.set('#d9ba94');
+      material.color.set('#d3b18a');
       material.normalMap = oakNormal;
       material.normalScale.set(.22, .22);
       material.roughnessMap = oakRough;
       material.roughness = 1;
-      material.envMapIntensity = .65;
+      material.envMapIntensity = .75;
       prepareOakFinish(material);
     }
     if (source.name.startsWith('Plaster')) {
@@ -64,13 +65,25 @@ export async function prepareMaterials(room, scene, renderer, resources) {
       material.envMapIntensity = .65;
       preparePlaster(material, plasterGrain);
     }
-    if (source.name === 'Paper' || source.name === 'PaperEdges') {
+    if (kind === 'Paper' || kind === 'PaperEdges') {
       material.color.set('#f7f3e8');
       material.roughness = 1;
       material.roughnessMap = paperGrain;
       material.bumpMap = null;
     }
-    if (source.name === 'PaperEdges') {
+    if (kind === 'Paper') {
+      material.onBeforeCompile = shader => {
+        shader.vertexShader = 'varying vec3 paperFibre;\n' + shader.vertexShader;
+        shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\npaperFibre = position;');
+        shader.fragmentShader = 'varying vec3 paperFibre;\n' + shader.fragmentShader;
+        shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+          float fibre = sin(paperFibre.x * 210.0 + sin(paperFibre.z * 93.0)) * sin(paperFibre.z * 157.0);
+          float fibreDetail = 1.0 - smoothstep(.3, 1.2, length(fwidth(paperFibre)) * 210.0);
+          roughnessFactor = clamp(roughnessFactor + fibre * fibreDetail * .025, .86, 1.0);`);
+      };
+      material.customProgramCacheKey = () => 'matte-paper-fibre-v1';
+    }
+    if (kind === 'PaperEdges') {
       material.onBeforeCompile = shader => {
         shader.vertexShader = 'varying vec3 paperPosition;\n' + shader.vertexShader;
         shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\npaperPosition = position;');
@@ -80,9 +93,21 @@ export async function prepareMaterials(room, scene, renderer, resources) {
       material.customProgramCacheKey = () => 'paper-edges-v1';
     }
     if (source.name.startsWith('Steel')) {
-      material.roughness = .3;
+      material.roughness = .27;
       material.metalness = 1;
-      material.envMapIntensity = 1;
+      material.envMapIntensity = .9;
+      prepareBrushedMetal(material);
+    }
+    if (['Ceramic', 'StaplerEnamel', 'SwitchPlastic'].includes(kind)) {
+      const glazed = kind === 'Ceramic';
+      material = new THREE.MeshPhysicalMaterial();
+      THREE.MeshStandardMaterial.prototype.copy.call(material, source);
+      material.defines = { STANDARD: '', PHYSICAL: '' };
+      material.name = source.name;
+      material.roughness = glazed ? .42 : .36;
+      material.clearcoat = glazed ? .32 : .16;
+      material.clearcoatRoughness = glazed ? .26 : .32;
+      material.envMapIntensity = .85;
     }
     if (source.name.startsWith('AdhesiveFilm')) {
       material.onBeforeCompile = shader => {
@@ -144,9 +169,23 @@ function prepareOakFinish(material) {
       vec2 workArea = (oakPosition.xz - vec2(-1.2, 2.8)) / vec2(3.6, 1.7);
       float desktop = 1.0 - smoothstep(.005, .025, abs(oakPosition.y - ${deskLayout.table.surfaceY.toFixed(3)}));
       float polish = desktop * (1.0 - smoothstep(.12, 1.0, dot(workArea, workArea)));
-      roughnessFactor = .41 + .52 * roughnessFactor - .095 * polish;`);
+      float handling = .5 + .5 * sin(oakPosition.x * 1.7 + sin(oakPosition.z * 2.3));
+      roughnessFactor = clamp(.37 + .52 * roughnessFactor - .14 * polish + .035 * handling, .34, .96);`);
   };
-  material.customProgramCacheKey = () => 'satin-oak-v1';
+  material.customProgramCacheKey = () => 'satin-oak-v2';
+}
+
+function prepareBrushedMetal(material) {
+  material.onBeforeCompile = shader => {
+    shader.vertexShader = 'varying vec3 steelPosition;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nsteelPosition = position;');
+    shader.fragmentShader = 'varying vec3 steelPosition;\n' + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+      float brushPhase = steelPosition.z * 720.0 + steelPosition.x * 13.0;
+      float brushDetail = 1.0 - smoothstep(.4, 1.6, fwidth(brushPhase));
+      roughnessFactor = clamp(roughnessFactor + brushDetail * sin(brushPhase) * .035, .21, .36);`);
+  };
+  material.customProgramCacheKey = () => 'brushed-stationery-metal-v1';
 }
 
 // World-space mapping keeps the grain the same size on a wall, a window reveal

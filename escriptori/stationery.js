@@ -461,6 +461,7 @@ export function createStationery({ room, canvas, camera, navigation, enabled, re
   }
   return {
     cancel: rollback,
+    contactBodies:roots,
     clearSpace,
     update(time) {
       const dt=lastUpdate===undefined?0:Math.min(.033,Math.max(0,(time-lastUpdate)/1000));lastUpdate=time;

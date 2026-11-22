@@ -3,13 +3,14 @@ import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js'
 import { DeskNavigation } from './navigation.js?v=1.16.0';
 import { prepareBinderLoad, arrangeBinderRow } from './binder-load.js?v=1.15.1';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
-import { createStationery } from './stationery.js?v=1.21.0';
-import { createAtmosphere } from './atmosphere.js?v=1.16.0';
-import { prepareMaterials } from './materials.js?v=1.15.0';
+import { createStationery } from './stationery.js?v=1.22.0';
+import { createAtmosphere } from './atmosphere.js?v=1.22.0';
+import { prepareMaterials } from './materials.js?v=1.22.0';
 import { createReadingPages } from './reading.js?v=1.11.0';
 import { createDaylight } from './daylight.js?v=1.13.0';
 import { createPaperView } from './paper-view.js?v=1.11.0';
-import { createContactShadows } from './contact-shadows.js?v=1.11.0';
+import { createContactShadows } from './contact-shadows.js?v=1.22.0';
+import { createIdleCamera } from './idle-camera.js?v=1.22.0';
 import { createShelfOcclusion } from './shelf-occlusion.js?v=1.11.0';
 import { createLabelTexture } from './labels.js?v=1.11.0';
 import { createReliefs } from './reliefs.js?v=1.11.0';
@@ -106,6 +107,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   let ambientShadowTime = -Infinity;
   let firstFrame;
   let sceneryTime = 0, sceneryFrame = null;
+  const idleCamera=createIdleCamera(camera,navigation,{reduced:reducedMotion,redraw:()=>requestRender(false)});
   const paperView = createPaperView({ camera, target: navigation.target, reading,
     animate, requestRender, getSize: () => ({ width: lastWidth, height: lastHeight }) });
   const reliefs = createReliefs({ scene, camera, target: navigation.target, animate, requestRender, onMaterial: material => weather.prepare(material) });
@@ -236,7 +238,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     obstacles:()=>[...models.values()].map(model=>new THREE.Box3().setFromObject(model.group)),
     cancelView: () => cancelMotion('view'),
     redraw: () => { renderer.shadowMap.needsUpdate = true; requestRender(false); } });
-  const contactShadows = createContactShadows(room);
+  const contactShadows = createContactShadows(room,stationery.contactBodies);
   const lighting = createDaylight({ scene, renderer, canvas, atmosphere, ambient, daylight, fill, bounce,
     animate: update => animate('daylight', update), requestRender, dark: initialDark,
     onChange: state => {
@@ -259,6 +261,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   }
   function render(time) {
     frame = 0;
+    idleCamera.restore();
     for (const [key, motion] of motions) {
       if (motion.start === null) motion.start = time;
       const ratio = THREE.MathUtils.clamp((time - motion.start) / motion.duration, 0, 1);
@@ -270,6 +273,11 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     scene.updateMatrixWorld();
     shelfOcclusion.update();
     contactShadows.update();
+    const cameraEligible=!narrow.matches&&!active&&!presenting&&!contextLost&&!document.hidden&&!hovered&&navigation.enabled&&
+      !navigation.pointers.size&&!motions.size&&!document.querySelector('dialog[open],#projectes.is-open,[popover]:popover-open');
+    const cameraMoving=idleCamera.update(time,cameraEligible);
+    canvas.dataset.cameraMotion=cameraMoving?'drifting':'still';
+    if(cameraMoving)controlsDirty=true;
     camera.updateMatrixWorld();
     if (controlsDirty) { updateControls(); controlsDirty = false; }
     if (active) {
@@ -279,7 +287,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     outline.update(active ? null : models.get(hovered), camera, lastWidth, lastHeight);
     if ([...motions.keys()].some(key => key !== 'view')) renderer.shadowMap.needsUpdate = true;
     const foliageVisible = atmosphere.visible(camera);
-    const living = !reducedMotion.matches && !document.hidden && !presenting && !active && !contextLost && (foliageVisible || weather.active());
+    const living = !reducedMotion.matches && !document.hidden && !presenting && !active && !contextLost && (foliageVisible || weather.active() || cameraEligible);
     if (living && (sceneryFrame === null || time - sceneryFrame >= 1000 / 24)) {
       sceneryTime += sceneryFrame === null ? 0 : Math.min(.1, (time - sceneryFrame) / 1000);
       sceneryFrame = time;
@@ -304,6 +312,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     motions.delete(key);
   }
   function animate(key, update, duration = 220) {
+    idleCamera.interrupt();
     cancelMotion(key);
     if (reducedMotion.matches) { update(1); requestRender(); return Promise.resolve(); }
     return new Promise(resolve => {
@@ -421,6 +430,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     return { target, position: target.clone().addScaledVector(direction, distance) };
   }
   function resize() {
+    idleCamera.interrupt();
     lastWidth = canvas.clientWidth; lastHeight = canvas.clientHeight;
     if (!lastWidth || !lastHeight) return;
     renderer.setSize(lastWidth, lastHeight, false);
@@ -461,6 +471,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     }
   }
   async function select(id) {
+    idleCamera.interrupt();
     const selected = models.get(id);
     if (selected.project.reliefs?.length) {
       await reliefs.prepare(selected.project);

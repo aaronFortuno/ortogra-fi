@@ -54,7 +54,8 @@ export async function createAtmosphere(scene, room, resources) {
     if (!mesh.material.name.startsWith('IndoorFoliage')) return;
     mesh.material.map = skin.color;
     mesh.material.roughnessMap = skin.roughness;
-    mesh.material.roughness = .94;
+    mesh.material.roughness = .72;
+    mesh.material.envMapIntensity = .72;
     mesh.material.needsUpdate = true;
   });
   const sway = new THREE.Quaternion(), angles=new THREE.Euler();
@@ -111,28 +112,31 @@ export async function createAtmosphere(scene, room, resources) {
     update(time, sunlit) {
       const seconds = time / 1000;
       const dt=lastLeafTime===undefined?0:Math.min(.06,Math.max(0,seconds-lastLeafTime));lastLeafTime=seconds;
+      // Shared, band-limited wind with incommensurate periods. The branches
+      // lag one another and the small blades flutter over the slower sway.
+      const air=(t,phase=0)=>Math.sin(t*.41+phase)*.58+Math.sin(t*.173+1.7+phase*.4)*.28+Math.sin(t*.79-.6+phase*.7)*.14;
       if (windowVisible || sunlit) for (const { group, leaves, phase } of branches) {
-        const gustTime = (seconds + 2.4 - phase * .18 + 21) % 21;
-        const gust = gustTime < 6 ? Math.sin(Math.PI * gustTime / 6) ** 2 : 0;
-        group.rotation.z = Math.sin(seconds * .72 + phase * .36) * (.053 + .083 * gust) + Math.sin(seconds * .21 + phase) * .019;
-        group.rotation.y = Math.sin(seconds * .41 + phase) * (.015 + .025 * gust);
+        const t=seconds-phase*.18,gust=THREE.MathUtils.smoothstep(air(t*.38),.1,.85);
+        group.rotation.z = air(t,phase*.22)*(.075+.075*gust)+Math.sin(t*.23+phase)*.018;
+        group.rotation.y = air(t-.7,phase*.13)*(.023+.022*gust);
         for (let i = 0; i < leaves.length; i++) {
           const { leaf, home } = leaves[i];
-          leaf.rotation.z = home.z + Math.sin(seconds * 1.16 + i * .63 + phase) * (.075 + .09 * gust);
-          leaf.rotation.y = home.y + Math.sin(seconds * 1.43 + i * .91 + phase) * (.035 + .045 * gust);
+          const flutter=Math.sin(t*(1.13+(i%5)*.037)+i*.63+phase);
+          leaf.rotation.z = home.z + air(t-i*.035,phase*.2)*.055+flutter*(.04+.085*gust);
+          leaf.rotation.y = home.y + Math.sin(t*1.47+i*.91+phase)*(.024+.045*gust);
         }
       }
       if (plantVisible || sunlit) for (const { mesh, home, phase, period, bend, velocity, stiffness, damping } of indoor) {
-        const moment = (seconds + phase) % period;
-        const envelope = moment < 3.4 ? Math.sin(Math.PI * moment / 3.4) ** 2 : 0;
-        const draught = opening * (.015 + .025 * Math.sin(seconds * .52 - phase * .06));
+        const moment=seconds*Math.PI*2/period+phase;
+        const envelope=THREE.MathUtils.smoothstep((Math.sin(moment)+.35*Math.sin(seconds*.11+phase*.3))/1.35,.2,.9);
+        const draught=opening*air(seconds-.35,phase*.06)*.035;
         const steps=Math.max(1,Math.ceil(dt/.012)),h=dt/steps;
         for(let i=0;i<steps;i++){
           velocity.addScaledVector(bend,-stiffness*h).multiplyScalar(Math.exp(-damping*h));
           bend.addScaledVector(velocity,h);
         }
         if(bend.lengthSq()>.32*.32){bend.clampLength(0,.32);velocity.multiplyScalar(.5);}
-        const wind=Math.sin(moment*3.3+phase)*envelope*(.046+opening*.035)+Math.sin(seconds*.31+phase)*.006+draught;
+        const wind=Math.sin(seconds*.87+phase)*envelope*(.04+opening*.035)+Math.sin(seconds*.31+phase)*.006+draught;
         angles.set(bend.x+wind*.3,bend.y+wind*.13,bend.z+wind);
         sway.setFromEuler(angles);
         mesh.quaternion.copy(home).multiply(sway);

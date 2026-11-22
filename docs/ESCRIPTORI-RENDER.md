@@ -2,6 +2,29 @@
 
 Revisió del 22 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Materials, contactes i càmera en repòs · 1.22
+
+Iteració guiada per la coherència visual de Weatherglass. Es manté el GLB, els recursos multimèdia locals, les llums i la resolució de les ombres. El color del teixit s'interpreta en sRGB; es reforcen lleugerament la normal i la lluentor rasant del teixit. El roure diferencia l'àrea setinada de treball dels altres taulers. Paper i metall incorporen petites variacions de rugositat, filtrades amb derivades per limitar el moaré a distància. Ceràmica i esmalt tenen una capa especular suau. S'apliquen també als materials amb sufix `_Prop`/`_Room`, i es conserva el tractament posterior de llum de finestra, núvols i oclusió dels prestatges. Les fulles del potus redueixen la rugositat sense afegir cap textura.
+
+`prop-contact.js` agrupa fins a quaranta ombres ambientals en una sola malla. Un atlas RGBA de 128 × 64 (32 KiB) aporta una empremta ovalada o rectangular suavitzada. Les bases es mostregen una vegada; per al pot es considera el test, sense la capçada, i per a boles de paper es considera el volum compacte actual. Cada empremta segueix el cos, s'esvaeix amb la separació i queda retallada als límits de la taula. El lot no participa en selecció, col·lisions ni mapes d'ombres. Els atributs només s'actualitzen quan canvia un cos. És oclusió de contacte aproximada sobre la taula: les ombres direccionals existents continuen resolent la il·luminació solar i els suports elevats.
+
+Les ràfegues deixen de reiniciar-se en un cicle comú de 21 segons. Es combinen freqüències diferents amb retard entre branques i petits moviments de làmina. La planta interior conserva els impulsos de contacte, les molles amortides i el límit de deformació. Finestra, llum solar i preferència de moviment reduït conserven el control existent.
+
+`idle-camera.js` aplica un pivot molt petit i un desplaçament local de mil·lèsimes d'unitat després de 3,5 segons de repòs, amb entrada de 220 ms. La postura de navegació no acumula l'oscil·lació: es restaura abans del fotograma següent. En començar una acció es conserva exactament la postura visible com a nova base abans de fer les proves de selecció. Les edicions directes de càmera i els canvis de mida tenen prioritat sobre qualsevol postura desada. No s'aplica durant lectura, inspecció, animacions, gestos, enfocament d'un material, diàlegs o controls emergents, ni en pantalles de fins a 700 px, amb moviment reduït o amb la pestanya oculta. Comparteix el temporitzador ambiental de 24 Hz; no crea un bucle de 60 Hz.
+
+Comparació local, vista inicial diürna de 1440 × 960, rellotge fixat al 22/11/2026:
+
+| Recurs | Abans | Després |
+| --- | ---: | ---: |
+| Crides de dibuix | 189 | 190 |
+| Triangles visibles | 57.965 | 57.983 |
+| Textures residents | 32 | 33 |
+| Atributs i índexs de geometria | 4.176.738 B | 4.181.058 B |
+
+Hi ha nou empremtes actives en aquesta postura. No s'afegeix cap llum ni passada de renderitzat. El petit mostreig local de dibuix estàtic amb `gl.finish()` ha quedat en el mateix ordre de magnitud (mediana de 1,7 ms abans i 1,3 ms en una de les passades posteriors); la variació entre passades no demostra una acceleració ni és una garantia de FPS en altres dispositius. Les mesures i captures són a `output/desk/realism/{before,after}/`, ignorat per Git.
+
+`tools/check-desk-realism.cjs` comprova el pressupost de recursos quan disposa d'una mesura anterior, el pivot acotat, la immobilitat durant entrada i lectura, les preferències, la pausa en mòbil, la reutilització de geometria i el seguiment dels contactes després d'aixecar i moure un llapis. Inclou vistes properes, dia, nit i 320 px en fosc. Les proves d'interacció cobreixen també grapadora magnètica, fulls grapats, recolzaments, gestos tàctils, girs de pàgina i extracció/retorn de les tres maquetes.
+
 ## Anticipació magnètica de la grapadora · 1.21
 
 La zona de captura passa de 0,25 a 0,62 unitats. S'utilitza la silueta del paper original, amb una distància de seguretat respecte de les cantonades, per cercar un punt on hi càpiga la grapa. La llum de guia comença a aparèixer a 0,98 unitats i guanya intensitat amb la proximitat. A la zona de captura, el paper passa per davant del cos, baixa i llisca dins de la boca durant 220 ms, amb la vora doblegada sobre l'enclusa. Tot això es veu abans de deixar anar el punter; l'alliberament conserva la postura previsualitzada o acaba el mateix moviment si encara estava en curs.

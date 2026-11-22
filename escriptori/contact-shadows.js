@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
+import { createPropContacts } from './prop-contact.js?v=1.22.0';
 
 // Local ambient occlusion at actual furniture joints. The GLB already contains
 // broad static AO; these narrow gradients restore the contact that its shared
 // lightmap cannot resolve. No screen-space pass or extra light is involved.
-export function createContactShadows(room) {
+export function createContactShadows(room,bodies=()=>[]) {
   room.updateMatrixWorld(true);
   const root = new THREE.Group();
   root.name = 'ContactOcclusion';
@@ -66,6 +67,7 @@ export function createContactShadows(room) {
     root.add(mesh);
     contacts.push({ object, mesh, home: object.getWorldPosition(new THREE.Vector3()), rotation: object.quaternion.clone(), x: footprint.x, z: footprint.z });
   }
+  const propContacts=createPropContacts(root,bodies);
   const current = new THREE.Vector3();
   let tableContact = null;
   function clearTableContact() {
@@ -97,6 +99,7 @@ export function createContactShadows(room) {
     root.add(tableContact);
   }
   function update() {
+    propContacts.update();
     for (const item of contacts) {
       item.object.getWorldPosition(current).sub(item.home);
       const lifted = smooth(.018, .14, Math.abs(current.y));
@@ -110,7 +113,7 @@ export function createContactShadows(room) {
     }
   }
   update();
-  return { update, onTable, root };
+  return { update, onTable, root, stats:propContacts.stats };
 }
 
 function clipToSupport(material, [minX, maxX, minZ, maxZ]) {
