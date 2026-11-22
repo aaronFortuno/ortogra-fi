@@ -11,6 +11,7 @@ import { createDaylight } from './daylight.js?v=1.13.0';
 import { createPaperView } from './paper-view.js?v=1.11.0';
 import { createContactShadows } from './contact-shadows.js?v=1.22.0';
 import { createIdleCamera } from './idle-camera.js?v=1.22.0';
+import { createPerformanceMonitor } from './performance.js?v=1.22.1';
 import { createShelfOcclusion } from './shelf-occlusion.js?v=1.11.0';
 import { createLabelTexture } from './labels.js?v=1.11.0';
 import { createReliefs } from './reliefs.js?v=1.11.0';
@@ -37,6 +38,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   renderer.shadowMap.needsUpdate = true;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.AgXToneMapping;
+  const performanceMonitor=createPerformanceMonitor(renderer);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(32, 1, .06, 75);
   const navigation = new DeskNavigation(camera, canvas.parentElement, {
@@ -260,6 +262,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     if (!frame) frame = requestAnimationFrame(render);
   }
   function render(time) {
+    performanceMonitor.begin();
     frame = 0;
     idleCamera.restore();
     for (const [key, motion] of motions) {
@@ -299,6 +302,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     }
     if (!living) sceneryFrame = null;
     renderer.render(scene, camera);
+    performanceMonitor.end();
     if (firstFrame) { const resolve = firstFrame; firstFrame = null; requestAnimationFrame(resolve); }
     clearTimeout(ambientTimer);
     canvas.dataset.ambience = living ? 'moving' : 'still';

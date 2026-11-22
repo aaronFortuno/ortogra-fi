@@ -10,6 +10,25 @@
   align-items:center;
   gap:22px
 }
+.desk-page .site-header{position:relative;z-index:5}
+.performance-summary{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;padding:5px 9px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--muted);font:13px/1.4 ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.performance-summary:hover{background:var(--hover);border-color:var(--line)}
+.performance-summary span[hidden]{display:none}
+.performance-summary [data-performance-memory]:not([hidden])::before{content:'·';margin-right:10px}
+.performance-panel{position:fixed;inset:74px auto auto 50%;width:min(340px,calc(100vw - 28px));max-height:calc(100dvh - 150px);margin:0;padding:14px 18px 16px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);box-shadow:0 12px 36px #08130e26;overflow:auto;font-size:14px;opacity:0;transform:translate(-50%,-5px);transition:opacity 220ms,transform 220ms,display 220ms allow-discrete,overlay 220ms allow-discrete}
+.performance-panel:popover-open{opacity:1;transform:translate(-50%,0)}
+@starting-style{.performance-panel:popover-open{opacity:0;transform:translate(-50%,-5px)}}
+.performance-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.performance-heading h2{margin:0;font-size:16px;font-weight:600}
+.performance-heading .icon-button{width:30px;height:30px;padding:5px}
+.performance-panel dl{margin:10px 0 14px;font-variant-numeric:tabular-nums}
+.performance-panel dl>div{display:flex;justify-content:space-between;gap:16px;padding:3px 0}
+.performance-panel dt{color:var(--muted)}
+.performance-panel dd{margin:0;text-align:right;white-space:nowrap}
+.performance-panel p{margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
+@media(min-width:901px) and (max-width:1100px){.performance-summary [data-performance-memory]{display:none}}
+@media(max-width:900px){.performance-summary{top:calc(100% + 7px);transform:translateX(-50%);background:var(--paper);border-color:var(--line)}.performance-panel{top:106px}.desk-page .desk-intro{top:46px}}
+@media(prefers-reduced-motion:reduce){.performance-panel{transition:none}}
 #ambient-toggle .ambient-waves{display:none}
 #ambient-toggle[aria-pressed=true] .ambient-waves{display:block}
 #ambient-toggle[aria-pressed=true] .ambient-muted{display:none}

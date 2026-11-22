@@ -2,6 +2,12 @@
 
 Revisió del 22 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Indicador provisional de rendiment · 1.22.1
+
+`performance.js` compta les crides reals al bucle de dibuix de l'escena i en mostra la mitjana per segon a la capçalera. No crea un segon bucle `requestAnimationFrame`, no força un dibuix quan la vista queda quieta i no utilitza `gl.finish()` ni lectures síncrones de GPU. El temps és el temps transcorregut entre l'inici de la preparació del fotograma i el retorn de `renderer.render()`: inclou el treball de CPU i enviament, no és una mesura del temps d'execució GPU.
+
+El detall desplegable mostra també `renderer.info.render` i els comptadors de geometries i textures de `renderer.info.memory`. La memòria és `performance.memory.usedJSHeapSize` en MiB aproximats, etiquetats com a MB; si el navegador no ho exposa, no es mostra al resum i el detall diu «No disponible». No s'intenta estimar la VRAM ni la memòria total. El mostreig d'un segon es pausa amb la pestanya oculta, al sortir de la pàgina o si es perd el context WebGL; en reprendre es reinicia la finestra de mesura. El resum evita anuncis automàtics al lector de pantalla. En pantalles estretes queda just sota la capçalera, sense solapar la marca ni els controls.
+
 ## Materials, contactes i càmera en repòs · 1.22
 
 Iteració guiada per la coherència visual de Weatherglass. Es manté el GLB, els recursos multimèdia locals, les llums i la resolució de les ombres. El color del teixit s'interpreta en sRGB; es reforcen lleugerament la normal i la lluentor rasant del teixit. El roure diferencia l'àrea setinada de treball dels altres taulers. Paper i metall incorporen petites variacions de rugositat, filtrades amb derivades per limitar el moaré a distància. Ceràmica i esmalt tenen una capa especular suau. S'apliquen també als materials amb sufix `_Prop`/`_Room`, i es conserva el tractament posterior de llum de finestra, núvols i oclusió dels prestatges. Les fulles del potus redueixen la rugositat sense afegir cap textura.
