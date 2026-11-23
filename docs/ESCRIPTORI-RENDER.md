@@ -2,6 +2,14 @@
 
 Revisió del 23 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Sons diferenciats per material · 1.24
+
+La ruta sonora es calcula a `object-sounds.js`, separada del tipus de cos físic. El llapis de fusta i el boli de plàstic ja no comparteixen enregistrament. El paper llisca i frega, la planta utilitza fullatge real suavitzat i l'estoig utilitza teixit. Els recipients incorporen un contacte ceràmic. Les boles, el gir de pàgina i la grapadora conserven els seus gestos propis. Es retiren els cops durant l'aixecament i el transport per l'aire dels objectes rígids.
+
+Són 19 fragments locals de 10 fonts CC0, amb 155.073 B en total i càrrega després de la primera interacció sonora. Els [crèdits i retalls](../assets/desk/audio/foley/README.md) documenten també les aproximacions del rotllo de cinta i dels contactes metàl·lics. Hi ha variants sense repetició immediata, una variació de guany del ±6 % i límits de freqüència/superposició. El fullatge no s'acumula en passar-hi el punter. Les veus s'aturen amb el silenci i la pausa de pestanya; es descarten gestos pendents de més de 250 ms. No s'afegeix treball al renderitzat 3D.
+
+La prova local `tools/check-desk-tactile.cjs` descodifica tots els fitxers, comprova hashes, identifica quina mostra reprodueix cada acció i verifica la separació dels materials de l'escena. També comprova els gestos silenciosos, l'alternança i el límit de veus de fullatge, amb les interaccions existents de grapadora, paper i boles en ordinador i mòbil fosc. La qualitat auditiva percebuda queda subjecta a la revisió de l'autor.
+
 ## Pols més present i feixos difuminats · 1.23.1
 
 La densitat passa a 1.024 motes (640 en mòbil), amb més variació visible de mida i una deriva lleugerament més perceptible. La llum indirecta en deixa veure algunes fora dels feixos, mentre que la llum directa les ressalta més. La mida màxima continua limitada a 5,6 píxels físics i hi ha atenuació a prop de la càmera. Les làmines de dispersió redueixen la intensitat aproximadament a una quarta part, amb perfil gaussià, vores més amples i densitat irregular. La irregularitat reutilitza la textura de núvols amb coordenades pròpies i una deriva lenta; no incorpora cap recurs nou.

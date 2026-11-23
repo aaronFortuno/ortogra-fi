@@ -8,7 +8,7 @@ const probe=`
         for(let i=0;i<a.count;i++){p.fromBufferAttribute(a,i).applyMatrix4(m.matrixWorld);const q=s.node.worldToLocal(p.clone());if(q.z>.25){sum+=p.y;count++;}}});
       if(count)this.frames.push(sum/count);},
     get(name){const i=items.find(i=>i.node.name===name);refreshItem(i);return {name,position:i.node.getWorldPosition(new THREE.Vector3()).toArray(),min:i.solid.min.toArray(),max:i.solid.max.toArray(),
-      rotation:i.node.quaternion.toArray(),velocity:i.velocity.toArray(),busy:!!i.busy,drop:!!i.drop,docked:i.docked?.node.name,bundle:i.bundle?.id,ball:!!i.sheet?.crumpled,changing:!!i.sheet?.changing,
+      acoustic:objectMaterial(i),rotation:i.node.quaternion.toArray(),velocity:i.velocity.toArray(),busy:!!i.busy,drop:!!i.drop,docked:i.docked?.node.name,bundle:i.bundle?.id,ball:!!i.sheet?.crumpled,changing:!!i.sheet?.changing,
       insertion:i.insertion?.end.toArray(),hint:room.getObjectByName('StaplerSlotHint')?.visible,
       supports:[...i.supports].map(s=>s.node.name),
       center:i.sheet?.crumpled?i.node.localToWorld(i.sheet.ballCenter.clone()).toArray():null,
@@ -24,7 +24,7 @@ const probe=`
 const sceneProbe=`window.tactileView={project(xyz){camera.updateMatrixWorld();const p=projectPoint(new THREE.Vector3(...xyz)),r=canvas.getBoundingClientRect();return{x:p.x+r.x,y:p.y+r.y}},view(){camera.position.set(-1.9,innerWidth<500?5.5:3.7,innerWidth<500?8.5:6.7);navigation.target.set(-1.9,-.54,2.8);navigation.update();camera.updateMatrixWorld();requestRender()}};`;
 (async()=>{
   const manifest=JSON.parse(await fs.readFile('assets/desk/audio/foley/manifest.json'));
-  for(const clip of manifest.clips){const b=await fs.readFile('assets/desk/audio/foley/'+clip.file);assert.equal(b.length,clip.bytes);assert.equal(crypto.createHash('sha256').update(b).digest('hex'),clip.sha256);assert.ok(clip.peakDbFS<-8);}
+  for(const clip of manifest.clips){const b=await fs.readFile('assets/desk/audio/foley/'+clip.file);assert.equal(b.length,clip.bytes);assert.equal(crypto.createHash('sha256').update(b).digest('hex'),clip.sha256);assert.ok(clip.peakDbFS<-8);assert.ok(clip.rmsDbFS>-55,'Every excerpt contains an audible signal');}
   const browser=await chromium.launch({channel:'chrome',headless:true});
   try{
     for(const mobile of [false,true]){
@@ -35,6 +35,8 @@ const sceneProbe=`window.tactileView={project(xyz){camera.updateMatrixWorld();co
       await page.route('**/scene.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('  return { highlight, select, home,',sceneProbe+'\n  return { highlight, select, home,')})});
       await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});await page.locator('#desk-loading').waitFor({state:'hidden'});
       const get=name=>page.evaluate(name=>tactile.get(name),name),project=p=>page.evaluate(p=>tactileView.project(p),p);
+      for(const [name,material]of [['LoosePencil','pencil'],['LooseBallpoint','plastic'],['LooseWorksheet_1','paper'],['OpenPencilCase','cloth'],['Pothos','cup']])
+        assert.equal((await get(name)).acoustic,material,'Real scene props retain distinct acoustic materials');
       await page.evaluate(()=>{tactile.place('DeskStapler',-1.9,1.5);tactileView.view()});
       // Drag actual paper from in front of the stapler into its mouth.
       async function insert(name,retreat=false,quick=false){
@@ -89,15 +91,29 @@ const sceneProbe=`window.tactileView={project(xyz){camera.updateMatrixWorld();co
         const moved=await get(a.name);assert.ok(Math.hypot(moved.rotation[0],moved.rotation[2])>.04,'Ball rolls about a horizontal axis, not just vertical spin');
         assert.ok(moved.min[1]>=-.585&&moved.min[1]<-.50,'Irregular ball remains supported while rolling');
       }
-      // Decode every real recording and ensure effects use samples, not oscillators.
-      const audio=await page.evaluate(async()=>{
-        const {objectAudio}=await import('./object-audio.js?v=1.19.0');const ctx=new AudioContext();await ctx.resume();
-        let oscillators=0,samples=0;const osc=ctx.createOscillator.bind(ctx),src=ctx.createBufferSource.bind(ctx);
-        ctx.createOscillator=()=>{oscillators++;return osc()};ctx.createBufferSource=()=>{samples++;return src()};
-        const fx=objectAudio(ctx);await fx.ready;for(const [action,material] of [['staple','metal'],['crumple','paper'],['page','paper'],['land','pen'],['land','cup'],['slide','paperball']])fx.play(action,material);
-        fx.stop();await ctx.close();return{oscillators,samples};
-      });assert.equal(audio.oscillators,0);assert.equal(audio.samples,6);
-      assert.deepEqual(errors,[]);console.log('PASS '+(mobile?'320px dark/reduced':'desktop')+': wider magnetic preview, bend before release, reversible detachment, paper insertion, working head, stapled stack, rolling balls and recorded foley.');await ctx.close();
+      assert.equal((await get('LooseWorksheet_2')).acoustic,'paperball');
+      // Identify the exact recording played, not just the number of sources.
+      const audio=await page.evaluate(async manifest=>{
+        const {objectAudio}=await import('./object-audio.js?v=1.24.0');const ctx=new AudioContext();await ctx.resume();
+        let oscillators=0,stops=0;const played=[],labels=new Map(),decoded=[],osc=ctx.createOscillator.bind(ctx),src=ctx.createBufferSource.bind(ctx),decode=ctx.decodeAudioData.bind(ctx);
+        ctx.createOscillator=()=>{oscillators++;return osc()};
+        ctx.decodeAudioData=async bytes=>{const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('');
+          const id=manifest.clips.find(c=>c.sha256===hash)?.id,buffer=await decode(bytes);labels.set(buffer,id);decoded.push(id);return buffer;};
+        ctx.createBufferSource=()=>{const s=src(),start=s.start.bind(s),stop=s.stop.bind(s);s.start=(...args)=>{played.push(labels.get(s.buffer));return start(...args)};s.stop=(...args)=>{stops++;return stop(...args)};return s;};
+        const fx=objectAudio(ctx);await fx.ready;const cases=[];
+        for(const [action,material]of [['staple','metal'],['crumple','paper'],['page','paper'],['land','paper'],['lift','paper'],['land','plastic'],['touch','plastic'],['land','pencil'],['land','cup'],['land','tape'],['slide','cloth'],['slide','paperball'],['lift','plastic'],['slide','pencil'],['touch','unknown']]){
+          fx.stop();const before=played.length;fx.play(action,material);cases.push({action,material,played:played.slice(before)});
+        }
+        fx.stop();let before=played.length;for(let i=0;i<20;i++)fx.play('touch','leaf');const first=played.slice(before);
+        await new Promise(r=>setTimeout(r,850));before=played.length;fx.play('touch','leaf');const second=played.slice(before);
+        const beforeStop=stops;fx.stop();const stoppedLeaf=stops>beforeStop;await ctx.close();return{oscillators,decoded,cases,first,second,stoppedLeaf};
+      },manifest);
+      assert.equal(audio.oscillators,0);assert.deepEqual(audio.decoded.sort(),manifest.clips.map(c=>c.id).sort());
+      const expected=[/^stapler$/, /^paper-crumple$/, /^page-turn$/, /^paper-move(?:-2)?$/, /^paper-lift$/, /^pen-drop(?:-2)?$/, /^plastic-tap$/, /^pencil-drop$/, /^cup-set$/, /^tape-set$/, /^cloth-rustle(?:-2)?$/, /^paper-roll$/];
+      for(const [i,c]of audio.cases.entries())if(i<expected.length){assert.equal(c.played.length,1);assert.match(c.played[0],expected[i]);}else assert.deepEqual(c.played,[],'No generic click for airborne or unknown objects');
+      assert.equal(audio.first.length,1,'Hovering never piles up foliage voices');assert.equal(audio.second.length,1);assert.match(audio.first[0],/^leaf-brush/);assert.notEqual(audio.first[0],audio.second[0],'Consecutive brushes alternate real excerpts');
+      assert.equal(audio.stoppedLeaf,true,'Stop cuts the current foliage recording');
+      assert.deepEqual(errors,[]);console.log('PASS '+(mobile?'320px dark/reduced':'desktop')+': magnetic stapler, independent paper balls, distinct material recordings, silent airborne rigid props, non-overlapping foliage, mute/stop and '+manifest.clips.length+' decoded clips.');await ctx.close();
     }
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});
