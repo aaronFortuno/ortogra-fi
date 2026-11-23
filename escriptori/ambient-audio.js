@@ -4,7 +4,9 @@ import { objectAudio } from './object-audio.js?v=1.25.0';
 export function createAmbientAudio(button) {
   const base = new URL('../assets/desk/audio/', import.meta.url);
   const mixGain = 10 ** (-3 / 20);
-  let context, master, filter, buffers, loadingBuffers, effects, open = false;
+  let context, master, filter, loadingBuffers, effects, open = false;
+  const buffers=[];
+  let catalogue,warming;
   let generation = 0, previousBird = '', wanted = true, started = false, pending = false, playedOnce = false;
   let focused=document.hasFocus(),suspendTimer;
   const focusFade=2.5,available=()=>focused&&!document.hidden;
@@ -12,12 +14,17 @@ export function createAmbientAudio(button) {
   const sources = new Map(), timers = new Set();
   const random = (a, b) => a + Math.random() * (b - a);
   const status = document.querySelector('#ambient-status');
+  const loadingButton=document.querySelector('#loading-audio-toggle');
   function reflect(state) {
     button.dataset.audioState = state;
     button.setAttribute('aria-pressed', String(wanted));
     button.setAttribute('aria-busy', String(state === 'loading'));
     const label = wanted ? 'Apaga el so ambient' : 'Activa el so ambient';
     button.setAttribute('aria-label', label); button.title = label;
+    if(loadingButton){
+      const waiting=wanted&&state==='waiting'&&buffers.some(clip=>clip.kind==='wind');
+      loadingButton.classList.toggle('is-available',waiting);loadingButton.inert=!waiting;loadingButton.setAttribute('aria-hidden',String(!waiting));
+    }
   }
   const later = (seconds, callback, token) => {
     const timer = setTimeout(() => {
@@ -75,13 +82,16 @@ export function createAmbientAudio(button) {
     later(played.duration - fade, () => wind(token), token);
   }
   function bird(token) {
-    const options = buffers.filter(clip => clip.kind === 'birds' && clip.id !== previousBird);
+    if(!buffers.some(clip=>clip.kind==='birds')||!document.querySelector('#desk-canvas')?.dataset.lighting){later(2,()=>bird(token),token);return;}
+    let options = buffers.filter(clip => clip.kind === 'birds' && clip.id !== previousBird);
+    if(!options.length)options=buffers.filter(clip=>clip.kind==='birds');
     const entry = options[Math.floor(Math.random() * options.length)]; previousBird = entry.id;
     if (isDay()) play(entry, { gain: random(.4, .7), pan: random(-.8, -.25), rate: random(.985, 1.015) });
     later(random(18, 43), () => bird(token), token);
   }
   function vehicle(token) {
     const entry = buffers.find(clip => clip.kind === 'vehicle');
+    if(!entry){later(3,()=>vehicle(token),token);return;}
     const played = play(entry, { gain: random(.3, .55), pan: -.8, rate: random(.96, 1.04), fade: 1.5 });
     played.position.pan.linearRampToValueAtTime(.35, context.currentTime + played.duration);
     later(random(70, 145), () => vehicle(token), token);
@@ -89,9 +99,55 @@ export function createAmbientAudio(button) {
   function isDay() { return document.querySelector('#desk-canvas')?.dataset.lighting === 'day'; }
   function playground(token) {
     const entry = buffers.find(clip => clip.kind === 'playground');
+    if(!entry||!document.querySelector('#desk-canvas')?.dataset.lighting){later(3,()=>playground(token),token);return;}
     if (isDay() && entry) play(entry, { gain: random(.46, .72), pan: random(-.75, -.3),
       offset: random(0, 2), fade: 1.4 });
     later(random(38, 90), () => playground(token), token);
+  }
+  function ensureContext(){
+    if(!context){
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) throw new Error('Audio unavailable');
+      context = new AudioContext(); master = context.createGain(); master.gain.value = 0;
+      // Soften the upper frequencies as though they arrive through a window.
+      filter = context.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = .65;
+      filter.frequency.value = open ? 7200 : 1500;
+      master.connect(filter).connect(context.destination);
+      context.addEventListener('statechange', () => { if (context.state === 'running') start(); });
+    }
+  }
+  async function loadClip(entry,priority){
+    const audio=await fetch(new URL(entry.file,base),{priority});
+    if(!audio.ok)throw new Error('Audio unavailable');
+    const clip={...entry,buffer:await context.decodeAudioData(await audio.arrayBuffer())};buffers.push(clip);return clip;
+  }
+  function warmOthers(){
+    if(!warming&&wanted&&catalogue)warming=Promise.allSettled(catalogue.clips.filter(clip=>clip.kind!=='wind').map(clip=>loadClip(clip,'low')));
+  }
+  function prepare(){
+    if(!wanted)return Promise.resolve(false);
+    if(loadingBuffers)return loadingBuffers;
+    reflect('loading');
+    loadingBuffers=(async()=>{
+      ensureContext();
+      const response=await fetch(new URL('manifest.json?v=1.14.1',base),{priority:'high'});
+      if(!response.ok)throw new Error('Audio catalogue unavailable');
+      catalogue=await response.json();const wind=catalogue.clips.find(clip=>clip.kind==='wind');
+      if(!wind)throw new Error('Wind unavailable');
+      await loadClip(wind,'high');return true;
+    })().catch(()=>{
+      loadingBuffers=null;
+      if(!pending){wanted=false;context?.suspend();reflect('error');status.textContent='No s’ha pogut carregar el so. Pots tornar-ho a provar.';}
+      return false;
+    });
+    loadingBuffers.then(ok=>{
+      if(!ok)return;
+      start();
+      // The continuous bed can play immediately. Occasional layers must not
+      // hold it up, and object foley stays lazy until an actual object gesture.
+      warmOthers();
+    });
+    return loadingBuffers;
   }
   async function start(gesture = false) {
     if (!wanted || !available() || pending || started) return;
@@ -100,38 +156,16 @@ export function createAmbientAudio(button) {
     const token = ++generation;
     pending = true;
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) throw new Error('Audio unavailable');
-      if (!context) {
-        context = new AudioContext(); master = context.createGain(); master.gain.value = 0;
-        effects=objectAudio(context);
-        // Soften the upper frequencies as though they arrive through a window.
-        filter = context.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = .65;
-        filter.frequency.value = open ? 7200 : 1500;
-        master.connect(filter).connect(context.destination);
-        context.addEventListener('statechange', () => { if (context.state === 'running') start(); });
-      }
+      ensureContext();
       if (context.state !== 'running') {
         if (!gesture) { reflect('waiting'); return; }
         await context.resume();
       }
       if (token !== generation || !wanted || !available()) return;
-      if (!buffers) {
-        reflect('loading');
-        loadingBuffers ||= (async () => {
-          const response = await fetch(new URL('manifest.json?v=1.14.1', base));
-          if (!response.ok) throw new Error('Audio catalogue unavailable');
-          const manifest = await response.json();
-          return Promise.all(manifest.clips.map(async entry => {
-            const audio = await fetch(new URL(entry.file, base));
-            if (!audio.ok) throw new Error('Audio unavailable');
-            return { ...entry, buffer: await context.decodeAudioData(await audio.arrayBuffer()) };
-          }));
-        })().catch(error => { loadingBuffers = null; throw error; });
-        buffers = await loadingBuffers;
-      }
+      if(!await prepare())throw new Error('Audio unavailable');
       if (token !== generation || !wanted || !available()) return;
       started = true; playedOnce = true; volume(); reflect('playing'); wind(token);
+      warmOthers();
       later(random(3, 7), () => bird(token), token);
       later(random(6, 16), () => playground(token), token);
       later(random(25, 45), () => vehicle(token), token);
@@ -162,6 +196,7 @@ export function createAmbientAudio(button) {
     if (wanted) start(true);
     else pause(.22);
   });
+  loadingButton?.addEventListener('click',()=>start(true));
   document.addEventListener('visibilitychange', () => {
     focused=document.hasFocus();
     if (!available()) { pause(focusFade); if (wanted) reflect('paused'); }
@@ -172,7 +207,7 @@ export function createAmbientAudio(button) {
   window.addEventListener('pagehide', () => pause());
   window.addEventListener('pageshow', event => { focused=document.hasFocus();if (event.persisted) start(playedOnce || navigator.userActivation?.hasBeenActive); });
   reflect(wanted ? 'waiting' : 'off');
-  return { start, setWindow(value) { open = value; volume(); },
+  return { start, prepare, setWindow(value) { open = value; volume(); },
     playObject(action, material) {
       if (!wanted || !available() || context?.state !== 'running') return;
       effects ||= objectAudio(context); effects.play(action, material);

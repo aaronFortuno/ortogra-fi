@@ -9,7 +9,7 @@ const origin='http://127.0.0.1:4187';
     window.AudioContext=class extends Native{constructor(...args){super(...args);window.audioContext=this;const source=this.createBufferSource.bind(this);
       this.createBufferSource=()=>{const s=source(),connect=s.connect.bind(s),stop=s.stop.bind(s),voice={source:s,stops:[]};audioVoices.push(voice);
         s.connect=n=>{voice.level=n;return connect(n)};s.stop=t=>{voice.stops.push({now:this.currentTime,end:t});return stop(t)};return s;};}};
-    const {createAmbientAudio}=await import('/escriptori/ambient-audio.js?v=1.25.0');window.audioAPI=createAmbientAudio(document.querySelector('#ambient-toggle'));
+    const {createAmbientAudio}=await import('/escriptori/ambient-audio.js?v=1.26.0');window.audioAPI=createAmbientAudio(document.querySelector('#ambient-toggle'));
   });
   await page.locator('#gesture').click();await page.locator('[data-audio-state=playing]').waitFor();await page.waitForTimeout(450);
   await page.evaluate(()=>audioAPI.playObject('crumple','paper'));await page.waitForFunction(()=>audioVoices.some(v=>v.source.buffer.duration<1.5));

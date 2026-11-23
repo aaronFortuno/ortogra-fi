@@ -1,7 +1,7 @@
 import { createSampleBrowser } from './samples.js?v=1.11.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.16.1';
 import { createLightControls } from './light-controls.js?v=1.16.0';
-import { createAmbientAudio } from './ambient-audio.js?v=1.25.0';
+import { createAmbientAudio } from './ambient-audio.js?v=1.26.0';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -293,12 +293,17 @@ areaButtons.forEach(button => button.addEventListener('click', () => {
 async function start() {
   try {
     loading.update(0, 'Preparant l’escriptori…');
+    // Give the small continuous ambience the first download/decode slot.
+    // Slow or unavailable audio must never hold the visual interface hostage.
+    let audioTimer;
+    const audioFirst=Promise.race([ambience.prepare(),new Promise(resolve=>{audioTimer=setTimeout(resolve,2500);})]).finally(()=>clearTimeout(audioTimer));
     const [manifest] = await Promise.all([
       fetch(new URL('assets/desk/loading.json?v=1.15.0', base)).then(response => {
         if (!response.ok) throw new Error('No s’ha pogut carregar el pla de recursos.');
         return response.json();
       }),
       loadProjects(),
+      audioFirst,
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();

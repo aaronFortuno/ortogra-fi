@@ -2,6 +2,14 @@
 
 Revisió del 23 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Ambient durant la càrrega · 1.26
+
+`ambient-audio.prepare()` descarrega el manifest i el vent de fons amb prioritat alta i el descodifica abans d'importar el motor 3D. El fragment existent ocupa 513.008 B. Les metadades de projectes poden avançar en paral·lel; si el so triga més de 2,5 s, la preparació visual continua mentre l'àudio acaba en segon pla. Un error d'àudio tampoc atura el web. Les capes ocasionals utilitzen prioritat baixa i no són una condició per començar a reproduir el vent. Els efectes d'objecte es carreguen en el primer gest que els necessita.
+
+Es comprova l'estat real de l'AudioContext: si ja funciona, l'ambient pot començar sense esperar el primer fotograma de l'escriptori. Si el navegador exigeix activació, el carregador presenta un botó accessible, amb transicions de 220 ms. Un clic o toc desbloqueja la reproducció; no es força cap excepció a la política del navegador. Amb el silenci guardat no es crea el context ni es descarreguen sons. Els buffers i el context es reutilitzen en tornar al web; es conserva la sortida suau en perdre el focus.
+
+`check-desk-loading-audio.cjs` reté expressament el motor i algunes capes sonores: comprova que el vent sona mentre el carregador encara és visible. Utilitza les polítiques natives de Chrome de reproducció permesa i d'activació obligatòria, i també comprova silenci, error de servidor i vent lent. Inclou una captura de 320 px en fosc amb el botó d'activació. `check-desk-audio-focus.cjs` torna a validar les rampes reals, la tornada ràpida i el silenci manual. Les captures locals són a `output/desk/loading-audio/`.
+
 ## Focus sonor, recolzaments i materials movibles · 1.25
 
 `ambient-audio.js` detecta tant la visibilitat de la pestanya com el focus de la finestra. Cada veu activa conserva la seva pròpia envolupant: es manté el nivell actual i es programa una rampa de sortida de 2,5 s al rellotge d'àudio, igual que l'entrada del vent. Després se suspèn l'AudioContext. El rellotge d'àudio acaba la rampa encara que els temporitzadors de la pestanya s'alenteixin. Una tornada ràpida crea capes noves i deixa acabar les cues antigues; no les reactiva. Les cues continuen registrades perquè el silenci manual de 220 ms també les pugui apagar. Els efectes d'objecte comparteixen el mateix comportament. No es canvien els enregistraments.

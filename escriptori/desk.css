@@ -92,6 +92,10 @@
 .loading-progress{stroke:#a3563d;stroke-dasharray:100;stroke-dashoffset:calc(100 - var(--loaded));stroke-linecap:round;transition:stroke-dashoffset 220ms}
 .loading-value{font-size:23px;font-variant-numeric:tabular-nums;color:var(--ink)}
 .loading-label{margin:0;padding:0 22px;text-align:center;color:var(--muted);font-size:14px}
+.loading-audio-toggle{max-width:calc(100% - 48px);min-height:42px;padding:9px 14px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:15px;line-height:1.4;text-align:center;cursor:pointer;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 220ms,visibility 220ms,background 220ms}
+.loading-audio-toggle.is-available{opacity:1;visibility:visible;pointer-events:auto}
+.loading-audio-toggle:hover{background:var(--hover)}
+.loading-audio-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .light-panel{position:fixed;inset:auto;left:26px;bottom:132px;margin:0;width:320px;max-width:calc(100vw - 32px);padding:18px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 35px #172b2833}
 .light-panel:popover-open{animation:show-list 220ms ease both}
 .light-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -531,7 +535,7 @@
   .desk-list.is-open{
     animation:none
   }
-  .binder-target,.hover-caption,.sample-page,.description-page,.object-outline,.sample-hit,.sample-magnify,.page-corner,.project-enter,.desk-loading,.loading-progress,#light-now,.desk-intro,.desk-intro p,.desk-intro h1 span,.desk-view-help{
+  .binder-target,.hover-caption,.sample-page,.description-page,.object-outline,.sample-hit,.sample-magnify,.page-corner,.project-enter,.desk-loading,.loading-progress,.loading-audio-toggle,#light-now,.desk-intro,.desk-intro p,.desk-intro h1 span,.desk-view-help{
     transition:none
   }
   .light-panel:popover-open{animation:none}
