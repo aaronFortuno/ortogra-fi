@@ -6,7 +6,7 @@ const probe=`window.realism={
   idle:()=>typeof idleCamera==='undefined'?null:idleCamera.info(),
   contactVertices:()=>Array.from(scene.getObjectByName('StationeryContactOcclusion')?.geometry.attributes.position.array||[]),
   pose:()=>({position:camera.position.toArray(),rotation:camera.quaternion.toArray(),target:navigation.target.toArray()}),
-  stats(){const geometry=new Set();scene.traverse(n=>{if(n.isMesh)geometry.add(n.geometry)});
+  stats(){const geometry=new Set();scene.traverse(n=>{if(n.isMesh||n.isPoints)geometry.add(n.geometry)});
     return {calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,textures:renderer.info.memory.textures,
       geometryBytes:[...geometry].reduce((sum,g)=>sum+Object.values(g.attributes).reduce((s,a)=>s+a.array.byteLength,0)+(g.index?.array.byteLength||0),0),
       lights:scene.children.filter(n=>n.isLight).length,
@@ -37,9 +37,9 @@ const probe=`window.realism={
         for(const [name,{stats}]of Object.entries(snapshots)){
           assert.ok(stats.contacts.stamps<=40);assert.ok(stats.contacts.bytes<=4096);
           if(baseline){
-            const before=baseline[name].stats;assert.ok(stats.calls<=before.calls+1,'At most one extra draw for all prop contacts');
-            assert.ok(stats.triangles<=before.triangles+80);assert.equal(stats.textures,before.textures+1);assert.equal(stats.lights,before.lights);
-            assert.ok(stats.geometryBytes<=before.geometryBytes+8192);
+            const before=baseline[name].stats;assert.ok(stats.calls<=before.calls+3,'One contact batch and at most two air-light draws');
+            assert.ok(stats.triangles<=before.triangles+88);assert.equal(stats.textures,before.textures+1);assert.equal(stats.lights,before.lights);
+            assert.ok(stats.geometryBytes<=before.geometryBytes+24576);
           }
         }
         if(!mobile){

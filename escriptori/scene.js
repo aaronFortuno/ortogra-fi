@@ -12,6 +12,7 @@ import { createPaperView } from './paper-view.js?v=1.11.0';
 import { createContactShadows } from './contact-shadows.js?v=1.22.0';
 import { createIdleCamera } from './idle-camera.js?v=1.22.0';
 import { createPerformanceMonitor } from './performance.js?v=1.22.1';
+import { createAirLight } from './air-light.js?v=1.23.0';
 import { createShelfOcclusion } from './shelf-occlusion.js?v=1.11.0';
 import { createLabelTexture } from './labels.js?v=1.11.0';
 import { createReliefs } from './reliefs.js?v=1.11.0';
@@ -256,6 +257,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     onReadingPower: value => { readingPower = value; readingLight.intensity = readingIntensity() * readingBlend; } });
   const weather = createCloudShadows(scene, daylight, lighting.prepareWindowShader);
   atmosphere.setWeather(weather.uniforms);
+  const air=createAirLight({scene,sun:daylight,roomLight:scene.getObjectByName('CeilingLight'),opening:room.getObjectByName('WindowOpening'),weather:weather.uniforms});
 
   function requestRender(geometryChanged = true) {
     if (geometryChanged) controlsDirty = true;
@@ -282,6 +284,8 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     canvas.dataset.cameraMotion=cameraMoving?'drifting':'still';
     if(cameraMoving)controlsDirty=true;
     camera.updateMatrixWorld();
+    const airState=air.sync({camera,height:lastHeight,pixelRatio:renderer.getPixelRatio(),mobile:narrow.matches,
+      focused:Boolean(active)||presenting||contextLost,time,reduced:reducedMotion.matches});
     if (controlsDirty) { updateControls(); controlsDirty = false; }
     if (active) {
       const rect = canvas.getBoundingClientRect(); reading.project(camera, rect);
@@ -290,11 +294,12 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     outline.update(active ? null : models.get(hovered), camera, lastWidth, lastHeight);
     if ([...motions.keys()].some(key => key !== 'view')) renderer.shadowMap.needsUpdate = true;
     const foliageVisible = atmosphere.visible(camera);
-    const living = !reducedMotion.matches && !document.hidden && !presenting && !active && !contextLost && (foliageVisible || weather.active() || cameraEligible);
+    const living = !reducedMotion.matches && !document.hidden && !presenting && !active && !contextLost && (foliageVisible || weather.active() || cameraEligible || airState.visible);
     if (living && (sceneryFrame === null || time - sceneryFrame >= 1000 / 24)) {
       sceneryTime += sceneryFrame === null ? 0 : Math.min(.1, (time - sceneryFrame) / 1000);
       sceneryFrame = time;
       atmosphere.update(sceneryTime * 1000, daylight.intensity > .02); weather.update(sceneryTime);
+      air.update(sceneryTime);
       if ((foliageVisible || daylight.intensity > .02) && lighting.hasShadows() && time - ambientShadowTime >= 125) {
         renderer.shadowMap.needsUpdate = true;
         ambientShadowTime = time;
@@ -308,7 +313,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     canvas.dataset.ambience = living ? 'moving' : 'still';
     if (living) ambientTimer = setTimeout(() => requestRender(false), 1000 / 24);
     if (motions.size) requestRender();
-    else if (objectsMoving) requestRender(false);
+    else if (objectsMoving || airState.moving) requestRender(false);
   }
   function cancelMotion(key) {
     if (!motions.has(key)) return;

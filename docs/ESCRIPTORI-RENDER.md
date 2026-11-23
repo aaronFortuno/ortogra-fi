@@ -1,6 +1,18 @@
 # Materials, llum i moviment de l’escriptori
 
-Revisió del 22 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
+Revisió del 23 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
+
+## Pols flotant i dispersió de llum · 1.23
+
+`air-light.js` afegeix 640 punts a l'aire, limitats a 384 en pantalles de fins a 700 px. Les llavors i característiques es generen una sola vegada amb una seqüència determinista. El moviment es calcula al shader, amb deriva lenta, variacions de fase i una desaparició suau als límits del volum. No s'actualitzen posicions de partícules a la CPU ni es creen textures per a les motes. La mida queda acotada en píxels i s'atenua a prop de la càmera.
+
+La intensitat depèn de la llum: s'interseca el raig cap al sol amb l'obertura real de la finestra, es modula amb el mateix mapa de núvols de l'escena i es consulta el mapa d'ombres solar ja existent. La il·luminació nocturna consulta el con i el mapa d'ombres del llum de la sala. Els colors segueixen aquestes fonts. Quatre làmines de dispersió amb vores suaus fan visible el pas de llum solar; comparteixen una sola malla de vuit triangles. És una aproximació de baixa densitat, sense integrar un volum real ni afegir una passada de raymarching, una còpia de profunditat, llums o mapes d'ombres nous. Les motes i làmines respecten la profunditat de l'escena i no participen en selecció ni col·lisions.
+
+La direcció dels feixos es recalcula quan canvia el sol, no cada partícula a cada fotograma. De nit no hi ha feixos de finestra; si també s'apaga el llum de la sala, no hi ha motes lluminoses. La lectura i la inspecció els amaguen amb una transició de 220 ms. El moviment comparteix el rellotge ambiental a un màxim de 24 Hz, queda congelat amb moviment reduït i es pausa amb la pestanya oculta. La llum i els efectes estàtics continuen responent als controls de data, hora i interruptor.
+
+Cost respecte de la 1.22.1 en la vista inicial diürna: dues crides addicionals (190 → 192), vuit triangles (57.983 → 57.991), 640 punts i 13.168 B d'atributs/índexs (4.181.058 → 4.194.226 B). Les textures i les llums es mantenen igual. De nit només s'afegeix una crida i, amb els llums apagats, cap. En una comparació local amb el mateix enquadrament i sol de tarda, el mostreig de dibuix estàtic va passar de 0,9 a 1,3 ms de mediana; els temps varien entre passades i no equivalen a una garantia de FPS en altres dispositius.
+
+`tools/check-desk-air.cjs` compara l'efecte apagat/encès en el mateix moment, comprova diferències visibles a la imatge, comptadors de recursos, canvi de direcció solar, nit, llums apagats, reutilització dels buffers, moviment reduït, pausa durant lectura i clic real sobre la finestra. Inclou 320 px en fosc. Les captures i mesures són a `output/desk/air/`. `check-desk-realism.cjs` incorpora també els buffers de `Points` al recompte de geometria; abans només comptava les malles.
 
 ## Indicador provisional de rendiment · 1.22.1
 
