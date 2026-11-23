@@ -39,7 +39,7 @@ const probe=`window.realism={
           if(baseline){
             const before=baseline[name].stats;assert.ok(stats.calls<=before.calls+3,'One contact batch and at most two air-light draws');
             assert.ok(stats.triangles<=before.triangles+88);assert.equal(stats.textures,before.textures+1);assert.equal(stats.lights,before.lights);
-            assert.ok(stats.geometryBytes<=before.geometryBytes+24576);
+            assert.ok(stats.geometryBytes<=before.geometryBytes+32768,'Contact and air geometry stay within 32 KiB');
           }
         }
         if(!mobile){

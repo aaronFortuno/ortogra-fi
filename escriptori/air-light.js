@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // Small, depth-tested motes and four feathered scattering sheets. Reuse the
 // existing solar/ceiling shadow maps; no depth copy, raymarch pass or new light.
 export function createAirLight({scene,sun,roomLight,opening,weather}){
-  const count=640,seeds=new Float32Array(count*3),traits=new Float32Array(count*2);
+  const count=1024,seeds=new Float32Array(count*3),traits=new Float32Array(count*2);
   let random=43179;const rand=()=>{random=(Math.imul(random,1664525)+1013904223)>>>0;return random/4294967296;};
   for(let i=0;i<count;i++){seeds.set([rand(),rand(),rand()],i*3);traits.set([rand(),rand()],i*2);}
   const origin=opening.getWorldPosition(new THREE.Vector3()),half=new THREE.Vector2((opening.userData.height||3.3)/2,(opening.userData.width||4.9)/2);
@@ -35,7 +35,7 @@ export function createAirLight({scene,sun,roomLight,opening,weather}){
       if(airSun.x>=-.015)return 0.0;
       float t=(airWindow.x-p.x)/airSun.x;if(t<=0.0)return 0.0;
       vec2 aperture=abs((p+airSun*t-airWindow).yz)/airHalf;
-      vec2 edge=1.0-smoothstep(vec2(.78),vec2(1.0),aperture);
+      vec2 edge=1.0-smoothstep(vec2(.55),vec2(1.03),aperture);
       return edge.x*edge.y*exp(-max(0.0,p.x-airWindow.x)*.06);
     }
     float airCloud(vec3 p){
@@ -59,28 +59,30 @@ export function createAirLight({scene,sun,roomLight,opening,weather}){
       varying vec3 moteColor;
       void main(){
         float phase=trait.x*6.2831853;
-        vec3 seed=fract(position+airTime*vec3(.00065,.00072,.00036)*( .65+trait.y*.7));
+        vec3 seed=fract(position+airTime*vec3(.00085,.00094,.00048)*( .65+trait.y*.7));
         vec3 p=vec3(-7.6+seed.x*12.5,-.05+seed.y*4.85,.4+seed.z*4.6);
-        p.x+=sin(airTime*.17+phase)*.06+sin(airTime*.31-phase)*.018;
-        p.y+=sin(airTime*.13+phase)*.025;
-        p.z+=cos(airTime*.13+phase)*.055;
+        p.x+=sin(airTime*.17+phase)*.085+sin(airTime*.31-phase)*.025;
+        p.y+=sin(airTime*.13+phase)*.04;
+        p.z+=cos(airTime*.13+phase)*.075;
         float edge=smoothstep(0.0,.035,seed.y)*(1.0-smoothstep(.965,1.0,seed.y));
         edge*=smoothstep(0.0,.02,seed.x)*(1.0-smoothstep(.98,1.0,seed.x));
         edge*=smoothstep(0.0,.025,seed.z)*(1.0-smoothstep(.975,1.0,seed.z));
         float sunlight=airDirect(p),ceiling=airCeiling(p);
-        float sky=airSunPower*.035,light=sunlight+ceiling*.34+sky;
+        // Indirect daylight keeps some motes visible between shafts, with a
+        // strong lift only when an individual grain crosses direct light.
+        float sky=airSunPower*.14,light=sunlight+ceiling*.42+sky;
         vec4 view=modelViewMatrix*vec4(p,1.0);float distance=-view.z;
         float nearFade=smoothstep(.5,1.4,distance)*(1.0-smoothstep(12.0,19.0,distance));
-        moteAlpha=airVisibility*edge*nearFade*light*(.16+trait.y*.23)*(.8+.2*sin(phase+airTime*.27));
+        moteAlpha=airVisibility*edge*nearFade*light*(.28+trait.y*.36)*(.85+.15*sin(phase+airTime*.27));
         moteColor=mix(airRoomColor,airSunColor,(sunlight+sky)/max(.0001,light))*1.65;
         gl_Position=projectionMatrix*view;
-        gl_PointSize=clamp((.008+trait.y*trait.y*.010)*airScale/max(.3,distance),1.2,4.2);
+        gl_PointSize=clamp((.011+trait.y*trait.y*.018)*airScale/max(.3,distance),1.4,5.6);
       }`,
     fragmentShader:`
       varying float moteAlpha;varying vec3 moteColor;
       void main(){
         float r=length(gl_PointCoord-vec2(.5))*2.0;
-        float alpha=moteAlpha*exp(-r*r*3.5)*(1.0-smoothstep(.65,1.0,r));
+        float alpha=moteAlpha*exp(-r*r*3.0)*(1.0-smoothstep(.60,1.0,r));
         if(alpha<.003)discard;gl_FragColor=vec4(moteColor,alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -95,14 +97,20 @@ export function createAirLight({scene,sun,roomLight,opening,weather}){
   const beamMaterial=new THREE.ShaderMaterial({uniforms,transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,forceSinglePass:true,blending:THREE.AdditiveBlending,
     vertexShader:`varying vec2 beamUv;varying vec3 beamWorld;void main(){beamUv=uv;beamWorld=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
     fragmentShader:lighting+`
+      uniform float airTime;
       varying vec2 beamUv;varying vec3 beamWorld;
       void main(){
         vec3 p=beamWorld;
         if(p.x<airWindow.x+.08||p.x>7.7||p.z< -1.63||p.z>5.1||p.y< -.5||p.y>6.7)discard;
-        float feather=smoothstep(0.0,.28,beamUv.x)*(1.0-smoothstep(.72,1.0,beamUv.x));
-        feather*=smoothstep(0.0,.10,beamUv.y)*(1.0-smoothstep(.62,1.0,beamUv.y))*smoothstep(-.5,.15,p.y);
+        // A broad Gaussian profile and a drifting, shared noise mask avoid
+        // the uniform straight ribbons of a flat, evenly lit sheet.
+        float haze=texture2D(deskCloudMap,p.yz*.095+vec2(p.x*.029,-p.x*.019)+vec2(airTime*.0007,airTime*.0004)).r;
+        float across=(beamUv.x-.5)*2.0+(haze-.5)*.32;
+        float feather=exp(-across*across*4.5)*smoothstep(0.0,.18,beamUv.x)*(1.0-smoothstep(.82,1.0,beamUv.x));
+        feather*=smoothstep(0.0,.17,beamUv.y)*(1.0-smoothstep(.38,1.0,beamUv.y))*smoothstep(-.5,.15,p.y);
+        feather*=smoothstep(.18,.78,haze);
         float facing=abs(dot(normalize(cross(dFdx(p),dFdy(p))),normalize(cameraPosition-p)));
-        float alpha=airVisibility*airDirect(p)*feather*(.025+.045*facing);
+        float alpha=airVisibility*airDirect(p)*feather*(.006+.011*facing);
         if(alpha<.001)discard;gl_FragColor=vec4(airSunColor*1.35,alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -134,7 +142,7 @@ export function createAirLight({scene,sun,roomLight,opening,weather}){
         uniforms[map].value=light.shadow.map?.texture||null;uniforms[matrix].value=light.shadow.matrix;uniforms[ready].value=light.shadow.map?1:0;
       }
       if(previous.distanceToSquared(sunDirection)>1e-9)updateBeam();
-      dustGeometry.setDrawRange(0,mobile?384:count);
+      dustGeometry.setDrawRange(0,mobile?640:count);
       const visible=uniforms.airVisibility.value>.001;
       dust.visible=visible&&(uniforms.airSunPower.value>.002||uniforms.airRoomPower.value>.002);
       beam.visible=visible&&uniforms.airSunPower.value>.02&&sunDirection.x<-.015;

@@ -2,6 +2,12 @@
 
 Revisió del 23 de novembre de 2026. L’escena continua sent un GLB preparat amb Blender i renderitzat amb Three.js 0.180.0, amb recursos locals. Les propostes pendents són hipòtesis per comparar visualment en local; no són millores de rendiment ja mesurades.
 
+## Pols més present i feixos difuminats · 1.23.1
+
+La densitat passa a 1.024 motes (640 en mòbil), amb més variació visible de mida i una deriva lleugerament més perceptible. La llum indirecta en deixa veure algunes fora dels feixos, mentre que la llum directa les ressalta més. La mida màxima continua limitada a 5,6 píxels físics i hi ha atenuació a prop de la càmera. Les làmines de dispersió redueixen la intensitat aproximadament a una quarta part, amb perfil gaussià, vores més amples i densitat irregular. La irregularitat reutilitza la textura de núvols amb coordenades pròpies i una deriva lenta; no incorpora cap recurs nou.
+
+Es conserven les dues crides de dibuix, els vuit triangles, les textures i les llums. Els atributs/índexs de l'aire ocupen 20.848 B, 7.680 B més que a la 1.23. En la prova local de tarda, la mediana de dibuix estàtic amb l'efecte apagat/encès és d'1,1/1,4 ms en ordinador i d'1,4/1,9 ms a 320 px; són mesures locals amb sincronització GPU, no FPS garantits. Les comprovacions locals cobreixen dia/nit, llums apagats, clic sobre la finestra, pausa en llegir, moviment reduït i mòbil fosc. El límit de geometria conjunta d'aire i contactes es manté acotat a 32 KiB respecte de la captura anterior a la 1.22.
+
 ## Pols flotant i dispersió de llum · 1.23
 
 `air-light.js` afegeix 640 punts a l'aire, limitats a 384 en pantalles de fins a 700 px. Les llavors i característiques es generen una sola vegada amb una seqüència determinista. El moviment es calcula al shader, amb deriva lenta, variacions de fase i una desaparició suau als límits del volum. No s'actualitzen posicions de partícules a la CPU ni es creen textures per a les motes. La mida queda acotada en píxels i s'atenua a prop de la càmera.

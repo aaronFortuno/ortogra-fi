@@ -22,7 +22,7 @@ const probe=`window.airStudy={
     async function snap(name){await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));images[name]=(await page.screenshot({path:path.join(out,(mobile?'mobile-':'desktop-')+name+'.png')})).toString('base64');snapshots[name]=await page.evaluate(()=>({air:airStudy.info(),stats:airStudy.stats(),bench:airStudy.bench()}));}
     await page.evaluate(()=>airStudy.toggle(false));await snap('without');await page.evaluate(()=>airStudy.toggle(true));await snap('sun');
     const a=snapshots.without.stats,b=snapshots.sun.stats;
-    assert.equal(b.points-a.points,mobile?384:640);assert.equal(b.calls-a.calls,2);assert.equal(b.triangles-a.triangles,8);assert.equal(b.textures,a.textures);assert.equal(b.lights,a.lights);
+    assert.equal(b.points-a.points,mobile?640:1024);assert.equal(b.calls-a.calls,2);assert.equal(b.triangles-a.triangles,8);assert.equal(b.textures,a.textures);assert.equal(b.lights,a.lights);
     snapshots.sun.visiblePixels=await page.evaluate(async ({urls,mobile})=>{
       const top=mobile?100:160,threshold=mobile?4:8,arrays=[];
       for(const url of urls){const image=new Image();image.src='data:image/png;base64,'+url;await image.decode();const c=document.createElement('canvas');c.width=image.width;c.height=image.height;const ctx=c.getContext('2d');ctx.drawImage(image,0,0);arrays.push(ctx.getImageData(0,top,c.width,c.height-top-60).data);}
