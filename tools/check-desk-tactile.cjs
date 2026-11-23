@@ -94,7 +94,7 @@ const sceneProbe=`window.tactileView={project(xyz){camera.updateMatrixWorld();co
       assert.equal((await get('LooseWorksheet_2')).acoustic,'paperball');
       // Identify the exact recording played, not just the number of sources.
       const audio=await page.evaluate(async manifest=>{
-        const {objectAudio}=await import('./object-audio.js?v=1.24.0');const ctx=new AudioContext();await ctx.resume();
+        const {objectAudio}=await import('./object-audio.js?v=1.25.0');const ctx=new AudioContext();await ctx.resume();
         let oscillators=0,stops=0;const played=[],labels=new Map(),decoded=[],osc=ctx.createOscillator.bind(ctx),src=ctx.createBufferSource.bind(ctx),decode=ctx.decodeAudioData.bind(ctx);
         ctx.createOscillator=()=>{oscillators++;return osc()};
         ctx.decodeAudioData=async bytes=>{const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('');

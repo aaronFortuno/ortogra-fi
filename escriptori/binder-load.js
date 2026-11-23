@@ -124,8 +124,8 @@ export function prepareBinderLoad(group, variant) {
 
 // Project the real closed geometry onto the shelf's vertical plane. The convex
 // outline is conservative across depth: covers cannot pass through a neighbour
-// even when the books have slightly different yaw/depth. This runs only at load.
-function standingProfile(group) {
+// even when the books have slightly different yaw/depth. Cache this at load.
+export function standingProfile(group) {
   group.updateWorldMatrix(true, true);
   const points = [], p = new THREE.Vector3();
   group.traverse(mesh => {
@@ -149,7 +149,7 @@ function standingProfile(group) {
   return [...half(points), ...half(points.reverse())];
 }
 
-function profileSpan(profile, y) {
+export function profileSpan(profile, y) {
   let low = Infinity, high = -Infinity;
   for (let i = 0; i < profile.length; i++) {
     const a = profile[i], b = profile[(i+1) % profile.length];

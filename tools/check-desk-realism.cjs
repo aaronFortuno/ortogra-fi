@@ -38,7 +38,7 @@ const probe=`window.realism={
           assert.ok(stats.contacts.stamps<=40);assert.ok(stats.contacts.bytes<=4096);
           if(baseline){
             const before=baseline[name].stats;assert.ok(stats.calls<=before.calls+3,'One contact batch and at most two air-light draws');
-            assert.ok(stats.triangles<=before.triangles+88);assert.equal(stats.textures,before.textures+1);assert.equal(stats.lights,before.lights);
+            assert.ok(stats.triangles<=before.triangles+88);assert.ok(stats.textures<=before.textures+1,'At most the existing contact atlas; offscreen textures may stay unallocated');assert.equal(stats.lights,before.lights);
             assert.ok(stats.geometryBytes<=before.geometryBytes+32768,'Contact and air geometry stay within 32 KiB');
           }
         }

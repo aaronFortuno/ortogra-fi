@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
 import { DeskNavigation } from './navigation.js?v=1.16.0';
-import { prepareBinderLoad, arrangeBinderRow } from './binder-load.js?v=1.15.1';
+import { prepareBinderLoad } from './binder-load.js?v=1.25.0';
+import { createBinderShelf } from './binder-shelf.js?v=1.25.0';
+import { createMaterialMovement } from './material-movement.js?v=1.25.0';
 import { deskLayout } from './desk-layout.js?v=1.10.0';
 import { createStationery } from './stationery.js?v=1.24.0';
 import { createAtmosphere } from './atmosphere.js?v=1.22.0';
@@ -110,6 +112,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   let ambientShadowTime = -Infinity;
   let firstFrame;
   let sceneryTime = 0, sceneryFrame = null;
+  let materialMovement,binderShelf;
   const idleCamera=createIdleCamera(camera,navigation,{reduced:reducedMotion,redraw:()=>requestRender(false)});
   const paperView = createPaperView({ camera, target: navigation.target, reading,
     animate, requestRender, getSize: () => ({ width: lastWidth, height: lastHeight }) });
@@ -216,25 +219,13 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     });
   }
   const binders = [...models.values()].filter(model => model.project.kind === 'binder');
-  arrangeBinderRow(binders.map(model => model.group), {
-    left: deskLayout.organizer.openings[0][0], surface: deskLayout.table.surfaceY,
-  });
-  for (const model of binders) {
-    model.home.copy(model.group.position); model.rotation.copy(model.group.quaternion);
-  }
-  // Keep area shortcuts above the actual, more closely packed materials.
-  for (const name of ['Llengua', 'Matemàtiques']) {
-    const row = binders.filter(model => model.project.area === name);
-    const center = row.reduce((sum, model) => sum + model.home.x, 0) / row.length;
-    areas[name].center[0] = center; areas[name].label[0] = center;
-  }
   await Promise.all([...models.values()].map(async model => {
     if (!model.project.preview) return;
     model.previewTexture = await resources.load(model.project.preview, objectURL => new THREE.TextureLoader().loadAsync(objectURL));
     model.previewTexture.colorSpace = THREE.SRGBColorSpace;
   }));
   const stationery = createStationery({ room, canvas, camera, navigation, reduced: reducedMotion,
-    enabled: () => !active && !presenting && !contextLost, sound: onObjectSound,
+    enabled: () => !active && !presenting && !contextLost && !materialMovement?.busy, sound: onObjectSound,
     brush: (leaf, impulse) => { if (!reducedMotion.matches) { atmosphere.brush(leaf, impulse); requestRender(false); } },
     animate,
     action:onAction,
@@ -258,6 +249,20 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   const weather = createCloudShadows(scene, daylight, lighting.prepareWindowShader);
   atmosphere.setWeather(weather.uniforms);
   const air=createAirLight({scene,sun:daylight,roomLight:scene.getObjectByName('CeilingLight'),opening:room.getObjectByName('WindowOpening'),weather:weather.uniforms});
+  const materialRedraw=()=>{renderer.shadowMap.needsUpdate=true;requestRender();};
+  binderShelf=createBinderShelf(binders,{left:deskLayout.organizer.openings[0][0],surface:deskLayout.table.surfaceY,animate,redraw:materialRedraw});
+  materialMovement=createMaterialMovement({models,shelf:binderShelf,canvas,camera,navigation,stationery,animate,cancelMotion,
+    enabled:()=>!active&&!presenting&&!contextLost&&phase==='shelf',
+    onBusy:value=>{phase=value?'moving-material':'shelf';if(value)hovered=null;else updateMaterialAreas();},redraw:materialRedraw,onAction});
+  updateMaterialAreas();
+  function updateMaterialAreas(){
+    for(const name of ['Llengua','Matemàtiques']){
+      const row=binders.filter(m=>m.project.area===name),x=row.reduce((sum,m)=>sum+m.home.x,0)/row.length;
+      areas[name].center[0]=areas[name].label[0]=x;
+    }
+    const box=models.get('relleu-obert'),center=box.outlineBounds.clone().applyMatrix4(new THREE.Matrix4().compose(box.home,box.rotation,box.group.scale)).getCenter(new THREE.Vector3());
+    areas.Medi.center[0]=areas.Medi.label[0]=center.x;areas.Medi.center[2]=center.z;areas.Medi.label[2]=center.z+.3;
+  }
 
   function requestRender(geometryChanged = true) {
     if (geometryChanged) controlsDirty = true;
@@ -278,7 +283,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     scene.updateMatrixWorld();
     shelfOcclusion.update();
     contactShadows.update();
-    const cameraEligible=!narrow.matches&&!active&&!presenting&&!contextLost&&!document.hidden&&!hovered&&navigation.enabled&&
+    const cameraEligible=!narrow.matches&&!active&&!presenting&&!contextLost&&!document.hidden&&!hovered&&phase==='shelf'&&navigation.enabled&&
       !navigation.pointers.size&&!motions.size&&!document.querySelector('dialog[open],#projectes.is-open,[popover]:popover-open');
     const cameraMoving=idleCamera.update(time,cameraEligible);
     canvas.dataset.cameraMotion=cameraMoving?'drifting':'still';
@@ -467,7 +472,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   canvas.parentElement.addEventListener('pointercancel', () => canvas.parentElement.classList.remove('is-navigating'));
 
   function highlight(id) {
-    if (active || hovered === id) return;
+    if (active || phase!=='shelf' || hovered === id) return;
     hovered = id;
     for (const [key, model] of models) {
       const start = model.group.position.clone();
@@ -525,17 +530,24 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       });
     }
     phase = 'clearing';
+    for(const m of models.values())cancelMotion('hover-'+m.project.id);
+    const release=[...models.values()].filter(m=>m!==model&&!binderShelf.has(m)&&m.group.position.distanceTo(m.home)>.001).map(m=>{
+      const from=m.group.position.clone();return animate('hover-'+m.project.id,t=>m.group.position.lerpVectors(from,m.home,t));
+    });
+    if(binderShelf.has(model))release.push(binderShelf.take(model));
+    await Promise.all(release);
     const from = model.group.position.clone();
     const journey = prepareJourney(model, from, returnView);
     const space=openingSpace(journey,model);
-    if(!await stationery.clearSpace(space)){
+    if(!await materialMovement.clearSpace(space,model)||!await stationery.clearSpace(space)){
+      if(binderShelf.has(model))await binderShelf.restore();
       reading.unmount();if(model.project.reliefs?.length)reliefs.unmount();
       for(const texture of new Set((model.sampleTextures||[]).map(sample=>sample.texture)))texture.dispose();
       model.sampleTextures=null;active=null;phase='shelf';navigation.enabled=true;requestRender();
       throw Object.assign(new Error('No hi ha prou espai lliure a la taula.'),{code:'TABLE_FULL'});
     }
     phase='opening';canvas.parentElement.classList.add('is-reading');
-    await animate('journey', journey, journeyDuration);
+    await animate('journey',t=>{journey(t);model.group.updateWorldMatrix(true,true);binderShelf.leaving(model,t);},journeyDuration);
     shelfOcclusion.update(true);
     contactShadows.onTable(model.group);
     phase = 'reading';
@@ -605,15 +617,18 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     phase = 'closing';
     contactShadows.onTable(null);
     const model = active;
+    await binderShelf.prepareReturn(model);
     const view = Math.abs(returnView.aspect - camera.aspect) < .01 ? returnView : initialView();
     const journey = prepareJourney(model, model.home, view);
     await animate('journey', t => journey(1 - t), journeyDuration);
+    if(binderShelf.has(model))await binderShelf.restore();
     shelfOcclusion.update(true);
     reading.unmount();
     if (model.project.reliefs?.length) reliefs.unmount();
     for (const texture of new Set((model.sampleTextures || []).map(sample => sample.texture))) texture.dispose();
     model.sampleTextures = null;
     active = null; hovered = null;
+    updateMaterialAreas();
     phase = 'shelf';
     navigation.enabled = true;
     navigation.update();
@@ -792,6 +807,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   function orbitInspection(x, y) { if (phase === 'inspecting') return reliefs.orbit(x, y); }
   new ResizeObserver(() => { if (active && phase === 'reading') resize(); }).observe(document.querySelector('.description-page'));
   return { highlight, select, home, setTheme, setArea, setDetailVisible, moveView, setSample, curlSample,
+    materialBusy:()=>materialMovement.busy,
     inspectSheet, leaveInspection, panInspection, scrollInspection, orbitInspection,
     resetInspection: reliefs.reset, reliefInfo: reliefs.info, inspectionInfo: () => reliefs.info().open ? reliefs.info() : paperView.info(),
     sampleInfo: reading.info, setMoment: lighting.setMoment, setRoomLight: lighting.setRoomLight };

@@ -63,7 +63,7 @@ function checkFrames(frames, phase) {
             const factor = 256 / Math.max(original.width, original.height);
             small.width = Math.max(1, Math.round(original.width * factor)); small.height = Math.max(1, Math.round(original.height * factor));
             small.getContext('2d').drawImage(original, 0, 0, small.width, small.height); texture.image = small;`)
-          .replace('const motions = new Map();', 'const motions = new Map(); window.deskMoving = () => motions.has("view"); window.deskOcclusion = () => shelfOcclusion.visibilityAt(new THREE.Vector3(-5.4,.3,-1.66));')
+          .replace('const motions = new Map();', 'const motions = new Map(); window.deskMoving = () => motions.has("view"); window.deskOcclusion = () => {let sum=0,n=0;for(let x=-5.84;x<-1.86;x+=.16){sum+=shelfOcclusion.visibilityAt(new THREE.Vector3(x,.3,-1.66));n++;}return sum/n;};')
           .replace('const camera = new THREE.PerspectiveCamera(32, 1, .06, 75);', 'const camera = new THREE.PerspectiveCamera(32, 1, .06, 75); Object.defineProperty(window, "deskCamera", {get:()=>({position:camera.position.toArray(),rotation:camera.quaternion.toArray()})});')
           .replace('renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));', 'renderer.setPixelRatio(.3);')
           .replace('daylight.shadow.mapSize.set(2048, 2048);', 'daylight.shadow.mapSize.set(256, 256);');
@@ -96,7 +96,9 @@ function checkFrames(frames, phase) {
         const openingFrames = await page.evaluate(()=>window.deskFrames);
         await fs.writeFile(path.join(output,'journey-'+id+'-'+layout+(capture?'-captures':'')+'-opening.json'),JSON.stringify(openingFrames));
         checkFrames(openingFrames,'opening');
-        if(id==='plec')assert.ok(await page.evaluate(()=>window.deskOcclusion())>initialVisibility+.03,'Removing a binder lets more indirect light reach the backing');
+        // The neighbours now close the old gap. Assess the entire backing,
+        // including the newly freed end, rather than the old book's position.
+        if(id==='plec')assert.ok(await page.evaluate(()=>window.deskOcclusion())>initialVisibility+.01,'Removing a binder lets more indirect light reach the backing overall');
         await page.keyboard.press('Escape');
         await page.waitForFunction(()=>!document.querySelector('#project-detail').open&&!document.querySelector('#shelf-controls').inert);
         const frames=await page.evaluate(()=>window.deskFrames);

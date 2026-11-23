@@ -1,4 +1,4 @@
-import { objectAudio } from './object-audio.js?v=1.24.0';
+import { objectAudio } from './object-audio.js?v=1.25.0';
 
 // Each exterior layer schedules its own next entrance on the audio clock.
 export function createAmbientAudio(button) {
@@ -6,8 +6,10 @@ export function createAmbientAudio(button) {
   const mixGain = 10 ** (-3 / 20);
   let context, master, filter, buffers, loadingBuffers, effects, open = false;
   let generation = 0, previousBird = '', wanted = true, started = false, pending = false, playedOnce = false;
+  let focused=document.hasFocus(),suspendTimer;
+  const focusFade=2.5,available=()=>focused&&!document.hidden;
   try { wanted = localStorage.getItem('ortografi-desk-muted') !== 'true'; } catch { /* Session-only preference. */ }
-  const sources = new Set(), timers = new Set();
+  const sources = new Map(), timers = new Set();
   const random = (a, b) => a + Math.random() * (b - a);
   const status = document.querySelector('#ambient-status');
   function reflect(state) {
@@ -20,24 +22,36 @@ export function createAmbientAudio(button) {
   const later = (seconds, callback, token) => {
     const timer = setTimeout(() => {
       timers.delete(timer);
-      if (token === generation && wanted && !document.hidden) callback();
+      if (token === generation && wanted && available()) callback();
     }, seconds * 1000);
     timers.add(timer);
   };
   function stopLayers(fade = 0) {
     generation++;
-    effects?.stop();
+    effects?.stop(fade);
     for (const timer of timers) clearTimeout(timer);
     timers.clear();
-    for (const source of sources) { try { source.stop(context.currentTime + fade); } catch { /* Already ended. */ } }
-    sources.clear();
+    for (const [source,voice] of sources) {
+      const now=context.currentTime;
+      const end=Math.max(now,Math.min(now+fade,voice.stopAt??Infinity));voice.stopAt=end;
+      if(fade){
+        const gain=voice.level.gain;
+        if(gain.cancelAndHoldAtTime)gain.cancelAndHoldAtTime(now);
+        else {gain.cancelScheduledValues(now);gain.setValueAtTime(voice.gain*Math.max(0,Math.min(1,(now-voice.start)/voice.fade,(voice.end-now)/voice.fade)),now);}
+        gain.linearRampToValueAtTime(0,end);
+      }
+      try { source.stop(end); } catch { /* Already ended. */ }
+    }
+    if(!fade)sources.clear();
   }
   function volume() {
     if (!master) return;
     const now = context.currentTime;
     master.gain.cancelScheduledValues(now);
     const level = mixGain * (open ? .42 : .24);
-    master.gain.setTargetAtTime(wanted && !document.hidden ? level : 0, now, .12);
+    // Per-voice fades survive background timer throttling and can crossfade
+    // with a quick return without reviving an old layer or cutting it short.
+    master.gain.setTargetAtTime(level, now, .12);
     filter.frequency.setTargetAtTime(open ? 7200 : 1500, now, .14);
   }
   function play(entry, { gain = 1, pan = 0, rate = 1, offset = 0, fade = .25 } = {}) {
@@ -50,7 +64,7 @@ export function createAmbientAudio(button) {
     level.gain.setValueAtTime(gain, now + Math.max(fade, duration - fade));
     level.gain.linearRampToValueAtTime(0, now + duration);
     source.connect(level).connect(position).connect(master);
-    sources.add(source);
+    sources.set(source,{level,gain,start:now,end:now+duration,fade});
     source.onended = () => { sources.delete(source); source.disconnect(); level.disconnect(); position.disconnect(); };
     source.start(now, offset);
     return { duration, position };
@@ -80,7 +94,9 @@ export function createAmbientAudio(button) {
     later(random(38, 90), () => playground(token), token);
   }
   async function start(gesture = false) {
-    if (!wanted || document.hidden || pending || started) return;
+    if (!wanted || !available() || pending || started) return;
+    if(!context&&!gesture){reflect('waiting');return;}
+    clearTimeout(suspendTimer);suspendTimer=null;
     const token = ++generation;
     pending = true;
     try {
@@ -99,7 +115,7 @@ export function createAmbientAudio(button) {
         if (!gesture) { reflect('waiting'); return; }
         await context.resume();
       }
-      if (token !== generation || !wanted || document.hidden) return;
+      if (token !== generation || !wanted || !available()) return;
       if (!buffers) {
         reflect('loading');
         loadingBuffers ||= (async () => {
@@ -114,7 +130,7 @@ export function createAmbientAudio(button) {
         })().catch(error => { loadingBuffers = null; throw error; });
         buffers = await loadingBuffers;
       }
-      if (token !== generation || !wanted || document.hidden) return;
+      if (token !== generation || !wanted || !available()) return;
       started = true; playedOnce = true; volume(); reflect('playing'); wind(token);
       later(random(3, 7), () => bird(token), token);
       later(random(6, 16), () => playground(token), token);
@@ -126,9 +142,11 @@ export function createAmbientAudio(button) {
     } finally { if (token === generation) pending = false; }
   }
   function pause(fade = 0) {
+    if(suspendTimer&&!started&&!pending&&fade)return;
+    clearTimeout(suspendTimer);suspendTimer=null;
     pending = false; started = false; stopLayers(fade); volume();
     const token = generation;
-    if (fade) setTimeout(() => { if (token === generation) context?.suspend(); }, fade * 1000);
+    if (fade) suspendTimer=setTimeout(() => { suspendTimer=null;if (token === generation) context?.suspend(); }, fade * 1000+30);
     else context?.suspend();
   }
   function unlock(event) {
@@ -145,15 +163,18 @@ export function createAmbientAudio(button) {
     else pause(.22);
   });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { pause(); if (wanted) reflect('paused'); }
+    focused=document.hasFocus();
+    if (!available()) { pause(focusFade); if (wanted) reflect('paused'); }
     else if (wanted) start(playedOnce || navigator.userActivation?.hasBeenActive);
   });
+  window.addEventListener('blur',()=>{focused=false;pause(focusFade);if(wanted)reflect('paused');});
+  window.addEventListener('focus',()=>{focused=true;if(wanted)start(playedOnce||navigator.userActivation?.hasBeenActive);});
   window.addEventListener('pagehide', () => pause());
-  window.addEventListener('pageshow', event => { if (event.persisted) start(playedOnce || navigator.userActivation?.hasBeenActive); });
+  window.addEventListener('pageshow', event => { focused=document.hasFocus();if (event.persisted) start(playedOnce || navigator.userActivation?.hasBeenActive); });
   reflect(wanted ? 'waiting' : 'off');
   return { start, setWindow(value) { open = value; volume(); },
     playObject(action, material) {
-      if (!wanted || document.hidden || context?.state !== 'running') return;
+      if (!wanted || !available() || context?.state !== 'running') return;
       effects ||= objectAudio(context); effects.play(action, material);
     } };
 }

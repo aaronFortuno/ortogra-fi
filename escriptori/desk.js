@@ -1,7 +1,7 @@
 import { createSampleBrowser } from './samples.js?v=1.11.0';
 import { createLoadingIndicator, createResourceLoader } from './loading.js?v=1.16.1';
 import { createLightControls } from './light-controls.js?v=1.16.0';
-import { createAmbientAudio } from './ambient-audio.js?v=1.24.0';
+import { createAmbientAudio } from './ambient-audio.js?v=1.25.0';
 
 const workspace = document.querySelector('#workspace');
 const controls = document.querySelector('#shelf-controls');
@@ -176,7 +176,7 @@ function sampleFor(project) {
 }
 
 async function openProject(project, button) {
-  if (busy || selected) return;
+  if (busy || selected || scene?.materialBusy()) return;
   busy = true;
   openingButton = button;
   selected = project;
@@ -254,7 +254,7 @@ function makeControls() {
     label.textContent = project.name + ' · ' + project.purpose;
     button.append(label);
     button.addEventListener('pointerenter', () => {
-      if (selected || busy) return;
+      if (selected || busy || scene?.materialBusy()) return;
       scene.highlight(project.id);
       caption.textContent = project.name + ' · ' + project.purpose;
       caption.classList.add('visible');
@@ -302,7 +302,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.24.0');
+    const { createDesk } = await import('./scene.js?v=1.25.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({

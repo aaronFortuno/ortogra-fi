@@ -3,7 +3,7 @@
 import { soundProfile } from './object-sounds.js?v=1.24.0';
 
 export function objectAudio(context) {
-  const base=new URL('../assets/desk/audio/foley/',import.meta.url),buffers=new Map(),voices=new Set();
+  const base=new URL('../assets/desk/audio/foley/',import.meta.url),buffers=new Map(),voices=new Map();
   const last=new Map(),previous=new Map(),active=new Map();
   let generation=0;
   const ready=(async()=>{
@@ -27,10 +27,18 @@ export function objectAudio(context) {
       if(material==='leaf'&&active.get(material))return;
       const buffer=buffers.get(id);if(!buffer)return;
       const source=context.createBufferSource(),level=context.createGain();source.buffer=buffer;level.gain.value=profile.gain*(.94+Math.random()*.12);
-      source.connect(level).connect(context.destination);voices.add(source);previous.set(key,id);active.set(material,(active.get(material)||0)+1);
+      source.connect(level).connect(context.destination);voices.set(source,{level,stopAt:Infinity});previous.set(key,id);active.set(material,(active.get(material)||0)+1);
       source.onended=()=>{voices.delete(source);if(token===generation)active.set(material,Math.max(0,(active.get(material)||0)-1));source.disconnect();level.disconnect();};source.start();
     };
     if(buffers.has(id))start();else ready.then(start);
   }
-  return {ready,play,stop(){generation++;last.clear();active.clear();for(const source of voices){try{source.stop();}catch{/* Already ended. */}}voices.clear();}};
+  return {ready,play,stop(fade=0){
+    generation++;last.clear();active.clear();const now=context.currentTime;
+    for(const [source,voice]of voices){
+      const end=Math.max(now,Math.min(now+fade,voice.stopAt));voice.stopAt=end;
+      if(fade){const gain=voice.level.gain,value=gain.value;if(gain.cancelAndHoldAtTime)gain.cancelAndHoldAtTime(now);else {gain.cancelScheduledValues(now);gain.setValueAtTime(value,now);}gain.linearRampToValueAtTime(0,end);}
+      try{source.stop(end);}catch{/* Already ended. */}
+    }
+    if(!fade)voices.clear();
+  }};
 }

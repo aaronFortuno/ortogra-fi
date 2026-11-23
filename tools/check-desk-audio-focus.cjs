@@ -1,0 +1,32 @@
+const assert=require('node:assert/strict'),{chromium}=require('playwright');
+const origin='http://127.0.0.1:4187';
+(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
+  const ctx=await browser.newContext();await ctx.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());
+  await ctx.route('**/audio-focus-lab',r=>r.fulfill({contentType:'text/html',body:'<button id="ambient-toggle">So</button><button id="gesture">Comença</button><span id="ambient-status"></span><canvas id="desk-canvas" data-lighting="day"></canvas>'}));
+  const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(origin+'/audio-focus-lab');
+  await page.evaluate(async()=>{
+    window.audioVoices=[];const Native=AudioContext;
+    window.AudioContext=class extends Native{constructor(...args){super(...args);window.audioContext=this;const source=this.createBufferSource.bind(this);
+      this.createBufferSource=()=>{const s=source(),connect=s.connect.bind(s),stop=s.stop.bind(s),voice={source:s,stops:[]};audioVoices.push(voice);
+        s.connect=n=>{voice.level=n;return connect(n)};s.stop=t=>{voice.stops.push({now:this.currentTime,end:t});return stop(t)};return s;};}};
+    const {createAmbientAudio}=await import('/escriptori/ambient-audio.js?v=1.25.0');window.audioAPI=createAmbientAudio(document.querySelector('#ambient-toggle'));
+  });
+  await page.locator('#gesture').click();await page.locator('[data-audio-state=playing]').waitFor();await page.waitForTimeout(450);
+  await page.evaluate(()=>audioAPI.playObject('crumple','paper'));await page.waitForFunction(()=>audioVoices.some(v=>v.source.buffer.duration<1.5));
+  const before=await page.evaluate(()=>audioVoices[0].level.gain.value);assert.ok(before>0);
+  await page.evaluate(()=>window.dispatchEvent(new Event('blur')));
+  const immediate=await page.evaluate(()=>({state:audioContext.state,level:audioVoices[0].level.gain.value,stop:audioVoices[0].stops.at(-1)}));
+  assert.equal(immediate.state,'running');assert.ok(immediate.level>before*.7,'Focus loss does not cut the signal');assert.ok(Math.abs(immediate.stop.end-immediate.stop.now-2.5)<.02);
+  assert.ok(await page.evaluate(()=>audioVoices.filter(v=>v.source.buffer.duration<1.5).every(v=>Math.abs(v.stops.at(-1).end-v.stops.at(-1).now-2.5)<.02)),'Object sounds share the gradual stop');
+  await page.waitForTimeout(550);const during=await page.evaluate(()=>audioVoices[0].level.gain.value);assert.ok(during>0&&during<immediate.level,'The old voice fades gradually');
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await page.locator('[data-audio-state=playing]').waitFor();
+  await page.waitForTimeout(350);assert.ok(await page.evaluate(()=>audioVoices[0].level.gain.value)<during,'A quick return never revives the old voice');
+  await page.waitForTimeout(2400);assert.equal(await page.evaluate(()=>audioContext.state),'running','A stale pause timer cannot suspend resumed audio');
+  await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
+  assert.equal(await page.evaluate(()=>audioContext.state),'running');await page.waitForFunction(()=>audioContext.state==='suspended');assert.equal(await page.locator('#ambient-toggle').getAttribute('data-audio-state'),'paused');
+  await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));});await page.locator('[data-audio-state=playing]').waitFor();
+  await page.evaluate(()=>window.dispatchEvent(new Event('blur')));await page.waitForTimeout(100);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await page.locator('[data-audio-state=playing]').waitFor();
+  await page.locator('#ambient-toggle').click();assert.ok(await page.evaluate(()=>audioVoices.every(v=>v.stops.at(-1).end<=audioContext.currentTime+.24)),'Manual mute also shortens any old fading tails');
+  await page.waitForFunction(()=>audioContext.state==='suspended');assert.equal(await page.locator('#ambient-toggle').getAttribute('aria-pressed'),'false');
+  assert.deepEqual(errors,[]);console.log('PASS: real Web Audio fade on blur/visibility, quick-return crossfade, stale timer cancellation, delayed suspend and manual mute.');await ctx.close();
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1});

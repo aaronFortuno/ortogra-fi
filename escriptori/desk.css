@@ -123,6 +123,9 @@
 .workspace.is-navigating .binder-target{
   cursor:grabbing
 }
+.binder-target{cursor:grab}
+.workspace.is-moving-material .binder-target{cursor:grabbing}
+.workspace.is-moving-material .hover-caption{opacity:0}
 .workspace.is-navigating .hover-caption{
   opacity:0
 }

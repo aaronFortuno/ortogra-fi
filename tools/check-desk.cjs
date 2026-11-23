@@ -16,7 +16,8 @@ async function checkTouch(browser) {
     const target = page.locator('[data-project=trama]');
     const initial = await target.boundingBox();
     const cdp = await context.newCDPSession(page);
-    const x = initial.x + initial.width / 2, y = initial.y + initial.height / 2;
+    // Empty wall: a drag on a project now moves that material instead.
+    const x = 200, y = 210;
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 60, y: y + 10 }] });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
@@ -75,11 +76,11 @@ async function main() {
         await page.screenshot({ path: path.join(output, 'look-left.png') });
         await page.locator('[data-view=home]').click();
         await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) < 1, initial.x);
-        // Navigation also works on the object hit areas, without opening a card.
-        const center = { x: initial.x + initial.width / 2, y: initial.y + initial.height / 2 };
-        await page.mouse.move(center.x, center.y);
+        // Empty space rotates the camera; project drags have their own suite.
+        const center = { x: initial.x + initial.width / 2, y: initial.y + initial.height / 2 },wall={x:1080,y:155};
+        await page.mouse.move(wall.x, wall.y);
         await page.mouse.down();
-        await page.mouse.move(center.x + 95, center.y + 20, { steps: 8 });
+        await page.mouse.move(wall.x + 95, wall.y + 20, { steps: 8 });
         await page.mouse.up();
         assert.equal(await page.locator('#project-detail').evaluate(dialog => dialog.open), false);
         await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) > 20, initial.x);
@@ -92,6 +93,9 @@ async function main() {
         await page.screenshot({ path: path.join(output, 'close-labels.png') });
         await page.locator('[data-view=home]').click();
         await page.waitForFunction(x => Math.abs(document.querySelector('[data-project=trama]').getBoundingClientRect().x - x) < 1, initial.x);
+        // The last sub-pixel of a 420 ms view can finish after this approximate
+        // position check; wait for that view before starting a new pointer.
+        await page.waitForTimeout(450);
         await page.keyboard.down('Shift');
         await page.mouse.move(center.x, center.y);
         await page.mouse.down();
@@ -128,6 +132,8 @@ async function main() {
       assert.equal(await page.locator('#desk-canvas').getAttribute('data-selected'), null);
       if (width < 701) {
         await page.locator('[data-area=Utilitats]').click();
+        await page.locator('[data-project=pentagrama]').waitFor({state:'visible'});
+        await page.locator('[data-project=pauta]').waitFor({state:'visible'});
         assert.equal(await page.locator('.binder-target:visible').count(), 2);
         await page.locator('[data-project=pentagrama]').click();
         await page.locator('#project-detail.is-visible').waitFor();
@@ -182,6 +188,7 @@ async function main() {
     for (const id of ['plec', 'pauta', 'sentit', 'relleu-obert']) {
       const area=id==='pauta'?'Utilitats':id==='relleu-obert'?'Medi':'Llengua';
       await page.locator('[data-area="'+area+'"]').click();
+      await page.locator('[data-project='+id+']').waitFor({state:'visible'});
       if (id === 'plec') {
         const initial = await page.locator('[data-project=plec]').boundingBox();
         await page.locator('[data-view=left]').click();
@@ -196,6 +203,7 @@ async function main() {
       await page.screenshot({ path: path.join(output, 'reading-' + id + '.png') });
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !document.querySelector('#project-detail').open && !document.querySelector('#shelf-controls').inert);
+      await page.locator('[data-project='+id+']').waitFor({state:'visible'});
       const restored = await page.locator('[data-project=' + id + ']').boundingBox();
       assert.ok(Math.abs(previous.x - restored.x) < 1 && Math.abs(previous.width - restored.width) < 1);
       if (id === 'plec') await page.locator('[data-view=home]').click();
