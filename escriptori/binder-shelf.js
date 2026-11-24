@@ -3,7 +3,7 @@ import { standingProfile, profileSpan } from './binder-load.js?v=1.25.0';
 
 // Five cached convex outlines, not a continuously running physics world.
 // A shrinking/growing reserved slot keeps every remaining book supported.
-export function createBinderShelf(models,{left,surface,animate,redraw}) {
+export function createBinderShelf(models,{left,surface,gap=.004,animate,redraw}) {
   const order=[...models],cache=new Map(),up=new THREE.Vector3(0,0,1);
   let departing=null,departureAt=null;
   for(const model of order){
@@ -21,12 +21,12 @@ export function createBinderShelf(models,{left,surface,animate,redraw}) {
       const lift=surface-Math.min(...outline.map(p=>p.y))+.001;
       const minX=Math.min(...outline.map(p=>p.x));
       for(const p of outline){p.y+=lift;p.x=minX+(p.x-minX)*weight;}
-      let offset=left+.004-minX;
+      let offset=left+gap-minX;
       if(previous){
         const bottom=Math.max(Math.min(...previous.map(p=>p.y)),Math.min(...outline.map(p=>p.y)));
         const top=Math.min(Math.max(...previous.map(p=>p.y)),Math.max(...outline.map(p=>p.y)));
         const heights=[bottom,top,...previous.map(p=>p.y),...outline.map(p=>p.y)].filter(y=>y>=bottom&&y<=top);
-        offset=Math.max(...heights.map(y=>profileSpan(previous,y).high-profileSpan(outline,y).low+.004));
+        offset=Math.max(...heights.map(y=>profileSpan(previous,y).high-profileSpan(outline,y).low+gap));
       }
       outline.forEach(p=>p.x+=offset);previous=outline;rank+=weight;
       result.set(model,{position:new THREE.Vector3(offset,lift,saved.z),rotation:new THREE.Quaternion().setFromAxisAngle(up,angle).multiply(saved.basis)});

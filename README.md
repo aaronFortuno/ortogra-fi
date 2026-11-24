@@ -9,6 +9,14 @@ Portada de **[ortogra.fi](https://ortogra.fi/)**, un espai de recursos oberts pe
 
 La pàgina inclou tema clar/fosc i un diàleg sobre l’autor i Value for Value. No hi ha comptes. La preferència de tema es desa al dispositiu amb `localStorage`.
 
+## Escriptori v2 · prova asseguda
+
+[Escriptori v2](https://ortogra.fi/escriptori-v2/) prova una taula més compacta des d’una cadira fixa, en paral·lel a l’escriptori beta. Arrossegar el fons o fer servir les fletxes gira la mirada; la roda inclina el cap. En obrir un material, és el material qui s’acosta: la càmera conserva la posició, també durant la lectura i l’examen de maquetes. El botó «Projectes» dona accés als vuit recursos des de qualsevol orientació.
+
+La prova conserva tres exemples reals per projecte, les parelles de fitxa/solucionari o de plantilles, les tres maquetes de Relleu Obert, el tema, l’ambient, la finestra i el llum. Els altres elements fan d’attrezzo. La fusta, el vidre amb petites irregularitats i la paret amb taques i fissures pertanyen a una habitació nova; les mostres, els models i els materials PBR es reutilitzen localment. [Disseny i límits de la prova](docs/ESCRIPTORI-V2.md).
+
+`node tools/check-desk-v2.cjs` comprova que el punt de vista es manté fix durant els gestos i les animacions, els vuit recursos, les mostres, la lectura amb roda i tacte, les maquetes, el tema, V4V, la vista mòbil i els enllaços alternatius si falla la càrrega 3D. Les proves bloquegen les peticions externes. Aquesta ruta envia esdeveniments `v3_*`, amb `interficie: escriptori-v2` i etiqueta `escriptori-v3`, diferenciats dels de l’escriptori anterior.
+
 ## Escriptori beta
 
 L'ambient es prepara abans del motor 3D: primer el vent continu, després els sons ocasionals en segon pla. Pot començar mentre encara es veu el cercle de càrrega. Si el navegador demana una interacció, la pantalla ofereix «Escolta l’ambient mentre preparem la taula». Es respecta el silenci guardat i un so lent o no disponible no bloqueja la interfície. `node tools/check-desk-loading-audio.cjs` comprova inici automàtic permès/bloquejat, activació des de la càrrega, silenci, errors i connexió lenta, també en mòbil fosc.
