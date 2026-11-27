@@ -40,7 +40,7 @@ export function createGarden(scene,backdrop,reduced){
       euler.setFromQuaternion(camera.quaternion);layers[0].position.z=.75+THREE.MathUtils.clamp(euler.y*.045,-.055,.055);layers[0].position.y=THREE.MathUtils.clamp((euler.x+.46)*.025,-.025,.025);
       layers[1].position.z=.20+THREE.MathUtils.clamp(euler.y*.015,-.02,.02);
     },
-    setDay(day){backdrop.material.color.setScalar(.18+.82*day);scene.background.set('#aebdca').multiplyScalar(.12+.88*day);root.visible=day>.04;},
+    setDay(day){backdrop.material.color.setScalar(.001+.999*day);scene.background.set('#aebdca').multiplyScalar(.002+.998*day);root.visible=day>.04;},
     info:()=>({depths:[backdrop.position.x,...layers.map(l=>l.position.x)],offsets:layers.map(l=>l.position.toArray())}),
   };
 }

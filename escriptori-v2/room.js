@@ -51,10 +51,14 @@ export function createRoom(scene){
   box('BookendFoot',[.40,.006,.23],[.11,.753,-.47],iron,.003);
   box('BookendUpright',[.009,.41,.23],[.307,.961,-.47],iron,.003);
   for(const z of [-.56,-.38]){const screw=new THREE.Mesh(new THREE.CylinderGeometry(.003,.003,.002,10),iron);screw.position.set(.29,.757,z);root.add(screw);}
-  const scar=new THREE.MeshBasicMaterial({color:'#664d31',transparent:true,opacity:.21,depthWrite:false});
-  for(let i=0;i<20;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(.014+(i%5)*.009,.0006),scar);m.rotation.set(-Math.PI/2,0,i*.79);m.position.set(-.68+(i%9)*.20,.7506,-.04+Math.sin(i*2.1)*.19);root.add(m);}
+  const scar=new THREE.MeshStandardMaterial({color:'#664d31',roughness:1,transparent:true,opacity:.21,depthWrite:false});
+  let wearSeed=3071;const wearRandom=()=>{wearSeed=(Math.imul(wearSeed,1664525)+1013904223)>>>0;return wearSeed/4294967296;};
+  for(let i=0;i<28;i++){
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(.006+wearRandom()**2*.042,.00022+wearRandom()*.00025),scar);m.rotation.set(-Math.PI/2,0,(wearRandom()-.5)*1.4);
+    const x=i<19?-.15+(wearRandom()+wearRandom()-1)*.45:-.70+wearRandom()*1.65,z=i<19?.04+(wearRandom()+wearRandom()-1)*.17:-.37+wearRandom()*.58;m.position.set(x,.7506,z);root.add(m);
+  }
   const ringCanvas=document.createElement('canvas');ringCanvas.width=ringCanvas.height=192;const rc=ringCanvas.getContext('2d');rc.strokeStyle='rgba(85,59,31,.18)';rc.lineWidth=3;rc.beginPath();rc.ellipse(96,96,72,75,.2,.3,5.8);rc.stroke();
-  const ring=new THREE.Mesh(new THREE.PlaneGeometry(.092,.092),new THREE.MeshBasicMaterial({map:texture(ringCanvas),transparent:true,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(.31,.7508,.15);root.add(ring);
+  const ring=new THREE.Mesh(new THREE.PlaneGeometry(.092,.092),new THREE.MeshStandardMaterial({map:texture(ringCanvas),roughness:1,transparent:true,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(.31,.7508,.15);root.add(ring);
   const note=box('WallNote',[.12,.17,.001],[.43,1.25,-.642],new THREE.MeshStandardMaterial({map:noteTexture(),roughness:1}));note.rotation.z=-.065;
   const pin=new THREE.Mesh(new THREE.SphereGeometry(.004,10,7),new THREE.MeshStandardMaterial({color:'#a96745',roughness:.55}));pin.position.set(.43,1.327,-.636);root.add(pin);
   box('HighShelf',[.82,.026,.18],[.44,1.55,-.55],wood,.004);
@@ -83,7 +87,7 @@ export function createRoom(scene){
   const shade=new THREE.Mesh(new THREE.ConeGeometry(.065,.08,32,1,true),iron);shade.position.set(.91,1.075,.20);shade.rotation.z=-.18;root.add(shade);
   const bulb=new THREE.Mesh(new THREE.SphereGeometry(.012,10,8),new THREE.MeshBasicMaterial({color:'#fff0c7'}));bulb.position.set(.91,1.055,.20);root.add(bulb);
   const cable=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(.99,.757,.20),new THREE.Vector3(1.08,.754,.17),new THREE.Vector3(1.14,.73,.14),new THREE.Vector3(1.15,.63,.14)]),14,.002,5,false),new THREE.MeshStandardMaterial({color:'#373b33',roughness:.85}));root.add(cable);
-  const lamp=new THREE.SpotLight('#ffecd0',6.4,3.0,Math.PI/3,.85,2);lamp.position.copy(bulb.position);lamp.target.position.set(-.25,.75,.10);scene.add(lamp,lamp.target);
+  const lamp=new THREE.SpotLight('#ffecd0',6.4,3.0,Math.PI/3,.85,2);lamp.position.copy(bulb.position);lamp.target.position.set(-.25,.75,.10);lamp.shadow.mapSize.set(1024,1024);lamp.shadow.camera.near=.03;lamp.shadow.camera.far=3;lamp.shadow.normalBias=.0012;lamp.shadow.bias=-.00006;lamp.shadow.radius=3.5;scene.add(lamp,lamp.target);
   let opening=0;
   return {root,wood,trim,lamp,sash,outside,bulb,windowTargets:[glass,handle],switchTarget:lampSwitch,
     get opening(){return opening;},

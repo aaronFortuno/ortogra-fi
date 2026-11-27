@@ -11,7 +11,7 @@ export function createDeskLife({scene,camera,canvas,plant,landingSurfaces=[],red
   const body=new THREE.MeshStandardMaterial({color:'#252923',roughness:.48,metalness:.25}),eye=new THREE.MeshStandardMaterial({color:'#684332',roughness:.6});
   const abdomen=new THREE.Mesh(new THREE.CapsuleGeometry(.0016,.004,3,7),body);abdomen.rotation.x=Math.PI/2;fly.add(abdomen);
   const head=new THREE.Mesh(new THREE.SphereGeometry(.0017,8,6),eye);head.position.z=-.0038;fly.add(head);
-  const wingMaterial=new THREE.MeshBasicMaterial({color:'#cbd8cc',transparent:true,opacity:.29,side:THREE.DoubleSide,depthWrite:false});
+  const wingMaterial=new THREE.MeshStandardMaterial({color:'#cbd8cc',roughness:.9,envMapIntensity:.08,transparent:true,opacity:.29,side:THREE.DoubleSide,depthWrite:false});
   const wingShape=new THREE.Shape();wingShape.moveTo(0,0);wingShape.bezierCurveTo(.005,.003,.012,.001,.008,-.002);wingShape.quadraticCurveTo(.003,-.004,0,0);
   const wings=[];for(const side of [-1,1]){const wing=new THREE.Mesh(new THREE.ShapeGeometry(wingShape,5),wingMaterial);wing.rotation.x=-Math.PI/2;wing.scale.x=side;wing.position.set(side*.0007,.0015,.0004);fly.add(wing);wings.push(wing);}
   const legGeometry=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(.003,-.0015,.001),new THREE.Vector3(.004,-.003,.002)]),legMaterial=new THREE.LineBasicMaterial({color:'#353a2d'});
@@ -105,7 +105,10 @@ export function createDeskLife({scene,camera,canvas,plant,landingSurfaces=[],red
     if(paused||event.target.closest('.view-tools,.material-info,.inspection-close,.desk-list')||!canvas.isConnected)return;
     const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
     pointer.set(x/rect.width*2-1,1-y/rect.height*2);mouse.copy(pointer);hasPointer=true;pointerAt=time;ray.setFromCamera(pointer,camera);
-    if(plant){const hit=ray.intersectObject(plant,true)[0];if(hit)brush(hit.point,x-lastPointerX);}
+    if(plant){
+      const hit=ray.intersectObject(plant,true)[0];
+      if(hit&&[].concat(hit.object.material||[]).some(m=>/^IndoorFoliage_|^IndoorLeafVeins/.test(m.name)))brush(hit.point,x-lastPointerX);
+    }
     const screen=fly.position.clone().project(camera);if(screen.z>-1&&screen.z<1&&Math.hypot((screen.x+1)*rect.width/2-x,(1-screen.y)*rect.height/2-y)<48)takeFlight('startle');lastPointerX=x;
   }
   canvas.parentElement.addEventListener('pointermove',pointerMove);

@@ -17,6 +17,8 @@ Arrossegar el fons o fer servir les fletxes del teclat **gira la mirada** des de
 
 L’acabat explorable suavitza els píxels i conserva una resolució moderada, amb pàtina discreta, pols més visible i vegetació a diferents profunditats davant del fons del jardí. Els fulls recuperen més resolució en llegir. La mosca alterna repòs, passejades sobre superfícies i vols espontanis de recorregut variable; només de vegades prefereix un punt relativament proper al punter. L’interruptor físic és a la base de la làmpada. La memòria de mostres conserva com a màxim dos projectes per evitar tornar-los a descarregar a cada obertura.
 
+El desgast de tela i fusta combina marques desiguals i vores fregades; els pots tenen un acabat mat i ombres de contacte. Les etiquetes reaccionen a la llum, i la nit amb la làmpada apagada queda pràcticament a les fosques. Passar sobre les fulles produeix un dring molt discret i variable; el test queda silenciós. Un botó del visor permet provar un desenfocament perifèric lleu, que s’omet sempre en consultar fitxes.
+
 `node tools/check-desk-corner.cjs` comprova la posició fixa en explorar, la lectura zenital i el retorn, l’obertura mentre es descarreguen els fulls, la memòria de mostres, la recuperació d’errors, la mosca, les fulles, la finestra, els materials i els controls en ordinador/mòbil. `node tools/check-desk-v2.cjs` conserva el mateix comandament per compatibilitat. Les proves bloquegen l’analítica externa. La vista nova utilitza `v4_*`, `interficie: escriptori-raco` i etiqueta `escriptori-raco`. [Disseny, rendiment i límits](docs/ESCRIPTORI-RACO.md).
 
 ## Escriptori anterior (arxiu)

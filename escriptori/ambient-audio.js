@@ -1,10 +1,11 @@
 import { objectAudio } from './object-audio.js?v=1.25.0';
+import { createLeafChime } from './leaf-chime.js?v=0.3.2';
 
 // Each exterior layer schedules its own next entrance on the audio clock.
 export function createAmbientAudio(button) {
   const base = new URL('../assets/desk/audio/', import.meta.url);
   const mixGain = 10 ** (-3 / 20);
-  let context, master, filter, loadingBuffers, effects, open = false;
+  let context, master, filter, loadingBuffers, effects, chime, open = false;
   const buffers=[];
   let catalogue,warming;
   let generation = 0, previousBird = '', wanted = true, started = false, pending = false, playedOnce = false;
@@ -210,6 +211,9 @@ export function createAmbientAudio(button) {
   return { start, prepare, setWindow(value) { open = value; volume(); },
     playObject(action, material) {
       if (!wanted || !available() || context?.state !== 'running') return;
+      if(action==='chime'&&material==='leaf'){
+        chime ||= createLeafChime(context,(source,voice)=>{sources.set(source,voice);source.onended=()=>{sources.delete(source);source.disconnect();voice.level.disconnect();};});chime();return;
+      }
       effects ||= objectAudio(context); effects.play(action, material);
     } };
 }
