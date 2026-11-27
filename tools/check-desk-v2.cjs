@@ -29,7 +29,7 @@ async function close(page){await page.locator('#material-close').click();await p
       // Camera/plane values only exist in this routed test response, never in the public API.
       await page.route('**/escriptori-v2/scene.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('return {select,close,highlight,','return {probe:()=>({sheet:inspected?.mesh.position.toArray(),terrain:inspected?.mesh.rotation.toArray(),camera:camera.quaternion.toArray(),pages:active?.pages?.map(p=>p.material.map?.image?.src),shelf:shelf.info(),plant:content.getObjectByName(\'Pothos\')?.children.length}),select,close,highlight,')});});
       await page.goto(origin+'/escriptori-v2/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000});await page.locator('#desk-loading').waitFor({state:'hidden'});
-      await layout(page);await fixed(page);assert.equal(await page.locator('#project-list button').count(),8);assert.equal(await page.locator('[data-website-id]').count(),0);assert.deepEqual(external,[]);
+      await layout(page);await fixed(page);assert.equal(await page.locator('#project-list button').count(),9);assert.equal(await page.locator('[data-website-id]').count(),0);assert.deepEqual(external,[]);
       const initial=await page.evaluate(()=>seatedStudy.diagnostics());assert.ok(initial.calls<240,'Initial render stays below 240 draw calls');assert.ok(initial.triangles<110000);assert.ok(initial.textures<32);
       await page.screenshot({path:path.join(out,mobile?'mobile-dark.png':'desktop.png')});
       // Theme is handled once by the shared root script and persists to this origin.
@@ -59,7 +59,7 @@ async function close(page){await page.locator('#material-close').click();await p
       if(!mobile){
         // Test remaining resources with reduced motion after checking the normal journey.
         await page.emulateMedia({reducedMotion:'reduce'});
-        for(const name of ['Plec','Ressò','Sentit','Fil i Compte','Pentagrama']){
+        for(const name of ['Plec','Ressò','Sentit','Fil i Compte','Món a mà','Pentagrama']){
           await page.locator('.list-toggle').click();await page.getByRole('button',{name,exact:false}).filter({has:page.locator('small')}).click();await phase(page,'reading');await close(page);
         }
       }
@@ -73,7 +73,7 @@ async function close(page){await page.locator('#material-close').click();await p
       if(mobile){await page.setViewportSize({width:320,height:568});await layout(page);await fixed(page);await page.screenshot({path:path.join(out,'small-mobile.png')});}
       assert.deepEqual(errors,[]);report.push({mode:mobile?'mobile-dark-reduced':'desktop',initial});await context.close();
     }
-    const failed=await browser.newContext({reducedMotion:'reduce'});await failed.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());await failed.route('**/escriptori.glb*',r=>r.abort());const page=await failed.newPage();await page.goto(origin+'/escriptori-v2/');await page.locator('#workspace.failed').waitFor({timeout:30000});assert.equal(await page.locator('#project-list a').count(),8,'Loading failure offers real links to every resource');assert.equal(await page.locator('#projectes').evaluate(e=>e.inert),false);await failed.close();
-    console.log('PASS: fixed seat during gestures, reading, inspection and terrain; all 8 resources, 3 samples, paired pages, theme, V4V, mobile and render budget.');console.log(JSON.stringify(report,null,2));
+    const failed=await browser.newContext({reducedMotion:'reduce'});await failed.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());await failed.route('**/escriptori.glb*',r=>r.abort());const page=await failed.newPage();await page.goto(origin+'/escriptori-v2/');await page.locator('#workspace.failed').waitFor({timeout:30000});assert.equal(await page.locator('#project-list a').count(),9,'Loading failure offers real links to every resource');assert.equal(await page.locator('#projectes').evaluate(e=>e.inert),false);await failed.close();
+    console.log('PASS: fixed seat during gestures, reading, inspection and terrain; all 9 resources, 3 samples, paired pages, theme, V4V, mobile and render budget.');console.log(JSON.stringify(report,null,2));
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

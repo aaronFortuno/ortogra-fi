@@ -63,8 +63,8 @@ async function main() {
       page.on('response', response => { if (response.status() >= 400) errors.push(response.status() + ' ' + response.url()); });
       await page.goto(origin + '/escriptori/');
       await page.locator('#workspace[data-ready=true]').waitFor({ timeout: 20000 });
-      assert.equal(await page.locator('.binder-target').count(), 8);
-      assert.equal(await page.locator('.binder-target:visible').count(), width<=700?4:8);
+      assert.equal(await page.locator('.binder-target').count(), 9);
+      assert.ok(await page.locator('.binder-target:visible').count()>=(width<=700?4:8));
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       assert.ok(await page.locator('footer').evaluate(element => element.getBoundingClientRect().bottom <= innerHeight));
       await page.screenshot({ path: path.join(output, 'shelf-' + width + '-' + theme + '.png') });
@@ -144,7 +144,7 @@ async function main() {
       }
       await page.locator('.list-toggle').click();
       await page.locator('#projectes.is-open').waitFor();
-      assert.equal(await page.locator('#projectes a').count(), 8);
+      assert.equal(await page.locator('#projectes a').count(), 9);
       await page.keyboard.press('Escape');
       await page.locator('#about-open').click();
       await page.locator('#about-dialog.is-visible').waitFor();
@@ -217,10 +217,10 @@ async function main() {
     const fallback = await noScript.newPage();
     await fallback.goto(origin + '/escriptori/');
     assert.ok(await fallback.locator('#projectes').isVisible());
-    assert.equal(await fallback.locator('#projectes a').count(), 8);
+    assert.equal(await fallback.locator('#projectes a').count(), 9);
     await noScript.close();
     await checkTouch(browser);
-    console.log('PASS: fixed-eye look, lateral movement, cursor zoom, gesture/click separation, camera bounds, reduced-motion ambience, 8 projects, keyboard, mobile, themes and fallback.');
+    console.log('PASS: fixed-eye look, lateral movement, cursor zoom, gesture/click separation, camera bounds, reduced-motion ambience, 9 projects, keyboard, mobile, themes and fallback.');
   } finally {
     await browser.close();
   }

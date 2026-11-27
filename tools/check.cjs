@@ -40,7 +40,7 @@ const path = require('node:path');
       assert.deepEqual(groups, [
         ['Llengua', ['https://plec.ortogra.fi/', 'https://trama.ortogra.fi/', 'https://resso.ortogra.fi/', 'https://sentit.ortogra.fi/']],
         ['Matemàtiques', ['https://filicompte.ortogra.fi/']],
-        ['Medi', ['https://relleu.ortogra.fi/']],
+        ['Medi', ['https://monama.ortogra.fi/', 'https://relleu.ortogra.fi/']],
         ['Utilitats', ['https://pentagrama.page/', 'https://pauta.ortogra.fi/']],
       ]);
       await page.locator('.project-preview').evaluateAll(images => Promise.all(images.map(image => image.decode())));

@@ -22,3 +22,7 @@ Exemple adaptable al color del text:
 ```
 
 Llicència MIT, com el projecte.
+
+## Identitat dels projectes
+
+`mon-a-ma.png` reprodueix la icona original de [Món a mà](https://monama.ortogra.fi/), copiada de `mon-a-ma/docs/assets/mon-a-ma.png` el 27 de novembre de 2026. La portada i les etiquetes de l’escriptori utilitzen la mateixa imatge. La identitat i els materials del projecte conserven la seva atribució; aquesta còpia no els assigna una llicència nova.

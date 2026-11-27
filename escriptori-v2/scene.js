@@ -9,6 +9,7 @@ import { createPerformanceMonitor } from '../escriptori/performance.js?v=1.22.1'
 import { solarLight } from '../escriptori/solar.js?v=1.6.0';
 import { createSeatedLook, SEAT } from './seated-look.js?v=0.1.0';
 import { createRoom } from './room.js?v=0.1.0';
+import { addMonAMaModel } from '../escriptori/project-models.js?v=1.27.0';
 
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 const flatBinder=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,-1),new THREE.Vector3(-1,0,0)));
@@ -25,22 +26,24 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
   Object.assign(sun.shadow.camera,{left:-1.6,right:1.6,top:1.7,bottom:-1.3,near:.1,far:8});sun.shadow.normalBias=.008;sun.shadow.bias=-.0003;sun.shadow.radius=3;scene.add(sun,sun.target);
   onStage(null,'Preparant els materials de la taula…');
   const bytes=await resources.buffer(new URL('../assets/desk/escriptori.glb?v=1.15.0',import.meta.url).href),asset=await new GLTFLoader().parseAsync(bytes,new URL('../assets/desk/',import.meta.url).href);
+  addMonAMaModel(asset.scene);
   let variant=0;
   for(const project of projects){
     const group=asset.scene.getObjectByName('Item_'+project.id),lid=group.getObjectByName('Lid_'+project.id);content.add(group);group.position.set(0,0,0);group.rotation.set(0,0,0);group.scale.setScalar(.145);
     const label=await createLabelTexture(project),labelMesh=new THREE.Mesh(new THREE.PlaneGeometry(project.kind==='binder'?.293:1.4,project.kind==='binder'?1.41:.26,project.kind==='binder'?6:1,project.kind==='binder'?28:1),new THREE.MeshBasicMaterial({map:label,transparent:true,side:THREE.DoubleSide,depthWrite:false}));labelMesh.name='MaterialLabel';
     let setLoad;
     if(project.kind==='binder'){labelMesh.position.set(0,.12,.825);group.add(labelMesh);setLoad=prepareBinderLoad(group,variant++);}
-    else if(project.kind==='box'){labelMesh.position.set(0,-.01,.732);group.add(labelMesh);group.position.set(.065,0,-.44);}
+    else if(project.kind==='box'){labelMesh.position.set(0,-.01,.732);group.add(labelMesh);group.scale.multiplyScalar(.78);group.position.set(.025,0,-.44);}
     else {labelMesh.position.set(.925,.051,-.81);labelMesh.rotation.x=-Math.PI/2;lid.add(labelMesh);group.position.set(.48+(project.id==='pauta'?.025:0),0,project.id==='pauta'?-.015:-.39);group.rotation.y=project.id==='pauta'?-.04:.025;}
+    if(project.id==='mon-a-ma')group.position.set(.195,0,-.425);
     const hitQuad=project.kind==='binder'?[[-.20,-.91,.87],[.20,-.91,.87],[.20,.93,.87],[-.20,.93,.87]]:project.kind==='box'?[[-.95,-.31,.74],[.95,-.31,.74],[.95,.34,.74],[-.95,.34,.74]]:[[-.93,.05,-1.17],[.93,.05,-1.17],[.93,.05,1.17],[-.93,.05,1.17]];
     const model={project,group,lid,setLoad,hitQuad,axis:project.kind==='binder'?'y':project.kind==='box'?'x':'z',angle:project.kind==='binder'?-Math.PI-.28:project.kind==='box'?-Math.PI*.57:Math.PI};models.set(project.id,model);
   }
-  const binders=projects.filter(p=>p.kind==='binder').map(p=>models.get(p.id));
+  const binders=projects.filter(p=>p.kind==='binder'&&p.id!=='mon-a-ma').map(p=>models.get(p.id));
   for(const m of binders)m.group.position.z=-.425+(binders.indexOf(m)%2)*.012;
   arrangeBinderRow(binders.map(m=>m.group),{left:-.722,surface:.75,gap:.001});
   for(const m of models.values()){
-    if(m.project.kind!=='binder'){m.group.updateWorldMatrix(true,true);m.group.position.y+=.751-new THREE.Box3().setFromObject(m.group).min.y;}
+    if(m.project.kind!=='binder'||m.project.id==='mon-a-ma'){m.group.updateWorldMatrix(true,true);m.group.position.y+=.751-new THREE.Box3().setFromObject(m.group).min.y;}
     m.home=m.group.position.clone();m.rotation=m.group.quaternion.clone();m.group.updateWorldMatrix(true,true);
     m.bounds=new THREE.Box3();const inverse=m.group.matrixWorld.clone().invert();m.group.traverse(n=>{if(n.isMesh){n.geometry.computeBoundingBox();m.bounds.union(n.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,n.matrixWorld)));}});m.outlineBounds=m.bounds.clone();
   }

@@ -19,7 +19,7 @@ const instrument = `
   };
 `;
 async function open(page, id, mobile) {
-  const area=['pauta','pentagrama'].includes(id)?'Utilitats':id==='relleu-obert'?'Medi':id==='fil-i-compte'?'Matemàtiques':'Llengua';
+  const area=['pauta','pentagrama'].includes(id)?'Utilitats':['relleu-obert','mon-a-ma'].includes(id)?'Medi':id==='fil-i-compte'?'Matemàtiques':'Llengua';
   const button=page.locator(`[data-area="${area}"]`);if(await button.getAttribute('aria-pressed')!=='true')await button.click();
   await page.locator(`[data-project="${id}"]`).click();
   await page.locator('#project-detail.is-visible').waitFor();
@@ -50,7 +50,7 @@ async function inspect(page, side, mobile, screenshot) {
     await page.locator('#relief-reset').click();
   }
   if (screenshot) await page.screenshot({path:path.join(output,screenshot)});
-  if (side && await page.locator('#project-title').innerText() === 'Trama') {
+  if ((side && await page.locator('#project-title').innerText() === 'Trama') || await page.locator('#project-title').innerText() === 'Món a mà') {
     const downloading=page.waitForEvent('download'); await page.locator('#sample-pdf').click();
     const download=await downloading; const destination=path.join(output,'sample-download.pdf');
     await download.saveAs(destination);
@@ -100,7 +100,7 @@ async function inspect(page, side, mobile, screenshot) {
 (async () => {
   await fs.mkdir(output,{recursive:true});
   const catalogue = JSON.parse(await fs.readFile(path.resolve(__dirname,'../assets/desk/samples/examples.json')));
-  assert.equal(Object.keys(catalogue).length,8);
+  assert.equal(Object.keys(catalogue).length,9);
   for (const [id,examples] of Object.entries(catalogue)) {
     assert.equal(examples.length,3,id+' must have three examples');
     assert.equal(new Set(examples.map(e=>e.title)).size,3,id+' must have distinct materials');
@@ -128,7 +128,7 @@ async function inspect(page, side, mobile, screenshot) {
       await page.route('**/scene.js*',async route=>{const response=await route.fetch();const body=(await response.text()).replace('  return { highlight, select, home,',instrument+'\n  return { highlight, select, home,');await route.fulfill({response,body});});
       await page.goto(origin+'/escriptori/');
       await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});
-      for (const id of process.argv.find(a=>a.startsWith('--project=')) ? process.argv.find(a=>a.startsWith('--project=')).split('=')[1].split(',') : mobile ? ['trama','pauta'] : ['trama','pauta','pentagrama','plec','sentit','fil-i-compte','resso','relleu-obert']) {
+      for (const id of process.argv.find(a=>a.startsWith('--project=')) ? process.argv.find(a=>a.startsWith('--project=')).split('=')[1].split(',') : mobile ? ['trama','pauta','mon-a-ma'] : ['trama','pauta','pentagrama','plec','sentit','fil-i-compte','resso','mon-a-ma','relleu-obert']) {
         await open(page,id,mobile);
         if(id==='relleu-obert'){
           assert.equal((await page.evaluate(()=>window.deskSampleTest.relief())).models.length,3);
@@ -154,7 +154,7 @@ async function inspect(page, side, mobile, screenshot) {
         assert.ok(await page.locator('#sample-previous').isDisabled());
         await page.locator('#sample-next').click();
         await page.waitForFunction(()=>document.querySelector('#sample-counter').textContent==='2 / 3');
-        if (['trama','pauta','relleu-obert'].includes(id)) {
+        if (['trama','pauta','relleu-obert','mon-a-ma'].includes(id)) {
           await page.screenshot({path:path.join(output,`examples-${id}-${width}-${theme}.png`)});
           await inspect(page,0,mobile,`zenith-${id}-${width}-${theme}.png`);
           if (!mobile) await inspect(page,1,false);

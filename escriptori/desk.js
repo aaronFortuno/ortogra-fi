@@ -33,6 +33,8 @@ const presentation = [
     description: 'Escolta un àudio en català i treballa la comprensió al paper, amb fitxes i solucionaris imprimibles.' },
   { id: 'fil-i-compte', name: 'Fil i Compte', kind: 'binder', purpose: 'Problemes', color: '#a67b31', area: 'Matemàtiques',
     description: 'Prepara fitxes de problemes de matemàtiques. Tria els continguts, deixa espai per resoldre’ls i imprimeix el solucionari.' },
+  { id: 'mon-a-ma', name: 'Món a mà', kind: 'binder', purpose: 'Coneixement del medi', color: '#667e6d', area: 'Medi',
+    description: 'Prepara apunts i materials de coneixement del medi. Tria un tema, adapta els fulls i imprimeix-los per a la carpeta d’aprenentatge.' },
   { id: 'relleu-obert', name: 'Relleu Obert', kind: 'box', purpose: 'Maquetes 3D', color: '#52636d', area: 'Medi',
     description: 'Tria un lloc al mapa i converteix-lo en una maqueta de relleu per imprimir en 3D.' },
   { id: 'pentagrama', name: 'Pentagrama', kind: 'folder', purpose: 'Paper de música', color: '#9c573f', area: 'Utilitats',
@@ -75,7 +77,7 @@ async function loadProjects() {
   if (!response.ok) throw new Error('No s’ha pogut carregar el catàleg.');
   const portal = new DOMParser().parseFromString(await response.text(), 'text/html');
   const sampleBase = new URL('assets/desk/samples/', base);
-  const sampleCatalogue = await fetch(new URL('examples.json?v=1.11.0', sampleBase)).then(response => {
+  const sampleCatalogue = await fetch(new URL('examples.json?v=1.27.0', sampleBase)).then(response => {
     if (!response.ok) throw new Error('No s’han pogut carregar les mostres.');
     return response.json();
   });
@@ -89,7 +91,8 @@ async function loadProjects() {
       const domain = new URL(link.href).hostname;
       return domain === (project.id === 'pentagrama' ? 'pentagrama.page'
         : project.id === 'fil-i-compte' ? 'filicompte.ortogra.fi'
-        : project.id === 'relleu-obert' ? 'relleu.ortogra.fi' : project.id + '.ortogra.fi');
+        : project.id === 'relleu-obert' ? 'relleu.ortogra.fi'
+        : project.id === 'mon-a-ma' ? 'monama.ortogra.fi' : project.id + '.ortogra.fi');
     });
     if (!link) throw new Error('El projecte ha canviat al catàleg.');
     project.href = link.href;
@@ -298,7 +301,7 @@ async function start() {
     let audioTimer;
     const audioFirst=Promise.race([ambience.prepare(),new Promise(resolve=>{audioTimer=setTimeout(resolve,2500);})]).finally(()=>clearTimeout(audioTimer));
     const [manifest] = await Promise.all([
-      fetch(new URL('assets/desk/loading.json?v=1.15.0', base)).then(response => {
+      fetch(new URL('assets/desk/loading.json?v=1.27.0', base)).then(response => {
         if (!response.ok) throw new Error('No s’ha pogut carregar el pla de recursos.');
         return response.json();
       }),
@@ -307,7 +310,7 @@ async function start() {
     ]);
     loading.update(5, 'Carregant el motor 3D…');
     makeControls();
-    const { createDesk } = await import('./scene.js?v=1.25.0');
+    const { createDesk } = await import('./scene.js?v=1.27.0');
     loading.update(10, 'Carregant els models i les textures…');
     const resources = createResourceLoader(manifest, base, loading.update);
     scene = await createDesk({

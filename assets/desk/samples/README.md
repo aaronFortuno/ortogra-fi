@@ -45,3 +45,15 @@ Verificació: 24 exemples, 48 imatges referenciades, 36 PDF diferents (incloent 
 
 
 Actualització del 19 de novembre: la caixa de Relleu Obert ara mostra [maquetes 3D](../reliefs/README.md) derivades dels 3MF de l’autor. Les sis imatges de renders d’aquest banc es conserven com a recursos de procedència, però la vista interactiva de la caixa utilitza els GLB i el seu manifest.
+
+## Món a mà · 27 de novembre de 2026
+
+Tres exemples exportats del generador local de [Món a mà](https://monama.ortogra.fi/), versió 0.1.43. Es conserva el document complet a cada PDF; l’escriptori presenta els seus dos primers fulls, amb els codis i la composició originals. Són apunts, no parelles de fitxa i solucionari.
+
+| PDF | Material | Pàgines |
+| --- | --- | --- |
+| `mon-a-ma-m001.pdf` | M001 · El planeta Terra, amb il·lustracions | 7 |
+| `mon-a-ma-m002.pdf` | M002 · Les coordenades geogràfiques, amb il·lustracions | 4 |
+| `mon-a-ma-m003.pdf` | M003 · Els mapes i els plànols geogràfics, amb l’opció «Mostra les il·lustracions» desactivada | 3 |
+
+Les imatges dels PDF s’han limitat a 1.400 px al costat llarg i comprimit en JPEG qualitat 90 sobre el fons blanc de la impressió. El text continua sent vectorial. Les sis previsualitzacions són renders de Poppler de 2.200 px, convertits a WebP qualitat 90. La miniatura de la portada és un retall del primer full de M001. S’han revisat els 14 fulls exportats; els materials i les seves atribucions continuen corresponent a Món a mà.

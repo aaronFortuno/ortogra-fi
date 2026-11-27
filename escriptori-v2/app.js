@@ -1,6 +1,6 @@
 import { createLoadingIndicator,createResourceLoader } from '../escriptori/loading.js?v=1.16.1';
 import { createAmbientAudio } from '../escriptori/ambient-audio.js?v=1.26.0';
-import { loadCatalogue } from './catalogue.js?v=0.1.0';
+import { loadCatalogue } from './catalogue.js?v=0.1.1';
 
 const workspace=document.querySelector('#workspace'),canvas=document.querySelector('#desk-canvas'),status=document.querySelector('#desk-status'),caption=document.querySelector('#hover-caption');
 const list=document.querySelector('#projectes'),listButton=document.querySelector('.list-toggle'),info=document.querySelector('#material-info');
@@ -62,7 +62,7 @@ function mountAbout(portal){
 async function start(){
   try{
     let timer;const firstAudio=Promise.race([audio.prepare(),new Promise(r=>timer=setTimeout(r,2500))]).finally(()=>clearTimeout(timer));
-    const [{projects:items,portal},manifest]=await Promise.all([loadCatalogue(),fetch(new URL('assets/desk/loading.json',root)).then(r=>r.json()),firstAudio]);projects=items;
+    const [{projects:items,portal},manifest]=await Promise.all([loadCatalogue(),fetch(new URL('assets/desk/loading.json?v=1.27.0',root)).then(r=>r.json()),firstAudio]);projects=items;
     mountAbout(portal);
     if(location.hostname==='ortogra.fi'&&location.protocol==='https:'&&!navigator.webdriver){const source=portal.querySelector('script[data-website-id]');if(source){const tracker=source.cloneNode(true);tracker.dataset.tag='escriptori-v3';document.head.append(tracker);}}
     for(const project of projects){
@@ -72,7 +72,7 @@ async function start(){
       const link=document.createElement('button');link.type='button';link.textContent=project.name;const small=document.createElement('small');small.textContent=project.purpose;link.append(small);link.addEventListener('click',()=>open(project));document.querySelector('#project-list').append(link);
     }
     loading.update(5,'Carregant l’escriptori de prop…');
-    const {createDesk}=await import('./scene.js?v=0.1.0');
+    const {createDesk}=await import('./scene.js?v=0.1.1');
     desk=await createDesk({canvas,projects,resources:createResourceLoader(manifest,root,loading.update),onStage:loading.update,onObjectSound:audio.playObject,onAction:track});
     workspace.dataset.ready='true';workspace.setAttribute('aria-busy','false');canvas.removeAttribute('aria-hidden');canvas.tabIndex=0;canvas.setAttribute('aria-label','Arrossega o fes servir les fletxes per mirar al voltant des de la cadira.');audio.start();loading.finish();
   }catch(error){loading.fail();workspace.setAttribute('aria-busy','false');workspace.classList.add('failed');status.textContent='Pots accedir a totes les eines des de la portada.';directLinks();console.error(error);}

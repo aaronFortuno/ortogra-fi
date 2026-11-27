@@ -20,6 +20,8 @@ En obrir un recurs, els arxivadors veïns es redrecen i el material surt cap a l
 
 Els enllaços, les descripcions i els logotips es llegeixen de la portada. Les mostres surten d’`assets/desk/samples/examples.json`; les maquetes, del manifest existent de relleus. Es reutilitzen els mateixos fitxers i les seves atribucions. Els efectes i l’ambient conserven el silenci desat, les restriccions d’inici automàtic i l’esvaïment en perdre el focus.
 
+El 27 de novembre s’hi incorpora Món a mà, com un arxivador vertical de Medi al costat de la capsa de Relleu Obert, amb les mateixes tres mostres que la ruta anterior. La capsa es redueix proporcionalment per deixar lloc als dos materials dins del compartiment.
+
 El menú «Projectes» permet obrir qualsevol material sense haver-lo de localitzar visualment. Si falla el motor o una càrrega inicial, el menú ofereix enllaços directes als recursos. La portada continua sent una altra via d’accés.
 
 ## Organització del codi
@@ -50,7 +52,7 @@ node tools/check-desk-materials.cjs
 node tools/check.cjs
 ```
 
-La prova de v2 comprova la posició de càmera durant tot un trajecte amb animació normal, els gestos de mirada, els vuit recursos, les parelles de mostres, les tres maquetes, inspecció amb roda/tacte, tema, V4V, moviment reduït i pantalles de 390 i 320 px. La prova de materials comprova que l’altra ruta conserva els recolzaments i la interacció. Les captures queden a `output/desk-v2/`, fora de Git. La verificació remota correspon a l’autor.
+La prova de v2 comprova la posició de càmera durant tot un trajecte amb animació normal, els gestos de mirada, els nou recursos, les parelles de mostres, les tres maquetes, inspecció amb roda/tacte, tema, V4V, moviment reduït i pantalles de 390 i 320 px. La prova de materials comprova que l’altra ruta conserva els recolzaments i la interacció. Les captures queden a `output/desk-v2/`, fora de Git. La verificació remota correspon a l’autor.
 
 ## Analítica i continuïtat
 

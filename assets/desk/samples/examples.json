@@ -446,5 +446,64 @@
         }
       ]
     }
+  ],
+  "mon-a-ma": [
+    {
+      "title": "M001 · El planeta Terra",
+      "pages": [
+        {
+          "title": "M001 · El planeta Terra · pàgina 1",
+          "image": "mon-a-ma-m001-1.webp",
+          "pdf": "mon-a-ma-m001.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "M001 · El planeta Terra · pàgina 2",
+          "image": "mon-a-ma-m001-2.webp",
+          "pdf": "mon-a-ma-m001.pdf",
+          "page": 2,
+          "role": "worksheet"
+        }
+      ]
+    },
+    {
+      "title": "M002 · Les coordenades geogràfiques",
+      "pages": [
+        {
+          "title": "M002 · Les coordenades geogràfiques · pàgina 1",
+          "image": "mon-a-ma-m002-1.webp",
+          "pdf": "mon-a-ma-m002.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "M002 · Les coordenades geogràfiques · pàgina 2",
+          "image": "mon-a-ma-m002-2.webp",
+          "pdf": "mon-a-ma-m002.pdf",
+          "page": 2,
+          "role": "worksheet"
+        }
+      ]
+    },
+    {
+      "title": "M003 · Els mapes i els plànols geogràfics",
+      "pages": [
+        {
+          "title": "M003 · Els mapes i els plànols geogràfics · pàgina 1",
+          "image": "mon-a-ma-m003-1.webp",
+          "pdf": "mon-a-ma-m003.pdf",
+          "page": 1,
+          "role": "worksheet"
+        },
+        {
+          "title": "M003 · Els mapes i els plànols geogràfics · pàgina 2",
+          "image": "mon-a-ma-m003-2.webp",
+          "pdf": "mon-a-ma-m003.pdf",
+          "page": 2,
+          "role": "worksheet"
+        }
+      ]
+    }
   ]
 }

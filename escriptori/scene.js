@@ -20,6 +20,7 @@ import { createLabelTexture } from './labels.js?v=1.11.0';
 import { createReliefs } from './reliefs.js?v=1.11.0';
 import { createObjectJourney } from './journey.js?v=1.16.0';
 import { createCloudShadows } from './weather.js?v=1.13.0';
+import { addMonAMaModel } from './project-models.js?v=1.27.0';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const narrow = matchMedia('(max-width: 700px)');
@@ -90,6 +91,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
   const asset = await new GLTFLoader().parseAsync(modelBytes, new URL('.', modelURL).href);
   const room = asset.scene;
   scene.add(room);
+  addMonAMaModel(room);
   const materials = await prepareMaterials(room, scene, renderer, resources);
   const shelfOcclusion = createShelfOcclusion(room, materials);
   const reading = createReadingPages(document.querySelector('#project-detail'), [...materials].find(material => material.name === 'Paper'));
@@ -190,9 +192,11 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     if (project.kind === 'binder') {
       addPlane(group, [.293, 1.41], [0, .12, .824], label);
       setLoad = prepareBinderLoad(group, binderIndex++);
+      if(project.id==='mon-a-ma'){group.updateWorldMatrix(true,true);group.position.y+=deskLayout.table.surfaceY+.001-new THREE.Box3().setFromObject(group).min.y;}
       bounds = [[-.30, -1.06, .82], [.34, 1.06, 1.18]];
       axis = 'y'; angle = -Math.PI - .28;
     } else if (project.kind === 'box') {
+      group.updateWorldMatrix(true,true);group.position.y+=deskLayout.table.surfaceY+.001-new THREE.Box3().setFromObject(group).min.y;
       addPlane(group, [1.4, .26], [0, -.01, .731], label);
       bounds = [[-.96, -.34, .72], [.96, .4, .92]];
       axis = 'x'; angle = -Math.PI * .57;
@@ -218,7 +222,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       home: group.position.clone(), rotation: group.quaternion.clone(), outlineBounds: localBounds(group),
     });
   }
-  const binders = [...models.values()].filter(model => model.project.kind === 'binder');
+  const binders = [...models.values()].filter(model => model.project.kind === 'binder' && model.project.area!=='Medi');
   await Promise.all([...models.values()].map(async model => {
     if (!model.project.preview) return;
     model.previewTexture = await resources.load(model.project.preview, objectURL => new THREE.TextureLoader().loadAsync(objectURL));
@@ -260,7 +264,8 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
       const row=binders.filter(m=>m.project.area===name),x=row.reduce((sum,m)=>sum+m.home.x,0)/row.length;
       areas[name].center[0]=areas[name].label[0]=x;
     }
-    const box=models.get('relleu-obert'),center=box.outlineBounds.clone().applyMatrix4(new THREE.Matrix4().compose(box.home,box.rotation,box.group.scale)).getCenter(new THREE.Vector3());
+    const bounds=new THREE.Box3();for(const model of models.values())if(model.project.area==='Medi')bounds.union(model.outlineBounds.clone().applyMatrix4(new THREE.Matrix4().compose(model.home,model.rotation,model.group.scale)));
+    const center=bounds.getCenter(new THREE.Vector3());areas.Medi.width=3.8;
     areas.Medi.center[0]=areas.Medi.label[0]=center.x;areas.Medi.center[2]=center.z;areas.Medi.label[2]=center.z+.3;
   }
 
@@ -410,7 +415,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
     const aspect = lastWidth / lastHeight;
     if(currentArea==='Utilitats'){
       const direction=new THREE.Vector3(),right=new THREE.Vector3(1,0,0),up=new THREE.Vector3(),points=[];
-      for(const model of models.values())if(model.project.kind==='folder'){
+      for(const model of models.values())if(model.project.area==='Utilitats'){
         const b=model.outlineBounds;
         for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])
           points.push(new THREE.Vector3(x,y,z).applyQuaternion(model.rotation).add(model.home));
@@ -588,6 +593,7 @@ export async function createDesk({ canvas, projects, dark: initialDark, resource
         new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(-1, 0, 0)))
       : new THREE.Quaternion();
     const destination = new THREE.Vector3(-1.5, model.project.kind === 'folder' ? -.53 : model.project.kind === 'box' ? -.205 : -.34, 2.5);
+    if(model.project.kind==='box')destination.y=deskLayout.table.surfaceY+(destination.y-deskLayout.table.surfaceY)*model.group.scale.y;
     // Measure the final reading pose, then restore the actual pose before moving.
     model.group.position.copy(destination); model.group.quaternion.copy(flatRotation);
     model.lid.rotation[model.axis] = model.angle;
