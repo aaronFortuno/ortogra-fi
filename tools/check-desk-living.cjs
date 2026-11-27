@@ -69,7 +69,7 @@ const distance = (a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
         small.getContext('2d').drawImage(original,0,0,small.width,small.height);texture.image=small;`);
       await route.fulfill({response,body});
     });
-    await page.goto(origin+'/escriptori/');
+    await page.goto(origin+'/escriptori/anterior.html');
     await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000});
     if(!process.argv.includes('--relief-only')){
     assert.equal(await page.locator('#ambient-toggle').getAttribute('aria-pressed'),'true');

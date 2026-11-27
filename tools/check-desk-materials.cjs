@@ -17,7 +17,7 @@ const probe=`window.materialStudy={phase:()=>phase,shelf:()=>binderShelf.info(),
     await page.route('**/scene.js*',async r=>{const response=await r.fetch();let body=await response.text();
       body="import { standingProfile, profileSpan } from './binder-load.js?v=1.25.0';\n"+body.replace('  return { highlight, select, home,',probe+'\n  return { highlight, select, home,');
       await r.fulfill({response,body});});
-    await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000});await page.locator('#desk-loading').waitFor({state:'hidden'});
+    await page.goto(origin+'/escriptori/anterior.html');await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000});await page.locator('#desk-loading').waitFor({state:'hidden'});
     const contacts=async()=>{const c=await page.evaluate(()=>materialStudy.contacts());for(const y of c.floor)assert.ok(Math.abs(y+.579)<.002,'Every standing book touches the desk');assert.ok(Math.abs(c.wall-.004)<.002);for(const gap of c.gaps)assert.ok(gap>.002&&gap<.008,'Books lean against a neighbour, without intersections or floating gaps: '+gap);};
     await contacts();const initial=await page.evaluate(()=>materialStudy.shelf().order);
     await page.locator('[data-project=trama]').click();await page.locator('#project-detail.is-visible').waitFor({timeout:30000});await contacts();

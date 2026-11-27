@@ -1,21 +1,19 @@
 <!doctype html>
 <html lang="ca">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="L’escriptori d’ortogra.fi. Obre un arxivador i descobreix les eines per preparar materials per a l’aula.">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f8f6ef">
-  <link rel="icon" href="../assets/brand/symbol.svg" type="image/svg+xml">
+  <title>Escriptori · ortogra.fi</title>
+  <meta name="description" content="Un escriptori de prop: mira al voltant des de la cadira i obre els materials d'ortogra.fi.">
   <link rel="canonical" href="https://ortogra.fi/escriptori/">
-  <title>Escriptori beta · ortogra.fi</title>
+  <link rel="icon" href="../assets/brand/symbol.svg" type="image/svg+xml">
   <script src="../theme.js?v=1.0.0"></script>
-  <link rel="stylesheet" href="../styles.css?v=1.6.0">
-  <link rel="stylesheet" href="desk.css?v=1.26.0">
+  <link rel="stylesheet" href="../styles.css?v=1.6.0"><link rel="stylesheet" href="../escriptori-v2/desk.css?v=0.2.0">
   <script type="importmap">{"imports":{"three":"../assets/vendor/three/three.module.min.js"}}</script>
-  <script type="module" src="desk.js?v=1.27.0"></script>
+  <script type="module" src="../escriptori-v2/app.js?v=0.2.0"></script>
 </head>
-<body class="desk-page">
-  <a class="skip-link" href="#projectes">Ves als projectes</a>
+<body class="seated-page">
+<a class="skip-link" href="#projectes">Ves als projectes</a>
   <header class="site-header">
     <div class="bar">
       <div class="header-identity">
@@ -23,7 +21,7 @@
           <svg class="brand-symbol" viewBox="0 0 48 48" aria-hidden="true"><circle cx="22" cy="28" r="14"/><path class="accent" d="m27 9 7-6"/></svg>
           <span>ortogra<span class="brand-dot">.</span>fi</span>
         </a>
-        <p class="header-note">Escriptori <span class="beta-label">beta</span></p>
+        <p class="header-note">Escriptori <span class="beta-label">prova</span></p>
       </div>
       <button id="performance-toggle" class="performance-summary" type="button" popovertarget="performance-panel" aria-label="Mostra el rendiment de l’escriptori" title="Rendiment provisional · dades locals">
         <span data-performance-fps>— FPS</span><span data-performance-memory hidden></span>
@@ -58,101 +56,40 @@
     <p>En repòs, l’animació es limita a 24 Hz. Si la vista està quieta, pot deixar de dibuixar fotogrames.</p>
     <p>JS és una estimació de memòria del codi, disponible en alguns navegadors; no és la RAM total ni la memòria de la GPU. El temps CPU tampoc inclou l’execució de la GPU.</p>
   </div>
-  <main class="desk-main" id="contingut">
-    <div id="workspace" class="workspace" aria-label="Taula de treball amb arxivadors per àrees" aria-busy="true">
-      <div class="desk-intro"><h1>Les eines, a mà<span>.</span></h1><p>Clica per obrir · Arrossega per endreçar</p></div>
-      <canvas id="desk-canvas" aria-hidden="true"></canvas>
-      <div id="shelf-controls" inert></div>
-      <button id="window-latch" class="wall-switch-target" type="button" aria-label="Obre la finestra" title="Obre la finestra" aria-pressed="false" hidden inert></button>
-      <button id="wall-light-switch" class="wall-switch-target" type="button" aria-label="Apaga el llum de la sala" aria-pressed="true" hidden inert></button>
-      <div id="desk-loading" class="desk-loading" style="--loaded:0">
-        <p class="loading-message"></p>
-        <div class="loading-meter" role="progressbar" aria-label="Càrrega de l’escriptori" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="loading-track" cx="50" cy="50" r="43"/><circle class="loading-progress" cx="50" cy="50" r="43" pathLength="100"/></svg>
-          <span class="loading-value" aria-hidden="true">0%</span>
-        </div>
-        <p class="loading-label" role="status">Preparant l’escriptori…</p>
-        <button id="loading-audio-toggle" class="loading-audio-toggle" type="button" aria-hidden="true" inert>Escolta l’ambient mentre preparem la taula</button>
-      </div>
-      <button id="recover-stationery" type="button" hidden>Recull els objectes de terra</button>
-      <p id="desk-status" class="desk-status" role="status"></p>
-      <p id="hover-caption" class="hover-caption" aria-hidden="true"></p>
-      <div class="desk-view-tools" role="group" aria-label="Punt de vista" inert>
-        <button type="button" data-view="left" aria-label="Mira a l’esquerra" title="Mira a l’esquerra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
-        <button type="button" data-view="home" aria-label="Vista inicial" title="Vista inicial"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><circle cx="12" cy="12" r="3"/></svg></button>
-        <button type="button" data-view="right" aria-label="Mira a la dreta" title="Mira a la dreta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
-        <button type="button" data-view="up" aria-label="Mira amunt" title="Mira amunt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg></button>
-        <button type="button" data-view="down" aria-label="Mira avall" title="Mira avall"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6"/></svg></button>
-        <span aria-hidden="true"></span>
-        <button type="button" data-view="in" aria-label="Acosta la mirada" title="Acosta la mirada"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-        <button type="button" data-view="out" aria-label="Allunya la mirada" title="Allunya la mirada"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
-        <span aria-hidden="true"></span>
-        <button type="button" id="room-light-toggle" aria-label="Apaga el llum de la sala" aria-pressed="true" title="Apaga el llum de la sala"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6m-5 3h4M9 15v-1a6 6 0 1 1 6 0v1"/><path class="bulb-rays" d="M12 1v1M3 10H1m22 0h-2M4 3l1 1m15-1-1 1"/><path class="bulb-slash" d="m3 3 18 18"/></svg></button>
-        <button type="button" data-view="window" aria-label="Mira la finestra" title="Mira la finestra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM12 4v16M6 17V7l5-2v14z"/></svg></button>
-        <button type="button" id="light-toggle" popovertarget="light-panel" aria-label="Ajusta la llum de l'escriptori" title="Llum segons l'hora del dia"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
-      </div>
-      <div id="light-panel" class="light-panel" popover>
-        <div class="light-heading"><h2>Llum de l’escriptori</h2><button type="button" class="light-close" aria-label="Tanca els ajustos de llum"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
-        <p id="light-status" role="status">Segons l’hora actual</p>
-        <div class="light-fields"><label>Data<input id="light-date" type="date" min="2000-01-01" max="2100-12-31"></label><label>Hora<input id="light-time" type="time"></label></div>
-        <p class="light-reference">El sol segueix la data i l’hora de Catalunya. Pots provar un altre moment.</p>
-        <div class="room-light-row"><span id="room-light-status">Llum segons l’hora</span><button id="room-light-auto" type="button" disabled>Automàtica</button></div>
-        <button id="light-now" type="button">Torna a l’hora actual</button>
-      </div>
-      <p class="desk-view-help">Arrossega un objecte per moure’l o un espai buit per mirar · Majúscules + arrossega per desplaçar-te · Roda per acostar-te</p>
-      <div class="mobile-areas" role="group" aria-label="Àrea de la taula" inert>
-        <button type="button" data-area="Taula" aria-pressed="false">Taula</button>
-        <button type="button" data-area="Llengua" aria-pressed="true">Llengua</button>
-        <button type="button" data-area="Matemàtiques" aria-pressed="false">Matemàtiques</button>
-        <button type="button" data-area="Medi" aria-pressed="false">Medi</button>
-        <button type="button" data-area="Utilitats" aria-pressed="false">Utilitats</button>
-      </div>
+
+<main id="contingut" class="seated-main">
+  <div id="workspace" class="workspace" aria-busy="true" aria-label="Escriptori vist des d'una cadira fixa">
+    <canvas id="desk-canvas" aria-hidden="true"></canvas>
+    <div class="desk-intro"><p>El teu racó de treball.</p><span>Arrossega per mirar al voltant · Clica un material</span></div>
+    <div id="shelf-controls"></div>
+    <div id="desk-loading" class="desk-loading" style="--loaded:0">
+      <p class="loading-message"></p>
+      <div class="loading-meter" role="progressbar" aria-label="Càrrega de l’escriptori" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="loading-track" cx="50" cy="50" r="43"/><circle class="loading-progress" cx="50" cy="50" r="43" pathLength="100"/></svg><span class="loading-value" aria-hidden="true">0%</span></div>
+      <p class="loading-label" role="status">Preparant la taula…</p>
+      <button id="loading-audio-toggle" class="loading-audio-toggle" type="button" aria-hidden="true" inert>Escolta l’ambient mentre preparem la taula</button>
     </div>
-    <aside id="projectes" class="desk-list" aria-label="Projectes d’ortogra.fi">
-      <h2>Totes les eines</h2>
-      <ul>
-        <li><a href="https://plec.ortogra.fi/">Plec <span>Dictats</span></a></li>
-        <li><a href="https://trama.ortogra.fi/">Trama <span>Comprensió lectora</span></a></li>
-        <li><a href="https://resso.ortogra.fi/">Ressò <span>Lectura en veu alta</span></a></li>
-        <li><a href="https://sentit.ortogra.fi/">Sentit <span>Comprensió oral</span></a></li>
-        <li><a href="https://filicompte.ortogra.fi/">Fil i Compte <span>Problemes de matemàtiques</span></a></li>
-        <li><a href="https://monama.ortogra.fi/">Món a mà <span>Coneixement del medi</span></a></li>
-        <li><a href="https://relleu.ortogra.fi/">Relleu Obert <span>Maquetes 3D</span></a></li>
-        <li><a href="https://pentagrama.page/">Pentagrama <span>Paper de música</span></a></li>
-        <li><a href="https://pauta.ortogra.fi/">Pauta <span>Paper pautat</span></a></li>
-      </ul>
-    </aside>
-    <dialog id="project-detail" class="desk-detail" aria-labelledby="project-title">
-      <div class="open-binder">
-        <button class="sample-hit" id="sample-open" type="button" aria-label="Amplia la mostra"><span class="sample-magnify"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 7.5v6m-3-3h6"/></svg></span></button>
-        <button class="sample-hit" id="sample-open-answers" type="button" aria-label="Amplia el solucionari" hidden><span class="sample-magnify"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 7.5v6m-3-3h6"/></svg></span></button>
-        <button class="sample-hit" id="sample-open-third" type="button" aria-label="Examina la tercera maqueta" hidden><span class="sample-magnify"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 7.5v6m-3-3h6"/></svg></span></button>
-        <button class="page-corner" id="page-corner-previous" type="button" aria-label="Passa a la mostra anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
-        <button class="page-corner" id="page-corner-next" type="button" aria-label="Passa a la mostra següent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
-        <div class="sample-page">
-          <p class="page-caption" id="sample-caption"></p>
-          <div id="project-sample"></div>
-          <span class="sample-foot">ortogra.fi</span>
-        </div>
-        <div class="description-page">
-          <button class="binder-close" type="button" aria-label="Torna el material al seu lloc">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg><span>Torna al seu lloc</span>
-          </button>
-          <div class="project-summary"><p class="project-area" id="project-area"></p><h2 id="project-title"></h2><p class="project-purpose" id="project-purpose"></p><p id="project-description"></p><details id="project-credits" hidden><summary>Fonts de les maquetes</summary><p>Dades: <a href="https://www.icgc.cat/" target="_blank" rel="noopener noreferrer">ICGC</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a> · <a href="https://doi.org/10.5281/zenodo.7254221" target="_blank" rel="noopener noreferrer">ESA WorldCover</a> · Roca Foradada — Open Place Models contributors (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>) · <a href="https://www.catastro.hacienda.gob.es/webinspire/documentos/Licencia.pdf" target="_blank" rel="noopener noreferrer">Catastro</a> · <a href="https://relleu.ortogra.fi/" target="_blank" rel="noopener noreferrer">Relleu Obert</a></p><p>Mostres de Relleu Obert adaptades per a la visualització. Les fonts i les llicències es conserven amb els models.</p></details></div>
-          <div class="sample-actions">
-            <div class="sample-pager" role="group" aria-label="Exemples de material"><button type="button" id="sample-previous" aria-label="Mostra anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><span id="sample-counter" aria-live="polite"></span><button type="button" id="sample-next" aria-label="Mostra següent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
-            <div class="sample-inspect-actions"><button class="sample-inline" id="sample-open-inline" type="button">Amplia la fitxa</button><button class="sample-inline" id="sample-open-second" type="button">Amplia el segon full</button><button class="sample-inline" id="sample-open-third-inline" type="button" hidden>Examina la tercera maqueta</button></div>
-            <a class="project-enter" id="project-enter" href="../"><span class="project-entry-name">Obre el projecte</span><span class="project-entry-short" aria-hidden="true">Obre l’eina</span></a>
-          </div>
-        </div>
-        <button type="button" id="sample-inspection" class="sample-inspection" aria-label="Full ampliat. Roda o arrossega per recórrer el full. Fes clic per tornar a l’arxivador." hidden></button>
-        <div class="inspection-tools" hidden><span id="inspection-title"></span><div id="inspection-pager" role="group" aria-label="Exemples de material" hidden><button type="button" id="inspection-previous" aria-label="Mostra anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><button type="button" id="inspection-next" aria-label="Mostra següent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div><span class="inspection-hint">Roda per desplaçar · ← → per passar pàgina · Clic per tornar</span><div id="relief-controls" role="group" aria-label="Vista de la maqueta" hidden><button type="button" id="relief-zoom-out" aria-label="Allunya la maqueta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button><button type="button" id="relief-reset" aria-label="Recupera la vista de la maqueta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></button><button type="button" id="relief-zoom-in" aria-label="Acosta la maqueta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div><a id="sample-pdf" download aria-label="Descarrega el PDF de mostra" title="Descarrega el PDF de mostra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8ZM14 2v6h6M12 12v6m-3-3 3 3 3-3"/></svg></a><button type="button" id="sample-close" aria-label="Torna a l’arxivador"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
-      </div>
-    </dialog>
-  </main>
+    <p id="desk-status" class="desk-status" role="status"></p>
+    <p id="hover-caption" class="hover-caption" aria-hidden="true"></p>
+    <div class="view-tools" role="group" aria-label="Mirada i ambient">
+      <button data-look="left" aria-label="Mira a l’esquerra" title="Mira a l’esquerra">‹</button>
+      <button data-look="home" aria-label="Recupera la mirada inicial" title="Mirada inicial"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><circle cx="12" cy="12" r="3"/></svg></button>
+      <button data-look="right" aria-label="Mira a la dreta" title="Mira a la dreta">›</button>
+      <span></span>
+      <button id="lamp-toggle" aria-label="Apaga el llum de la taula" aria-pressed="true" title="Llum de la taula"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6 0m-5 3h4M8.5 14a6 6 0 1 1 7 0c-1 .8-1.5 1.5-1.5 3h-4c0-1.5-.5-2.2-1.5-3ZM12 1v1M3 5l1 1m16-1-1 1"/></svg></button>
+      <button id="window-toggle" aria-label="Obre la finestra" aria-pressed="false" title="Finestra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3ZM12 3v18M3 12h18"/></svg></button>
+    </div>
+    <section id="material-info" class="material-info" hidden aria-label="Material obert">
+      <button id="material-close" class="icon-button material-close" aria-label="Desa el material" title="Desa el material"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+      <div class="material-copy"><h1 id="material-title"></h1><p id="material-description"></p></div>
+      <div class="material-actions"><div class="sample-navigation"><button id="sample-previous" aria-label="Mostra anterior">‹</button><span id="sample-counter"></span><button id="sample-next" aria-label="Mostra següent">›</button></div><button id="sample-inspect" class="text-button">Acosta la fitxa</button><button id="sample-answer" class="text-button">Acosta el solucionari</button><a id="material-enter" class="enter-link" target="_blank" rel="noopener noreferrer">Obre el recurs</a></div>
+    </section>
+    <button id="inspection-close" class="inspection-close" hidden>Torna al material</button>
+  </div>
+  <nav id="projectes" class="desk-list" aria-label="Projectes d’ortogra.fi"><h2>Les eines de la taula</h2><div id="project-list"></div></nav>
+</main>
   <footer class="site-footer">
     <div class="bar footer-inner">
-      <span class="footer-note">Fet per compartir coneixement.</span>
+      <span class="footer-note">Una taula, una cadira i les eines a mà.</span>
       <nav aria-label="Sobre ortogra.fi">
         <a href="../">Torna a la portada</a>
         <span class="separator" aria-hidden="true">·</span>
@@ -160,6 +97,6 @@
       </nav>
     </div>
   </footer>
-  <noscript><style>.desk-intro,#desk-status,.list-toggle{display:none}.desk-list{display:block;position:static;width:100%;max-width:none;max-height:100%;border:0;box-shadow:none}.workspace{display:none}</style></noscript>
-</body>
-</html>
+
+<noscript><p class="fallback">Aquest escriptori necessita JavaScript. <a href="../">Consulta totes les eines a la portada</a>.</p></noscript>
+</body></html>

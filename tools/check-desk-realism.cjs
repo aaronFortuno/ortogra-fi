@@ -25,7 +25,7 @@ const probe=`window.realism={
       await page.route('**/scene.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('  return { highlight, select, home,',probe+'\n  return { highlight, select, home,')})});
       await page.route('**/stationery.js*',async r=>{const response=await r.fetch();const helper=`window.realismProps={move(name,x,y,z){const i=items.find(i=>i.node.name===name);const p=i.node.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(x,y,z));room.attach(i.node);setWorld(i.node,p);refreshItem(i);invalidate(i);redraw();}};`;
         await r.fulfill({response,body:(await response.text()).replaceAll('\r\n','\n').replace('  return {\n    cancel: rollback,',helper+'\n  return {\n    cancel: rollback,')})});
-      await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000});await page.locator('#desk-loading').waitFor({state:'hidden'});
+      await page.goto(origin+'/escriptori/anterior.html');await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000});await page.locator('#desk-loading').waitFor({state:'hidden'});
       const snapshots={};
       async function snap(name){await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));await page.screenshot({path:path.join(out,name+'.png')});snapshots[name]=await page.evaluate(()=>({stats:realism.stats(),bench:realism.bench()}));}
       await snap(mobile?'mobile-day':'overview-day');

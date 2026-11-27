@@ -6,6 +6,8 @@ Tres còpies lleugeres preparades el 19 de novembre de 2026 a partir dels export
 - `tamariu.glb`: badia de Tamariu.
 - `sant-maurici.glb`: estany de Sant Maurici.
 
+`agulles-montserrat-preview.glb` és una còpia addicional per a la capsa oberta del racó inicial. `tools/prepare-desk-corner-preview.py` la deriva del GLB anterior amb Blender 5.2 i una decimació a 0,13. Conserva la textura de color i les atribucions del model original; pesa 241.888 bytes. En examinar una maqueta s’utilitza la versió detallada. Aquesta còpia no substitueix els models del manifest ni genera dades geogràfiques noves.
+
 Els originals es conserven sense modificar a `output/desk/relleu/`, fora de Git, i no es distribueixen des d’aquesta portada. `manifest.json` registra el fitxer d’origen, la seva empremta SHA-256, els colors, les fonts cartogràfiques, la mida i l’estratègia de preparació de cada còpia.
 
 ## Preparació

@@ -47,7 +47,7 @@ const sceneProbe=`
       await page.route('**/stationery.js*',async r=>{const response=await r.fetch();const source=(await response.text()).replaceAll('\r\n','\n');
         assert.ok(source.includes('  return {\n    cancel: rollback,'));await r.fulfill({response,body:source.replace('  return {\n    cancel: rollback,',probe+'\n  return {\n    cancel: rollback,')});});
       await page.route('**/scene.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replaceAll('renderer.render(scene, camera);','window.supportScene?.frame();renderer.render(scene, camera);').replace('  return { highlight, select, home,',sceneProbe+'\n  return { highlight, select, home,')})});
-      await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});await page.locator('#desk-loading').waitFor({state:'hidden'});
+      await page.goto(origin+'/escriptori/anterior.html');await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});await page.locator('#desk-loading').waitFor({state:'hidden'});
       await page.evaluate(()=>{supportCheck.place('LooseWorksheet_4',-1.9,2.8);supportCheck.place('LoosePencil',-3.0,2.5);supportScene.view()});
       const get=name=>page.evaluate(name=>supportCheck.get(name),name);
       // Exercise the actual pointer handlers, not just the drop planner.

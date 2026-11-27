@@ -1,96 +1,97 @@
 import * as THREE from 'three';
 import { mergeGeometries } from '../assets/vendor/three/addons/utils/BufferGeometryUtils.js';
 
-const colorTexture=canvas=>{const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;};
+const texture=canvas=>{const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;};
 function plaster(){
-  const c=document.createElement('canvas');c.width=c.height=1024;const x=c.getContext('2d');
-  let seed=8741;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-  // One pixel pass avoids the ordered dither accumulated by translucent gradients.
-  const colour=x.createImageData(1024,1024);
-  for(let y=0;y<1024;y++)for(let px=0;px<1024;px++){
-    const i=(y*1024+px)*4,stain=Math.sin(px*.011+Math.sin(y*.008))*1.8+Math.cos(y*.017+px*.004)*1.2+Math.sin(px*.031-y*.021)*.55+(random()-.5)*1.4;
-    colour.data[i]=194+stain;colour.data[i+1]=191+stain*.9;colour.data[i+2]=175+stain*.8;colour.data[i+3]=255;
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=1024;const ctx=canvas.getContext('2d'),pixels=ctx.createImageData(1024,1024);let seed=8741;
+  const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+  for(let y=0;y<1024;y++)for(let x=0;x<1024;x++){
+    const i=(y*1024+x)*4,s=Math.sin(x*.011+Math.sin(y*.008))*3.2+Math.cos(y*.017+x*.004)*2+Math.sin(x*.031-y*.021)*.55+(random()-.5)*1.4;
+    pixels.data[i]=201+s;pixels.data[i+1]=194+s*.9;pixels.data[i+2]=175+s*.8;pixels.data[i+3]=255;
   }
-  x.putImageData(colour,0,0);
-  for(let i=0;i<12;i++){
-    let px=random()*1024,py=random()*1024;x.strokeStyle='rgba(80,73,60,.13)';x.lineWidth=.55;x.beginPath();x.moveTo(px,py);
-    for(let j=0;j<7;j++){px+=(random()-.5)*13;py+=4+random()*9;x.lineTo(px,py);}x.stroke();
-  }
-  const bump=document.createElement('canvas');bump.width=bump.height=512;const b=bump.getContext('2d'),data=b.createImageData(512,512);
-  for(let i=0;i<data.data.length;i+=4){const v=116+random()*23;data.data[i]=data.data[i+1]=data.data[i+2]=v;data.data[i+3]=255;}b.putImageData(data,0,0);
-  const grain=new THREE.CanvasTexture(bump);grain.wrapS=grain.wrapT=THREE.RepeatWrapping;grain.repeat.set(3,3);
-  return new THREE.MeshStandardMaterial({name:'V2Plaster',map:colorTexture(c),roughness:.97,envMapIntensity:.28,userData:{grain}});
+  ctx.putImageData(pixels,0,0);
+  for(let i=0;i<15;i++){let x=random()*1024,y=random()*1024;ctx.strokeStyle='rgba(82,70,53,.14)';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(x,y);for(let j=0;j<8;j++){x+=(random()-.5)*14;y+=3+random()*9;ctx.lineTo(x,y);}ctx.stroke();}
+  const material=new THREE.MeshStandardMaterial({name:'CornerPlaster',map:texture(canvas),roughness:.98,envMapIntensity:.36});
+  material.onBeforeCompile=shader=>{
+    shader.vertexShader='varying vec3 cornerWorld;\n'+shader.vertexShader;
+    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ncornerWorld=(modelMatrix*vec4(position,1.)).xyz;');
+    shader.fragmentShader='varying vec3 cornerWorld;\n'+shader.fragmentShader;
+    shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_end>','#include <lights_fragment_end>\nfloat skirting=exp(-abs(cornerWorld.y-.75)*9.);float corner=exp(-abs(cornerWorld.x+.84)*11.)*exp(-abs(cornerWorld.z+.65)*10.);reflectedLight.indirectDiffuse*=1.-.22*skirting-.20*corner;');
+  };
+  material.customProgramCacheKey=()=> 'corner-plaster-contact-v1';return material;
 }
 function rounded(w,h,d,r=.008){
   const shape=new THREE.Shape(),a=w/2,b=d/2;
   shape.moveTo(-a+r,-b);shape.lineTo(a-r,-b);shape.quadraticCurveTo(a,-b,a,-b+r);shape.lineTo(a,b-r);shape.quadraticCurveTo(a,b,a-r,b);shape.lineTo(-a+r,b);shape.quadraticCurveTo(-a,b,-a,b-r);shape.lineTo(-a,-b+r);shape.quadraticCurveTo(-a,-b,-a+r,-b);
   const g=new THREE.ExtrudeGeometry(shape,{depth:h-2*r,bevelEnabled:true,bevelSegments:2,steps:1,bevelSize:r,bevelThickness:r,curveSegments:3});g.rotateX(-Math.PI/2);g.translate(0,-h/2+r,0);return g;
 }
+function noteTexture(){
+  const c=document.createElement('canvas');c.width=384;c.height=512;const x=c.getContext('2d');x.fillStyle='#ddd3b4';x.fillRect(0,0,384,512);x.strokeStyle='#889b9738';x.lineWidth=1;
+  for(let y=150;y<490;y+=46){x.beginPath();x.moveTo(28,y);x.lineTo(355,y);x.stroke();}
+  x.fillStyle='#506655';x.font='italic 34px Georgia';x.fillText('Per demà...',30,80);x.font='24px Georgia';for(const [i,line]of ['Tornar les fitxes','Revisar les notes','Fer una mica de lloc'].entries())x.fillText(line,30,148+i*92);return texture(c);
+}
 export function createRoom(scene){
-  const root=new THREE.Group();root.name='SeatedRoom';scene.add(root);
-  const wall=plaster(),wood=new THREE.MeshStandardMaterial({name:'OakSeated',color:'#b79670',roughness:.75}),trim=wood.clone();trim.name='OakWindow';
-  const iron=new THREE.MeshStandardMaterial({color:'#4b4d45',metalness:.65,roughness:.42}),paper=new THREE.MeshStandardMaterial({color:'#dfd6bd',roughness:1});
-  const box=(name,size,position,mat,r=0)=>{
-    const g=r?rounded(size[0],size[1],size[2],Math.min(r,...size.map(v=>v*.25))):new THREE.BoxGeometry(...size),mesh=new THREE.Mesh(g,mat);
-    mesh.name=name;mesh.position.set(...position);mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);return mesh;
-  };
-  box('BackWall',[2.1,2.8,.075],[0,1.4,-.69],wall);
-  box('RightWall',[.075,2.8,2.4],[1.01,1.4,.46],wall);
-  box('WindowWallBottom',[.075,.96,2.4],[-1.01,.48,.46],wall);
-  box('WindowWallTop',[.075,.76,2.4],[-1.01,2.42,.46],wall);
-  box('WindowWallBack',[.075,1.08,.23],[-1.01,1.50,-.64],wall);
-  box('WindowWallFront',[.075,1.08,.96],[-1.01,1.50,1.205],wall);
-  box('Skirting',[2,.12,.03],[0,.06,-.635],wood,.004);
-  box('Floor',[2.1,.055,2.4],[0,-.032,.46],new THREE.MeshStandardMaterial({color:'#777361',roughness:.92}));
-  box('DeskTop',[1.65,.045,.87],[0,.7275,-.16],wood,.007);
-  box('DeskApron',[1.53,.13,.033],[0,.64,.228],wood,.003);
-  for(const x of [-.72,.72])for(const z of [-.47,.17])box('DeskLeg',[.055,.63,.055],[x,.315,z],wood,.003);
-  // Short, practical dividers on the desk; the front is kept within arm's reach.
-  box('OrganiserBack',[1.48,.25,.024],[0,.875,-.575],wood,.004);
-  for(const x of [-.74,-.10,.24,.74])box('OrganiserCheek',[.022,.36,.26],[x,.93,-.45],wood,.004);
-  for(const x of [-.69,.68]){
-    const screw=new THREE.Mesh(new THREE.CylinderGeometry(.005,.005,.003,12),iron);screw.rotation.x=Math.PI/2;screw.position.set(x,.955,-.559);root.add(screw);
+  const root=new THREE.Group();root.name='CornerRoom';scene.add(root);
+  const wall=plaster(),wood=new THREE.MeshStandardMaterial({name:'OakCorner',color:'#a8865d',roughness:.8}),trim=wood.clone();trim.name='OakWindow';
+  const iron=new THREE.MeshStandardMaterial({name:'BookendSteel',color:'#52636a',metalness:.62,roughness:.52}),paper=new THREE.MeshStandardMaterial({color:'#e1dac5',roughness:1});
+  function box(name,size,position,material,r=0,parent=root){
+    const geometry=r?rounded(...size,Math.min(r,...size.map(v=>v*.24))):new THREE.BoxGeometry(...size),mesh=new THREE.Mesh(geometry,material);mesh.name=name;mesh.position.set(...position);mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;
   }
-  // A few small traces of daily use; close-up detail is in the finish and grain.
-  const scratch=new THREE.MeshBasicMaterial({color:'#8f714e',transparent:true,opacity:.24,depthWrite:false});
-  for(let i=0;i<9;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(.018+(i%4)*.012,.00055),scratch);m.rotation.x=-Math.PI/2;m.rotation.z=i*.87;m.position.set(-.65+i*.14,.7506,.11+(i%3)*.026);root.add(m);}
-  const ringCanvas=document.createElement('canvas');ringCanvas.width=ringCanvas.height=256;const rc=ringCanvas.getContext('2d');rc.strokeStyle='rgba(77,54,26,.16)';rc.lineWidth=3;rc.beginPath();rc.ellipse(128,128,100,98,.1,.2,5.7);rc.stroke();
-  const ring=new THREE.Mesh(new THREE.PlaneGeometry(.084,.084),new THREE.MeshBasicMaterial({map:colorTexture(ringCanvas),transparent:true,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(.59,.7508,.12);root.add(ring);
-  // Cork and faded scraps at the edge of sight, with actual thickness/shadows.
-  box('CorkBoard',[.32,.25,.014],[.56,1.31,-.642],new THREE.MeshStandardMaterial({color:'#a38a62',roughness:1,bumpMap:wall.userData.grain,bumpScale:.0003}),.004);
-  for(let i=0;i<3;i++){const m=box('OldNote',[.085,.12,.001],[.47+i*.075,1.32+(i%2)*.025,-.631-i*.001],paper);m.rotation.z=(i-1)*.08;}
-  // The garden stays outside the physical wooden aperture.
-  const outside=new THREE.Mesh(new THREE.PlaneGeometry(1.38,1.19),new THREE.MeshBasicMaterial({color:'#c2cfba'}));outside.rotation.y=Math.PI/2;outside.position.set(-1.075,1.50,.10);outside.name='GardenView';root.add(outside);
-  for(const z of [-.50,.10,.70])box('WindowFrame',[.055,1.16,.045],[-.962,1.50,z],trim,.004);
-  for(const y of [.93,2.07])box('WindowFrame',[.055,.045,1.25],[-.962,y,.10],trim,.004);
-  box('WindowSill',[.19,.032,1.31],[-.92,.921,.10],trim,.005);
-  const sash=new THREE.Group();sash.position.set(-.961,1.5,.10);root.add(sash);
-  const glassCanvas=document.createElement('canvas');glassCanvas.width=glassCanvas.height=256;const gc=glassCanvas.getContext('2d');gc.fillStyle='#080808';gc.fillRect(0,0,256,256);
-  const edge=gc.createRadialGradient(128,128,40,128,128,175);edge.addColorStop(0,'#080808');edge.addColorStop(.65,'#161616');edge.addColorStop(1,'#9e9e9e');gc.fillStyle=edge;gc.fillRect(0,0,256,256);
+  box('BackWall',[2.2,2.8,.07],[.2,1.4,-.68],wall);
+  box('RightWall',[.07,2.8,2.2],[1.25,1.4,.4],wall);
+  box('WindowWallBottom',[.07,.83,2.2],[-.87,.415,.4],wall);
+  box('WindowWallTop',[.07,1.02,2.2],[-.87,2.29,.4],wall);
+  box('WindowWallBack',[.07,.96,.50],[-.87,1.31,-.43],wall);
+  box('WindowWallFront',[.07,.96,.62],[-.87,1.31,1.17],wall);
+  box('DeskTop',[2,.047,.93],[.15,.7265,-.17],wood,.009);
+  box('DeskLeftEdge',[.05,.14,.88],[-.82,.66,-.17],wood,.003);
+  box('DeskFrontApron',[1.91,.14,.035],[.15,.65,.278],wood,.003);
+  for(const x of [-.72,1.02])for(const z of [-.5,.19])box('DeskLeg',[.06,.63,.06],[x,.315,z],wood,.004);
+  box('Floor',[2.2,.05,2.2],[.2,-.03,.4],new THREE.MeshStandardMaterial({color:'#77715e',roughness:1}));
+  box('BookendFoot',[.40,.006,.23],[.11,.753,-.47],iron,.003);
+  box('BookendUpright',[.009,.41,.23],[.307,.961,-.47],iron,.003);
+  for(const z of [-.56,-.38]){const screw=new THREE.Mesh(new THREE.CylinderGeometry(.003,.003,.002,10),iron);screw.position.set(.29,.757,z);root.add(screw);}
+  const scar=new THREE.MeshBasicMaterial({color:'#664d31',transparent:true,opacity:.21,depthWrite:false});
+  for(let i=0;i<20;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(.014+(i%5)*.009,.0006),scar);m.rotation.set(-Math.PI/2,0,i*.79);m.position.set(-.68+(i%9)*.20,.7506,-.04+Math.sin(i*2.1)*.19);root.add(m);}
+  const ringCanvas=document.createElement('canvas');ringCanvas.width=ringCanvas.height=192;const rc=ringCanvas.getContext('2d');rc.strokeStyle='rgba(85,59,31,.18)';rc.lineWidth=3;rc.beginPath();rc.ellipse(96,96,72,75,.2,.3,5.8);rc.stroke();
+  const ring=new THREE.Mesh(new THREE.PlaneGeometry(.092,.092),new THREE.MeshBasicMaterial({map:texture(ringCanvas),transparent:true,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(.31,.7508,.15);root.add(ring);
+  const note=box('WallNote',[.12,.17,.001],[.43,1.25,-.642],new THREE.MeshStandardMaterial({map:noteTexture(),roughness:1}));note.rotation.z=-.065;
+  const pin=new THREE.Mesh(new THREE.SphereGeometry(.004,10,7),new THREE.MeshStandardMaterial({color:'#a96745',roughness:.55}));pin.position.set(.43,1.327,-.636);root.add(pin);
+  box('HighShelf',[.82,.026,.18],[.44,1.55,-.55],wood,.004);
+  for(const x of [.14,.73])box('ShelfBracket',[.015,.12,.12],[x,1.49,-.56],iron,.002);
+  for(let i=0;i<4;i++){const m=box('ShelfPapers',[.24-i*.009,.003,.145],[.37+Math.sin(i)*.004,1.567+i*.003,-.52],paper);m.rotation.y=(i-1)*.032;}
+  box('ShelfBox',[.15,.12,.12],[.70,1.623,-.55],new THREE.MeshStandardMaterial({color:'#9f9275',roughness:1}),.004);
+  const outside=new THREE.Mesh(new THREE.PlaneGeometry(2.6,2.1),new THREE.MeshBasicMaterial({color:'#c5cfb3'}));outside.rotation.y=Math.PI/2;outside.position.set(-1.65,1.31,.34);outside.name='GardenView';root.add(outside);
+  for(const z of [-.18,.86])box('WindowFrame',[.06,1.01,.048],[-.826,1.31,z],trim,.004);
+  for(const y of [.815,1.805])box('WindowFrame',[.06,.048,1.09],[-.826,y,.34],trim,.004);
+  box('WindowSill',[.26,.036,1.15],[-.765,.817,.34],trim,.005);
+  const sash=new THREE.Group();sash.name='WindowSash';sash.position.set(-.802,1.31,-.155);root.add(sash);
+  for(const z of [0,1])box('SashFrame',[.024,.93,.028],[0,0,z],trim,.003,sash);
+  for(const y of [-.45,.45])box('SashFrame',[.024,.028,1],[0,y,.5],trim,.003,sash);
+  box('SashBar',[.022,.90,.018],[0,0,.5],trim,.002,sash);
   const normals=new Uint8Array(128*128*4);for(let y=0;y<128;y++)for(let x=0;x<128;x++){const i=(y*128+x)*4;normals[i]=128+Math.sin(x*.073+y*.031)*8;normals[i+1]=128+Math.cos(y*.067-x*.023)*8;normals[i+2]=255;normals[i+3]=255;}
   const normal=new THREE.DataTexture(normals,128,128);normal.needsUpdate=true;normal.magFilter=normal.minFilter=THREE.LinearFilter;
-  const glassMat=new THREE.MeshPhysicalMaterial({color:'#dbe0d0',transparent:true,opacity:.17,roughness:.18,metalness:.08,clearcoat:1,clearcoatRoughness:.15,normalMap:normal,normalScale:new THREE.Vector2(.13,.13),roughnessMap:new THREE.CanvasTexture(glassCanvas),side:THREE.DoubleSide,depthWrite:false,envMapIntensity:.7});
-  const glass=new THREE.Mesh(new THREE.PlaneGeometry(1.14,1.08),glassMat);glass.rotation.y=Math.PI/2;glass.renderOrder=3;sash.add(glass);
-  const dust=new THREE.Mesh(new THREE.PlaneGeometry(1.14,1.08),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(glassCanvas),transparent:true,opacity:.11,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));dust.rotation.y=Math.PI/2;dust.position.x=.001;dust.renderOrder=4;sash.add(dust);
-  // A small lamp rather than a large uniformly lit room.
-  box('LampFoot',[.13,.018,.10],[.76,.761,-.29],iron,.006);
-  const stem=new THREE.Mesh(new THREE.CylinderGeometry(.005,.005,.30,12),iron);stem.position.set(.76,.91,-.29);stem.rotation.z=-.2;root.add(stem);
-  const shade=new THREE.Mesh(new THREE.ConeGeometry(.065,.08,32,1,true),iron);shade.position.set(.73,1.075,-.29);shade.rotation.z=-.18;root.add(shade);
-  const bulb=new THREE.Mesh(new THREE.SphereGeometry(.012,10,8),new THREE.MeshBasicMaterial({color:'#fff0c7'}));bulb.position.set(.73,1.055,-.29);root.add(bulb);
-  const lamp=new THREE.SpotLight('#fff1d9',4.8,2.5,Math.PI/3,.65,2);lamp.position.copy(bulb.position);lamp.target.position.set(.1,.75,.0);scene.add(lamp,lamp.target);
-  return {root,wood,trim,lamp,sash,outside,bulb,
-    setLamp(on){lamp.intensity=on?4.8:0;bulb.visible=on;},
-    setWindow(t){sash.rotation.y=-t*.16;sash.position.x=-.961+t*.045;},
+  const glassMaterial=new THREE.MeshPhysicalMaterial({color:'#d8dfcf',transparent:true,opacity:.12,roughness:.21,metalness:.06,clearcoat:1,clearcoatRoughness:.19,normalMap:normal,normalScale:new THREE.Vector2(.15,.15),side:THREE.DoubleSide,depthWrite:false});
+  const glass=new THREE.Mesh(new THREE.PlaneGeometry(.97,.88),glassMaterial);glass.name='WindowGlass';glass.rotation.y=Math.PI/2;glass.position.z=.5;glass.renderOrder=3;sash.add(glass);
+  const handle=box('WindowHandle',[.021,.055,.012],[.022,-.1,.93],iron,.004,sash);
+  const wallSwitch=new THREE.Group();wallSwitch.name='WallSwitch';wallSwitch.position.set(-.81,1.15,-.26);wallSwitch.rotation.y=Math.PI/2;root.add(wallSwitch);
+  box('SwitchPlate',[.047,.062,.008],[0,0,0],new THREE.MeshStandardMaterial({color:'#cdc8b7',roughness:.7}),.004,wallSwitch);
+  const rocker=box('SwitchRocker',[.021,.035,.006],[0,0,.006],new THREE.MeshStandardMaterial({color:'#dfd8c2',roughness:.6}),.002,wallSwitch);
+  box('LampFoot',[.13,.018,.10],[1.05,.761,-.18],iron,.006);
+  const stem=new THREE.Mesh(new THREE.CylinderGeometry(.005,.005,.30,12),iron);stem.position.set(1.05,.91,-.18);stem.rotation.z=-.2;root.add(stem);
+  const shade=new THREE.Mesh(new THREE.ConeGeometry(.065,.08,32,1,true),iron);shade.position.set(1.02,1.075,-.18);shade.rotation.z=-.18;root.add(shade);
+  const bulb=new THREE.Mesh(new THREE.SphereGeometry(.012,10,8),new THREE.MeshBasicMaterial({color:'#fff0c7'}));bulb.position.set(1.02,1.055,-.18);root.add(bulb);
+  const lamp=new THREE.SpotLight('#ffecd0',6.4,3.0,Math.PI/3,.85,2);lamp.position.copy(bulb.position);lamp.target.position.set(-.25,.75,.10);scene.add(lamp,lamp.target);
+  let opening=0;
+  return {root,wood,trim,lamp,sash,outside,bulb,windowTargets:[glass,handle],switchTarget:wallSwitch,
+    get opening(){return opening;},
+    setLamp(on){lamp.intensity=on?6.4:0;bulb.visible=on;rocker.rotation.x=on?-.07:.07;},
+    setWindow(t){opening=t;sash.rotation.y=-t*.48;},
     finish(){
-      wood.color.set('#b08c62');wood.roughness=.70;trim.color.set('#9e7d56');trim.roughness=.84;
+      wood.color.set('#aa8255');wood.roughness=.78;trim.color.set('#927247');trim.roughness=.86;
       const batches=new Map();root.updateWorldMatrix(true,true);
-      for(const node of [...root.children])if(node.isMesh&&node!==outside&&node!==bulb){const list=batches.get(node.material)||[];list.push(node);batches.set(node.material,list);}
-      for(const [material,nodes]of batches)if(nodes.length>1){
-        const geometries=nodes.map(n=>(n.geometry.index?n.geometry.toNonIndexed():n.geometry.clone()).applyMatrix4(n.matrix));
-        const merged=mergeGeometries(geometries,false);if(!merged)continue;
-        const mesh=new THREE.Mesh(merged,material);mesh.name='StaticRoom_'+material.name;mesh.castShadow=nodes[0].castShadow;mesh.receiveShadow=nodes[0].receiveShadow;root.add(mesh);
-        for(const n of nodes){n.removeFromParent();n.geometry.dispose();}for(const g of geometries)g.dispose();
-      }
+      for(const node of [...root.children])if(node.isMesh&&node!==outside&&node!==bulb){const key=node.material.uuid+'|'+Object.keys(node.geometry.attributes).sort().join(','),list=batches.get(key)||[];list.push(node);batches.set(key,list);}
+      for(const nodes of batches.values())if(nodes.length>1){const material=nodes[0].material,geometries=nodes.map(n=>(n.geometry.index?n.geometry.toNonIndexed():n.geometry.clone()).applyMatrix4(n.matrix));const merged=mergeGeometries(geometries,false);if(merged){const mesh=new THREE.Mesh(merged,material);mesh.name='StaticRoom_'+material.name;mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);for(const n of nodes){n.removeFromParent();n.geometry.dispose();}}for(const g of geometries)g.dispose();}
     },
   };
 }

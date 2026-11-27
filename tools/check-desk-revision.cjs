@@ -47,7 +47,7 @@ const difference=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
         body=body.replace('  return { highlight, select, home,',instrument+'\n  return { highlight, select, home,');
         if(!process.argv.includes('--full'))body=body.replace('renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));','renderer.setPixelRatio(.5);').replaceAll('2048, 2048','256, 256');
         await r.fulfill({response,body});});
-      await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:120000});
+      await page.goto(origin+'/escriptori/anterior.html');await page.locator('#workspace[data-ready=true]').waitFor({timeout:120000});
       await page.locator('[data-area=Medi]').click();await page.locator('[data-project=relleu-obert]').click();await page.locator('#project-detail.is-visible').waitFor().catch(async error=>{
         console.error({errors,state:await page.evaluate(()=>({phase:revision.phase(),status:document.querySelector('#desk-status').textContent}))});throw error;
       });

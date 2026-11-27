@@ -24,7 +24,7 @@ const gate=()=>{let release;const promise=new Promise(r=>release=r);return {prom
         }else if(mode==='allowed')await extras.promise;
         await r.continue();
       });
-      await page.goto(origin+'/escriptori/',{waitUntil:'domcontentloaded'});
+      await page.goto(origin+'/escriptori/anterior.html',{waitUntil:'domcontentloaded'});
       if(mode==='muted'){
         await page.waitForTimeout(500);assert.equal(await page.evaluate(()=>typeof loadingContext),'undefined');assert.ok(!requests.some(u=>u.includes('/desk/audio/')),'Remembered mute skips even the preload');
       }else if(mode==='unavailable'){

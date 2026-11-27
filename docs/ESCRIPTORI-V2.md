@@ -1,5 +1,7 @@
 # Escriptori v2: prova des d’una cadira
 
+Document històric de la prova del 24 de novembre. El 27 de novembre es transforma en el [racó de treball](ESCRIPTORI-RACO.md), que passa a ser l’accés principal d’Escriptori. La portada ja no ofereix un enllaç separat a v2. Les dades següents descriuen la prova original.
+
 Primera prova: 24 de novembre de 2026. Ruta pròpia `/escriptori-v2/`, accessible des de la portada. L’escriptori anterior continua a `/escriptori/`.
 
 ## Contracte de navegació

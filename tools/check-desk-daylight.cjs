@@ -41,7 +41,7 @@ async function choose(page, day, time) {
     let release;
     const waiting = new Promise(resolve=>{release=resolve;});
     await page.route('**/escriptori.glb*',async route=>{await waiting;await route.continue();});
-    await page.goto(origin+'/escriptori/',{waitUntil:'domcontentloaded'});
+    await page.goto(origin+'/escriptori/anterior.html',{waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>Number(document.querySelector('.loading-meter').getAttribute('aria-valuenow'))>=10);
     assert.ok(await page.locator('#desk-loading').isVisible());
     assert.ok(await page.locator('.desk-view-tools').evaluate(e=>e.inert));
@@ -128,7 +128,7 @@ async function choose(page, day, time) {
     const mobile=await browser.newContext({viewport:{width:320,height:568},reducedMotion:'reduce',hasTouch:true});
     await mobile.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());
     const phone=await mobile.newPage();await fixClock(phone);
-    await phone.goto(origin+'/escriptori/');
+    await phone.goto(origin+'/escriptori/anterior.html');
     await phone.locator('#workspace[data-ready=true]').waitFor({timeout:60000});
     const toolbar=await phone.locator('.desk-view-tools').boundingBox();
     assert.ok(toolbar.x>=0&&toolbar.x+toolbar.width<=321,'The light switch and view controls fit a narrow phone');
@@ -148,7 +148,7 @@ async function choose(page, day, time) {
     await failed.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());
     const fallback=await failed.newPage();
     await fallback.route('**/escriptori.glb*',route=>route.fulfill({status:503,body:'Unavailable'}));
-    await fallback.goto(origin+'/escriptori/');
+    await fallback.goto(origin+'/escriptori/anterior.html');
     await fallback.locator('#workspace.failed').waitFor();
     assert.ok(await fallback.locator('#desk-loading').isHidden());
     assert.ok(await fallback.locator('#projectes.is-open').isVisible());

@@ -23,7 +23,7 @@ console.log('PASS: v2 names/properties, localhost and automated-browser guards, 
     await ctx.route('**/desk.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace("if (location.protocol !== 'https:' || location.hostname !== 'ortogra.fi' || navigator.webdriver) return;",'if (false) return;')})});
     await ctx.route('**/app.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace("if(location.protocol!=='https:'||location.hostname!=='ortogra.fi'||navigator.webdriver)return;",'if(false)return;')})});
     const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
-    await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});
+    await page.goto(origin+'/escriptori/anterior.html');await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});
     assert.equal(await page.locator('script[data-website-id]').count(),0,'No real tracker is loaded locally');
     assert.equal(await page.locator('a[data-umami-event=v2_obre_portafoli]').count(),1);
     assert.equal(await page.locator('a[data-umami-event=v2_obre_portafoli]').getAttribute('data-umami-event-interficie'),'escriptori');

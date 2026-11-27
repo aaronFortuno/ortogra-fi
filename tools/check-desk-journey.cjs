@@ -69,7 +69,7 @@ function checkFrames(frames, phase) {
           .replace('daylight.shadow.mapSize.set(2048, 2048);', 'daylight.shadow.mapSize.set(256, 256);');
         await route.fulfill({response,body:process.argv.includes('--captures') ? body.replace('const journeyDuration = 2500;', 'const journeyDuration = 8000;') : body});
       });
-      await page.goto(origin+'/escriptori/');
+      await page.goto(origin+'/escriptori/anterior.html');
       await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000}).catch(async error=>{
         console.error(await page.evaluate(()=>({status:document.querySelector('#desk-status').textContent,loading:document.querySelector('.loading-label').textContent,ready:document.querySelector('#workspace').dataset.ready})),errors);throw error;
       });

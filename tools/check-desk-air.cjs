@@ -17,7 +17,7 @@ const probe=`window.airStudy={
     await ctx.addInitScript(()=>{const D=Date;window.Date=class extends D{constructor(...args){super(...(args.length?args:['2026-11-23T15:00:00Z']))}static now(){return D.parse('2026-11-23T15:00:00Z')}}});
     const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
     await page.route('**/scene.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('  return { highlight, select, home,',probe+'\n  return { highlight, select, home,').replace('focused:Boolean(active)||presenting||contextLost','focused:Boolean(active)||presenting||contextLost||window.airDisabled')})});
-    await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000});await page.locator('#desk-loading').waitFor({state:'hidden'});
+    await page.goto(origin+'/escriptori/anterior.html');await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000});await page.locator('#desk-loading').waitFor({state:'hidden'});
     const snapshots={},images={};
     async function snap(name){await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));images[name]=(await page.screenshot({path:path.join(out,(mobile?'mobile-':'desktop-')+name+'.png')})).toString('base64');snapshots[name]=await page.evaluate(()=>({air:airStudy.info(),stats:airStudy.stats(),bench:airStudy.bench()}));}
     await page.evaluate(()=>airStudy.toggle(false));await snap('without');await page.evaluate(()=>airStudy.toggle(true));await snap('sun');

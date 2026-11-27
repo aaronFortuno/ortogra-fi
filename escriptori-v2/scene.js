@@ -2,24 +2,26 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../assets/vendor/three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from '../assets/vendor/three/addons/utils/BufferGeometryUtils.js';
 import { prepareMaterials } from '../escriptori/materials.js?v=1.22.0';
-import { prepareBinderLoad, arrangeBinderRow } from '../escriptori/binder-load.js?v=1.25.0';
+import { prepareBinderLoad } from '../escriptori/binder-load.js?v=1.25.0';
 import { createLabelTexture } from '../escriptori/labels.js?v=1.11.0';
-import { createBinderShelf } from '../escriptori/binder-shelf.js?v=1.27.0';
+import { createBinderShelf } from '../escriptori/binder-shelf.js?v=1.28.0';
 import { createPerformanceMonitor } from '../escriptori/performance.js?v=1.22.1';
 import { solarLight } from '../escriptori/solar.js?v=1.6.0';
-import { createSeatedLook, SEAT } from './seated-look.js?v=0.1.0';
-import { createRoom } from './room.js?v=0.1.0';
+import { createSeatedLook, SEAT } from './seated-look.js?v=0.2.0';
+import { createRoom } from './room.js?v=0.2.0';
+import { createDeskLife, movingLeaves } from './life.js?v=0.2.0';
 import { addMonAMaModel } from '../escriptori/project-models.js?v=1.27.0';
+import { prepareStapler } from '../escriptori/stapler-mechanism.js?v=1.19.0';
 
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 const flatBinder=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,-1),new THREE.Vector3(-1,0,0)));
-export async function createDesk({canvas,projects,resources,onStage,onObjectSound=()=>{},onAction=()=>{}}){
+export async function createDesk({canvas,projects,resources,onStage,onObjectSound=()=>{},onAction=()=>{},onWindowChange=()=>{},onLampChange=()=>{}}){
   const surface=canvas.parentElement,renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'low-power'});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.AgXToneMapping;
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.shadowMap.autoUpdate=false;
-  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(54,1,.025,12);camera.position.set(...SEAT);
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(50,1,.025,12);camera.position.set(...SEAT);
   const monitor=createPerformanceMonitor(renderer),models=new Map(),motions=new Map();let frame=0,ambientTimer,active=null,phase='shelf',hovered=null,inspected=null,savedLook,clock=0,lastAmbient,lastTime,lastShadow=-Infinity,readyToRender=false;
-  const look=createSeatedLook(camera,surface,{redraw:()=>requestRender(),onGesture:()=>onAction('mira',{gest:'arrossega'})});
+  const look=createSeatedLook(camera,surface,{redraw:()=>requestRender(),onGesture:()=>{surface.dataset.looked='true';onAction('mira',{gest:'arrossega'});}});
   const room=createRoom(scene),content=new THREE.Group();content.name='ProjectMaterials';scene.add(content);
   const sky=new THREE.HemisphereLight('#e0e9e6','#9e8b6d',.7);scene.add(sky);
   const sun=new THREE.DirectionalLight('#fff4db',2.5);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
@@ -29,48 +31,74 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
   addMonAMaModel(asset.scene);
   let variant=0;
   for(const project of projects){
-    const group=asset.scene.getObjectByName('Item_'+project.id),lid=group.getObjectByName('Lid_'+project.id);content.add(group);group.position.set(0,0,0);group.rotation.set(0,0,0);group.scale.setScalar(.145);
+    const group=asset.scene.getObjectByName('Item_'+project.id),lid=group.getObjectByName('Lid_'+project.id);content.add(group);group.position.set(0,0,0);group.rotation.set(0,0,0);group.scale.setScalar(project.kind==='binder'?.19:.175);
+    const colours={plec:'#835b4a',trama:'#9c843e',resso:'#4b6350',sentit:'#527475','fil-i-compte':'#aa823c','mon-a-ma':'#63735d'};
+    group.traverse(n=>{if(n.isMesh&&n.material.name==='Cloth_'+project.id)n.material.color.set(colours[project.id]);});
+    if(project.id==='pauta')group.traverse(n=>{if(n.isMesh)n.visible=false;});
     const label=await createLabelTexture(project),labelMesh=new THREE.Mesh(new THREE.PlaneGeometry(project.kind==='binder'?.293:1.4,project.kind==='binder'?1.41:.26,project.kind==='binder'?6:1,project.kind==='binder'?28:1),new THREE.MeshBasicMaterial({map:label,transparent:true,side:THREE.DoubleSide,depthWrite:false}));labelMesh.name='MaterialLabel';
     let setLoad;
-    if(project.kind==='binder'){labelMesh.position.set(0,.12,.825);group.add(labelMesh);setLoad=prepareBinderLoad(group,variant++);}
-    else if(project.kind==='box'){labelMesh.position.set(0,-.01,.732);group.add(labelMesh);group.scale.multiplyScalar(.78);group.position.set(.025,0,-.44);}
-    else {labelMesh.position.set(.925,.051,-.81);labelMesh.rotation.x=-Math.PI/2;lid.add(labelMesh);group.position.set(.48+(project.id==='pauta'?.025:0),0,project.id==='pauta'?-.015:-.39);group.rotation.y=project.id==='pauta'?-.04:.025;}
-    if(project.id==='mon-a-ma')group.position.set(.195,0,-.425);
+    if(project.kind==='binder'){labelMesh.position.set(0,-.02,.825);group.add(labelMesh);setLoad=prepareBinderLoad(group,variant++);}
+    else if(project.kind==='box'){labelMesh.position.set(0,-.01,.732);group.add(labelMesh);group.position.set(.27,0,-.06);}
+    else {labelMesh.position.set(.925,.051,-.81);labelMesh.rotation.x=-Math.PI/2;lid.add(labelMesh);group.position.set(project.id==='pauta'?.69:1.0,0,project.id==='pauta'?-.43:.11);group.rotation.y=project.id==='pauta'?-.07:.13;if(project.id==='pauta')labelMesh.visible=false;}
+    if(project.kind==='binder')group.position.z=-.47+(variant%3)*.009;
     const hitQuad=project.kind==='binder'?[[-.20,-.91,.87],[.20,-.91,.87],[.20,.93,.87],[-.20,.93,.87]]:project.kind==='box'?[[-.95,-.31,.74],[.95,-.31,.74],[.95,.34,.74],[-.95,.34,.74]]:[[-.93,.05,-1.17],[.93,.05,-1.17],[.93,.05,1.17],[-.93,.05,1.17]];
-    const model={project,group,lid,setLoad,hitQuad,axis:project.kind==='binder'?'y':project.kind==='box'?'x':'z',angle:project.kind==='binder'?-Math.PI-.28:project.kind==='box'?-Math.PI*.57:Math.PI};models.set(project.id,model);
+    const model={project,group,lid,setLoad,hitQuad,homeLid:project.kind==='box'?-1.70:0,axis:project.kind==='binder'?'y':project.kind==='box'?'x':'z',angle:project.kind==='binder'?-Math.PI-.28:project.kind==='box'?-Math.PI*.57:Math.PI};lid.rotation[model.axis]=model.homeLid;models.set(project.id,model);
   }
-  const binders=projects.filter(p=>p.kind==='binder'&&p.id!=='mon-a-ma').map(p=>models.get(p.id));
-  for(const m of binders)m.group.position.z=-.425+(binders.indexOf(m)%2)*.012;
-  arrangeBinderRow(binders.map(m=>m.group),{left:-.722,surface:.75,gap:.001});
+  onStage(null,'Deixant els materials a mà…');
+  const idleLoader=new THREE.TextureLoader(),box=models.get('relleu-obert'),pauta=models.get('pauta');
+  const previewAsset=await new GLTFLoader().parseAsync(await resources.buffer(new URL('../assets/desk/reliefs/agulles-montserrat-preview.glb',import.meta.url).href),new URL('../assets/desk/reliefs/',import.meta.url).href);
+  const preview=previewAsset.scene,pb=new THREE.Box3().setFromObject(preview),ps=pb.getSize(new THREE.Vector3()),pc=pb.getCenter(new THREE.Vector3()),normalise=1.28/Math.max(ps.x,ps.z);
+  preview.scale.multiplyScalar(normalise);preview.position.set(-pc.x*normalise,-.22-pb.min.y*normalise,-pc.z*normalise);box.group.add(preview);box.idle=preview;
+  const paperTexture=await resources.load(new URL('../assets/desk/samples/pauta-1.webp',import.meta.url).href,url=>idleLoader.loadAsync(url));paperTexture.colorSpace=THREE.SRGBColorSpace;
+  pauta.idle=new THREE.Group();pauta.idle.name='LoosePautaSamples';pauta.group.add(pauta.idle);
+  for(let i=0;i<4;i++){const sheet=new THREE.Mesh(new THREE.PlaneGeometry(1.78,2.30),new THREE.MeshStandardMaterial({map:paperTexture,color:'#f3efdf',roughness:1,side:THREE.DoubleSide}));sheet.rotation.set(-Math.PI/2,0,(i-1.5)*.035);sheet.position.set(Math.sin(i*2.4)*.06,.015+i*.009,Math.cos(i)*.04);pauta.idle.add(sheet);}
   for(const m of models.values()){
-    if(m.project.kind!=='binder'||m.project.id==='mon-a-ma'){m.group.updateWorldMatrix(true,true);m.group.position.y+=.751-new THREE.Box3().setFromObject(m.group).min.y;}
+    if(m.project.kind!=='binder'){m.group.updateWorldMatrix(true,true);m.group.position.y+=.751-new THREE.Box3().setFromObject(m.group).min.y;}
     m.home=m.group.position.clone();m.rotation=m.group.quaternion.clone();m.group.updateWorldMatrix(true,true);
     m.bounds=new THREE.Box3();const inverse=m.group.matrixWorld.clone().invert();m.group.traverse(n=>{if(n.isMesh){n.geometry.computeBoundingBox();m.bounds.union(n.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,n.matrixWorld)));}});m.outlineBounds=m.bounds.clone();
   }
-  for(const [name,x,z,scale]of [['Pothos',-.67,-.12,.12],['LoosePencil',-.32,.19,.145],['LooseWorksheet_1',-.48,-.025,.12],['DeskStapler',.70,.13,.13]]){
+  for(const [name,x,z,scale]of [['Pothos',-.733,-.035,.12],['PencilCup',-.58,.22,.17],['LoosePencil',.19,.20,.15],['LooseWorksheet_1',.87,-.37,.12],['DeskStapler',.46,.19,.16]]){
     const node=asset.scene.getObjectByName(name);if(!node)continue;const holder=new THREE.Group();content.add(holder);holder.add(node);node.position.set(0,0,0);holder.position.set(x,0,z);holder.rotation.y=name==='LoosePencil'?-.4:name==='LooseWorksheet_1'?.06:0;holder.scale.setScalar(scale);holder.updateWorldMatrix(true,true);
-    const b=new THREE.Box3().setFromObject(holder);holder.position.y+=.751-b.min.y;
+    if(name==='PencilCup'){
+      // The imported cup has baked material primitives. Rebuild whole pencils,
+      // rather than rotating separate wood/paint primitives apart.
+      node.clear();
+      const profile=[[0,0],[.20,0],[.24,.025],[.25,.515],[.245,.54],[.21,.54],[.205,.045],[0,.045]].map(p=>new THREE.Vector2(...p));
+      node.add(new THREE.Mesh(new THREE.LatheGeometry(profile,24),new THREE.MeshPhysicalMaterial({name:'CornerCup',color:'#bdb8a7',roughness:.53,clearcoat:.12,clearcoatRoughness:.35})));
+      const tipMaterial=new THREE.MeshStandardMaterial({color:'#c8ab7e',roughness:.85}),graphite=new THREE.MeshStandardMaterial({color:'#373b35',roughness:.48});
+      ['#526844','#a87452','#ad945c','#777b71','#535f67'].forEach((colour,i)=>{
+        const pencil=new THREE.Group();pencil.position.set((i%3-1)*.09,.15,(i%2-.5)*.105);pencil.rotation.set(Math.sin(i*1.7)*.14,0,(i-2)*.075);pencil.scale.y=.94+i*.026;
+        const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.88,6),new THREE.MeshStandardMaterial({color:colour,roughness:.66}));shaft.position.y=.44;pencil.add(shaft);
+        const tip=new THREE.Mesh(new THREE.CylinderGeometry(.006,.022,.10,6),tipMaterial);tip.position.y=.93;pencil.add(tip);
+        const lead=new THREE.Mesh(new THREE.ConeGeometry(.006,.025,6),graphite);lead.position.y=.9925;pencil.add(lead);node.add(pencil);
+      });
+    }
+    holder.updateWorldMatrix(true,true);
+    const b=new THREE.Box3().setFromObject(holder);holder.position.y+=(name==='Pothos'?.836:.751)-b.min.y;if(name==='DeskStapler')holder.rotation.y=-.18;
   }
   // Dispose the unused large room after extracting the authored materials.
   const usedGeometry=new Set(),usedMaterials=new Set(),usedTextures=new Set();content.traverse(n=>{if(n.isMesh){usedGeometry.add(n.geometry);for(const mat of [].concat(n.material)){usedMaterials.add(mat);for(const value of Object.values(mat))if(value?.isTexture)usedTextures.add(value);}}});
   asset.scene.traverse(n=>{if(n.isMesh){if(!usedGeometry.has(n.geometry))n.geometry.dispose();for(const mat of [].concat(n.material))if(!usedMaterials.has(mat)){for(const value of Object.values(mat))if(value?.isTexture&&!usedTextures.has(value))value.dispose();mat.dispose();}}});asset.scene.clear();
   onStage(null,'Preparant la fusta, el vidre i la llum…');
-  const materials=await prepareMaterials(scene,scene,renderer,resources);room.finish();batchPlant(content.getObjectByName('Pothos'));
+  const materials=await prepareMaterials(scene,scene,renderer,resources);room.finish();batchPlant(content.getObjectByName('Pothos'));const staplerPress=prepareStapler(content.getObjectByName('DeskStapler'));
   scene.traverse(n=>{if(n.isMesh&&(n.material.isMeshBasicMaterial||n.material.transparent)){n.castShadow=false;n.receiveShadow=false;}});
   room.outside.material.map=await resources.load(new URL('../assets/desk/garden.webp',import.meta.url).href,url=>new THREE.TextureLoader().loadAsync(url));room.outside.material.map.colorSpace=THREE.SRGBColorSpace;room.outside.material.color.set('#ffffff');room.outside.material.needsUpdate=true;
   const dust=createDust(scene);let lampOn=true,windowOpen=false;
-  const shelf=createBinderShelf(binders,{left:-.722,surface:.75,gap:.0007,animate,redraw:requestRender});
+  const life=createDeskLife({scene,camera,canvas,plant:content.getObjectByName('Pothos'),reduced,redraw:requestRender,onBrush:()=>onObjectSound('brush','leaf')});
+  const rows=[createBinderShelf(['plec','trama','resso'].map(id=>models.get(id)),{left:-.831,surface:.75,gap:.001,animate,redraw:requestRender}),createBinderShelf(['sentit','fil-i-compte','mon-a-ma'].map(id=>models.get(id)),{left:-.10,right:.300,leanSign:-1,surface:.756,gap:.001,animate,redraw:requestRender})];
+  const owner=m=>rows.find(row=>row.has(m)),shelf={has:m=>Boolean(owner(m)),take:m=>owner(m)?.take(m),leaving:(m,t)=>owner(m)?.leaving(m,t),prepareReturn:m=>owner(m)?.prepareReturn(m),restore:async()=>{for(const row of rows)if(row.info().departing)await row.restore();},info:()=>rows.map(row=>row.info())};
+  const contacts=createContacts(scene,models);
   function setTime(){const state=solarLight(new Date());sky.intensity=.28+state.day*.38;scene.environmentIntensity=.24+state.day*.35;sun.intensity=state.sunIntensity;sun.color.set(state.golden>.3?'#fff0d2':'#fff7e8');sun.position.set(...state.direction).multiplyScalar(4).add(new THREE.Vector3(0,.9,0));sun.target.position.set(0,.78,-.15);room.outside.material.color.setScalar(.18+.82*state.day);dust.material.uniforms.light.value=.10+state.day*.16;canvas.dataset.lighting=state.phase;renderer.shadowMap.needsUpdate=true;requestRender();}
   setTime();const minuteTimer=setInterval(()=>{if(!document.hidden)setTime();},60000);window.addEventListener('pagehide',()=>clearInterval(minuteTimer),{once:true});
   function animate(key,update,duration=220){if(motions.has(key))motions.get(key).resolve();if(reduced.matches){update(1);requestRender();return Promise.resolve();}return new Promise(resolve=>{motions.set(key,{start:null,update,resolve,duration});requestRender();});}
   function requestRender(){if(readyToRender&&!frame&&!document.hidden)frame=requestAnimationFrame(render);}
   function render(time){
     monitor.begin();frame=0;for(const [key,m]of motions){m.start??=time;const u=THREE.MathUtils.clamp((time-m.start)/m.duration,0,1);m.update(u*u*(3-2*u));if(u===1){motions.delete(key);m.resolve();}}
-    camera.position.set(...SEAT);camera.updateMatrixWorld();scene.updateMatrixWorld();
+    camera.position.set(...SEAT);camera.updateMatrixWorld();scene.updateMatrixWorld();contacts.update();
     const living=!reduced.matches&&!document.hidden&&!active;
     if(living&&(lastAmbient===undefined||time-lastAmbient>1000/24)){
       clock+=lastTime===undefined?0:Math.min(.1,(time-lastTime)/1000);lastAmbient=lastTime=time;dust.material.uniforms.time.value=clock;
-      const plant=content.getObjectByName('Pothos');if(plant)plant.traverse(n=>{if(/^IndoorLeaf_\d+$/.test(n.name)){n.userData.rest??=n.rotation.z;const phase=parseInt(n.name.split('_')[1],10);n.rotation.z=n.userData.rest+Math.sin(clock*.35+phase*.79)*.009;}});
+      life.tick(clock);
       if(time-lastShadow>250){renderer.shadowMap.needsUpdate=true;lastShadow=time;}
     }
     if(!living)lastTime=undefined;dust.visible=!active;
@@ -127,23 +155,24 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
     const tilt=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),.40),q=tilt.multiply(m.project.kind==='binder'?flatBinder:new THREE.Quaternion());
     m.group.quaternion.copy(q);m.lid.rotation[m.axis]=m.angle;m.group.position.set(0,0,0);m.group.updateWorldMatrix(true,true);
     const box=new THREE.Box3().setFromObject(m.group),center=box.getCenter(new THREE.Vector3());
-    const p=new THREE.Vector3(-center.x,.772-box.min.y,.015-center.z);
+    const p=new THREE.Vector3(SEAT[0]+.30-center.x,.772-box.min.y,SEAT[2]-.48-center.z);
     return {position:p,rotation:q};
   }
   function headTo(target){const proxy=camera.clone();proxy.position.set(...SEAT);proxy.lookAt(target);return proxy.quaternion;}
   async function select(id){
     if(active||phase!=='shelf')return;phase='loading';surface.dataset.busy='true';look.enabled=false;const m=models.get(id);
+    hovered=null;for(const [key,motion]of motions)if(key.startsWith('hover-')){motions.delete(key);motion.resolve();}for(const other of models.values())if(other!==m)other.group.position.copy(other.home);
     const viewMotion=motions.get('look');if(viewMotion){viewMotion.update(1);motions.delete('look');viewMotion.resolve();look.sync();}
     try{await loadSamples(m);}catch(error){phase='shelf';look.enabled=true;delete surface.dataset.busy;throw error;}
-    active=m;savedLook=camera.quaternion.clone();if(shelf.has(m))await shelf.take(m);
+    active=m;life.pause(true);if(m.idle)m.idle.visible=false;savedLook=camera.quaternion.clone();if(shelf.has(m))await shelf.take(m);
     if(m.project.kind!=='box'){makePages(m);paint(m,1);}else {m.index=0;for(const node of m.terrains.values())node.visible=false;}
-    const target=readingPose(m),focus=new THREE.Vector3(0,.86,.035),readLook=headTo(focus),from=m.home.clone(),q=m.rotation.clone();m.group.position.copy(from);m.group.quaternion.copy(q);m.lid.rotation[m.axis]=0;
+    const target=readingPose(m),focus=new THREE.Vector3(SEAT[0]+.30,.86,SEAT[2]-.48),readLook=headTo(focus),from=m.home.clone(),q=m.rotation.clone();m.group.position.copy(from);m.group.quaternion.copy(q);m.lid.rotation[m.axis]=m.homeLid;
     surface.dataset.open='true';phase='opening';
     m.journey=t=>{
       const exit=THREE.MathUtils.smoothstep(t,0,.55),settle=THREE.MathUtils.smoothstep(t,.38,.95),open=THREE.MathUtils.smoothstep(t,.52,1),pull=THREE.MathUtils.smoothstep(t,0,.43),travel=THREE.MathUtils.smoothstep(t,.4,1);
       const forward=Math.max(from.z+.43,target.position.z);
       m.group.position.set(THREE.MathUtils.lerp(from.x,target.position.x,travel),THREE.MathUtils.lerp(from.y,target.position.y,t)+Math.sin(Math.PI*t)*.11,THREE.MathUtils.lerp(from.z,forward,pull)+(target.position.z-forward)*travel);
-      m.group.quaternion.slerpQuaternions(q,target.rotation,settle);m.lid.rotation[m.axis]=m.angle*open;m.setLoad?.(1-open);
+      m.group.quaternion.slerpQuaternions(q,target.rotation,settle);m.lid.rotation[m.axis]=THREE.MathUtils.lerp(m.homeLid,m.angle,open);m.setLoad?.(1-open);
       if(m.terrains)for(const [i,node]of m.terrains)node.visible=t>.58&&i===m.index;
       camera.quaternion.slerpQuaternions(savedLook,readLook,exit);
     };
@@ -154,7 +183,7 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
     await shelf.prepareReturn(m);await animate('material',t=>m.journey(1-t),2500);if(shelf.has(m))await shelf.restore();
     for(const page of m.pages||[]){page.removeFromParent();page.geometry.dispose();page.material.dispose();}m.pages=null;if(m.terrains)for(const node of m.terrains.values())node.visible=false;
     for(const sample of m.samples||[])sample.texture.dispose();m.samples=null;
-    active=null;phase='shelf';look.enabled=true;look.sync();delete surface.dataset.open;delete surface.dataset.busy;requestRender();
+    if(m.idle)m.idle.visible=true;life.pause(false);active=null;phase='shelf';look.enabled=true;look.sync();delete surface.dataset.open;delete surface.dataset.busy;requestRender();
   }
   async function changeSample(delta){
     if(!active||phase!=='reading')return;const m=active,count=m.project.kind==='box'?m.project.reliefs.length:3,index=(m.index+delta+count)%count;
@@ -174,7 +203,7 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
   async function inspect(index=0){
     if(!active||phase!=='reading')return;const m=active;phase='inspecting';surface.dataset.inspecting='true';
     if(m.project.kind==='box'){
-      const mesh=m.terrains.get(m.index),from=mesh.getWorldPosition(new THREE.Vector3()),originalScale=mesh.scale.clone(),parent=mesh.parent,local=mesh.position.clone();scene.attach(mesh);mesh.scale.multiplyScalar(1.2);const to=new THREE.Vector3(0,.93,.20);
+      const mesh=m.terrains.get(m.index),from=mesh.getWorldPosition(new THREE.Vector3()),originalScale=mesh.scale.clone(),parent=mesh.parent,local=mesh.position.clone();scene.attach(mesh);mesh.scale.multiplyScalar(1.2);const to=new THREE.Vector3(SEAT[0]+.16,.90,SEAT[2]-.24);
       inspected={type:'terrain',mesh,parent,local,originalScale,from};await animate('inspect',t=>{mesh.position.lerpVectors(from,to,t);mesh.position.y+=Math.sin(Math.PI*t)*.16;},820);
     }else {
       const source=m.pages[index];if(!source?.visible){phase='reading';delete surface.dataset.inspecting;return;}
@@ -200,26 +229,41 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
   canvas.addEventListener('pointerup',()=>heldPointer=null);canvas.addEventListener('pointercancel',()=>heldPointer=null);
   canvas.addEventListener('keydown',e=>{if(inspected?.type==='sheet'&&['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();inspected.scroll=THREE.MathUtils.clamp(inspected.scroll+(e.key==='ArrowDown'?.025:-.025),-.16,.16);requestRender();}});
   canvas.addEventListener('wheel',e=>{if(!inspected)return;e.preventDefault();if(inspected.type==='sheet')inspected.scroll=THREE.MathUtils.clamp(inspected.scroll+e.deltaY*.00025,-.16,.16);else inspected.mesh.rotation.y+=e.deltaY*.002;requestRender();},{passive:false});
-  function highlight(id){if(active)return;hovered=id;requestRender();}
+  function highlight(id){if(active||phase!=='shelf')return;hovered=id;for(const m of models.values()){const from=m.group.position.clone(),to=m.home.clone();if(m.project.id===id)to.z+=.015;animate('hover-'+m.project.id,t=>m.group.position.lerpVectors(from,to,t));}requestRender();}
   async function moveView(direction){
     if(active||phase!=='shelf'||motions.has('look'))return;const from=camera.quaternion.clone();if(direction==='home')look.home();else look.turn(direction==='left'?.28:-.28,0);
     const to=camera.quaternion.clone();camera.quaternion.copy(from);look.enabled=false;await animate('look',t=>camera.quaternion.slerpQuaternions(from,to,t),420);look.sync();if(phase==='shelf')look.enabled=true;onAction('mira',{gest:'boto',direccio:direction});
   }
-  function setLamp(on){lampOn=on;room.setLamp(on);renderer.shadowMap.needsUpdate=true;requestRender();}
-  function setWindow(on){windowOpen=on;const from=room.sash.rotation.y/-.16;animate('window',t=>room.setWindow(THREE.MathUtils.lerp(from,on?1:0,t)));}
+  function setLamp(on){lampOn=on;room.setLamp(on);onLampChange(on);onAction('llum',{actiu:on});renderer.shadowMap.needsUpdate=true;requestRender();}
+  function setWindow(on){windowOpen=on;onWindowChange(on);onAction('finestra',{oberta:on});const from=room.opening;animate('window',t=>room.setWindow(THREE.MathUtils.lerp(from,on?1:0,t)),820);}
+  const controlRay=new THREE.Raycaster(),controlPointer=new THREE.Vector2();
+  canvas.addEventListener('click',event=>{
+    if(active||phase!=='shelf')return;const r=canvas.getBoundingClientRect();controlPointer.set((event.clientX-r.left)/r.width*2-1,1-(event.clientY-r.top)/r.height*2);controlRay.setFromCamera(controlPointer,camera);
+    const stapler=content.getObjectByName('DeskStapler'),hit=controlRay.intersectObjects([room.sash,room.switchTarget,...(stapler?[stapler]:[])],true)[0];if(!hit)return;
+    const nearest=controlRay.intersectObjects(scene.children,true).find(h=>h.object.isMesh&&h.object.visible&&!h.object.material.transparent);if(nearest&&nearest.distance<hit.distance-.015)return;
+    if(stapler?.getObjectById(hit.object.id)){if(motions.has('stapler'))return;animate('stapler',t=>{staplerPress.rotation.x=.19*Math.sin(Math.PI*t);staplerPress.userData.magazine.rotation.x=.103*Math.sin(Math.PI*t);},420);onObjectSound('staple','metal');onAction('toca_grapadora');}
+    else if(room.switchTarget.getObjectById(hit.object.id))setLamp(!lampOn);else setWindow(!windowOpen);
+  });
   document.addEventListener('visibilitychange',()=>{clearTimeout(ambientTimer);lastTime=undefined;if(!document.hidden)requestRender();});
   reduced.addEventListener('change',()=>{for(const m of motions.values()){m.update(1);m.resolve();}motions.clear();requestRender();});
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();clearTimeout(ambientTimer);document.querySelector('.desk-list').classList.add('is-open');document.querySelector('#desk-status').textContent='Pots continuar des de la llista de projectes.';});
   onStage(94,'Preparant la mirada des de la cadira…');readyToRender=true;renderer.shadowMap.needsUpdate=true;await renderer.compileAsync(scene,camera);await new Promise(resolve=>{requestRender();requestAnimationFrame(()=>requestAnimationFrame(resolve));});
   return {select,close,highlight,moveView,changeSample,inspect,leaveInspection,setLamp,setWindow,
     info:()=>({phase,selected:active?.project.id,index:active?.index||0,count:active?.project.kind==='box'?active.project.reliefs.length:3,secondary:Boolean(active?.pages?.[1]?.visible),paired:active?.pages?.[1]?.userData.sample?.role==='answers',inspection:inspected?.type||null}),
-    diagnostics:()=>({look:look.info(),calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,textures:renderer.info.memory.textures,geometries:renderer.info.memory.geometries,materials:materials.size,lampOn,windowOpen}),
+    diagnostics:()=>({look:look.info(),calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,textures:renderer.info.memory.textures,geometries:renderer.info.memory.geometries,materials:materials.size,lampOn,windowOpen,life:life.info()}),
   };
 }
-// Keep two gently moving leaves; batch the static foliage, veins and soil.
+function createContacts(scene,models){
+  const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d'),pixels=x.createImageData(64,64);
+  for(let y=0;y<64;y++)for(let px=0;px<64;px++){const i=(y*64+px)*4,u=(px-31.5)/32,v=(y-31.5)/32;pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=28;pixels.data[i+3]=80*Math.exp(-4*(Math.pow(u,6)+Math.pow(v,6)));}x.putImageData(pixels,0,0);
+  const texture=new THREE.CanvasTexture(c),geometry=new THREE.PlaneGeometry(1,1),shadows=new Map();
+  for(const model of models.values()){const mesh=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({map:texture,transparent:true,opacity:.55,depthWrite:false}));mesh.rotation.x=-Math.PI/2;mesh.name='Contact_'+model.project.id;scene.add(mesh);shadows.set(model,mesh);}
+  return {update(){for(const [model,mesh]of shadows){const b=model.bounds.clone().applyMatrix4(model.group.matrixWorld),size=b.getSize(new THREE.Vector3()),centre=b.getCenter(new THREE.Vector3());mesh.position.set(centre.x,Math.min(.757,Math.max(.7505,b.min.y-.0003)),centre.z);mesh.scale.set(size.x+.012,size.z+.012,1);mesh.material.opacity=.55*Math.exp(-Math.max(0,b.min.y-.758)*35);}}};
+}
+// Keep reactive leaves and their own veins together; batch the static foliage.
 function batchPlant(plant){
   if(!plant)return;plant.updateWorldMatrix(true,true);const inverse=plant.matrixWorld.clone().invert(),batches=new Map();
-  plant.traverse(n=>{if(!n.isMesh||['IndoorLeaf_2','IndoorLeaf_8'].includes(n.name))return;const key=n.material.uuid+'|'+Object.keys(n.geometry.attributes).sort().join(','),list=batches.get(key)||[];list.push(n);batches.set(key,list);});
+  plant.traverse(n=>{if(!n.isMesh)return;for(let parent=n;parent&&parent!==plant;parent=parent.parent)if(movingLeaves.has(parent.name))return;const key=n.material.uuid+'|'+Object.keys(n.geometry.attributes).sort().join(','),list=batches.get(key)||[];list.push(n);batches.set(key,list);});
   for(const nodes of batches.values())if(nodes.length>1){const material=nodes[0].material;
     const geometries=nodes.map(n=>(n.geometry.index?n.geometry.toNonIndexed():n.geometry.clone()).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,n.matrixWorld)));
     const geometry=mergeGeometries(geometries,false);if(geometry){const mesh=new THREE.Mesh(geometry,material);mesh.name='StaticPlant';mesh.castShadow=mesh.receiveShadow=true;plant.add(mesh);for(const n of nodes){n.removeFromParent();n.geometry.dispose();}}for(const g of geometries)g.dispose();

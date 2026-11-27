@@ -59,7 +59,7 @@ const probe = `
         const anchor='  return { highlight, select, home,';assert.ok(source.includes(anchor));
         await r.fulfill({response,body:source.replace(anchor,probe+'\n'+anchor)});
       });
-      await page.goto(origin+'/escriptori/');
+      await page.goto(origin+'/escriptori/anterior.html');
       await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});
       await page.locator('#desk-loading').waitFor({state:'hidden'});
       const support=await page.evaluate(()=>binderCheck.support());

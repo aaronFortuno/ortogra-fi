@@ -39,7 +39,7 @@ const sceneProbe=`
       await page.route('**/stationery.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('  return {\n    cancel: rollback,',bodiesProbe+'\n  return {\n    cancel: rollback,')})});
       await page.route('**/atmosphere.js*',async r=>{const response=await r.fetch();const source=(await response.text()).replaceAll('\r\n','\n');assert.ok(source.includes('  return {\n    leafTexture,'));await r.fulfill({response,body:source.replace('  return {\n    leafTexture,','globalThis.leafState=()=>indoor.map(i=>({bend:i.bend.toArray(),velocity:i.velocity.toArray()}));\n  return {\n    leafTexture,')})});
       await page.route('**/scene.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replaceAll('renderer.render(scene, camera);','window.tableScene?.frame();renderer.render(scene, camera);').replace('  return { highlight, select, home,',sceneProbe+'\n  return { highlight, select, home,')})});
-      await page.goto(origin+'/escriptori/');
+      await page.goto(origin+'/escriptori/anterior.html');
       await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});await page.locator('#desk-loading').waitFor({state:'hidden'});
       const folders=await page.evaluate(()=>tableScene.folders());
       const [a,b]=folders;assert.ok(a.max[0]<b.min[0]||b.max[0]<a.min[0]||a.max[2]<b.min[2]||b.max[2]<a.min[2],'Pauta and Pentagrama have separate footprints');

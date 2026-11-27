@@ -32,7 +32,7 @@ const view=`window.paperView={phase:()=>phase,project(v){camera.updateMatrixWorl
       const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
       await page.route('**/stationery.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replaceAll('\r\n','\n').replace('  return {\n    cancel: rollback,',probe+'\n  return {\n    cancel: rollback,')})});
       await page.route('**/scene.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('  return { highlight, select, home,',view+'\n  return { highlight, select, home,')})});
-      await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});await page.locator('#desk-loading').waitFor({state:'hidden'});
+      await page.goto(origin+'/escriptori/anterior.html');await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});await page.locator('#desk-loading').waitFor({state:'hidden'});
       await page.evaluate(()=>{paperLinks.place('LooseWorksheet_4',-1.9,2.8,.16);paperLinks.place('LooseWorksheet_3',-1.84,2.85,-.16,.007);paperLinks.place('DeskStapler',-1.9,2.8);paperView.view();paperLinks.press()});
       const get=name=>page.evaluate(name=>paperLinks.get(name),name),project=v=>page.evaluate(v=>paperView.project(v),v);
       const a='LooseWorksheet_4',b='LooseWorksheet_3';assert.equal((await get(a)).bundle,(await get(b)).bundle);assert.ok((await get(a)).bundle);

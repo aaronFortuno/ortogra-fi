@@ -3,7 +3,7 @@ import { standingProfile, profileSpan } from './binder-load.js?v=1.25.0';
 
 // Five cached convex outlines, not a continuously running physics world.
 // A shrinking/growing reserved slot keeps every remaining book supported.
-export function createBinderShelf(models,{left,surface,gap=.004,animate,redraw}) {
+export function createBinderShelf(models,{left,right=null,leanSign=1,surface,gap=.004,animate,redraw}) {
   const order=[...models],cache=new Map(),up=new THREE.Vector3(0,0,1);
   let departing=null,departureAt=null;
   for(const model of order){
@@ -13,10 +13,10 @@ export function createBinderShelf(models,{left,surface,gap=.004,animate,redraw})
     group.position.copy(p);group.quaternion.copy(q);group.updateWorldMatrix(true,true);
   }
   function poses(lean=1,reserved=null,space=1){
-    const result=new Map();let previous,rank=0;
+    const result=new Map();let previous,rank=0,high=-Infinity;
     for(const model of order){
       const weight=model===reserved?space:1;if(weight<=0)continue;
-      const saved=cache.get(model),angle=THREE.MathUtils.degToRad(5+2.5*rank)*lean,c=Math.cos(angle),s=Math.sin(angle);
+      const saved=cache.get(model),angle=leanSign*THREE.MathUtils.degToRad(5+2.5*rank)*lean,c=Math.cos(angle),s=Math.sin(angle);
       const outline=saved.profile.map(p=>({x:p.x*c-p.y*s,y:p.x*s+p.y*c}));
       const lift=surface-Math.min(...outline.map(p=>p.y))+.001;
       const minX=Math.min(...outline.map(p=>p.x));
@@ -29,8 +29,10 @@ export function createBinderShelf(models,{left,surface,gap=.004,animate,redraw})
         offset=Math.max(...heights.map(y=>profileSpan(previous,y).high-profileSpan(outline,y).low+gap));
       }
       outline.forEach(p=>p.x+=offset);previous=outline;rank+=weight;
+      high=Math.max(high,...outline.map(p=>p.x));
       result.set(model,{position:new THREE.Vector3(offset,lift,saved.z),rotation:new THREE.Quaternion().setFromAxisAngle(up,angle).multiply(saved.basis)});
     }
+    if(right!==null&&Number.isFinite(high))for(const pose of result.values())pose.position.x+=right-high;
     return result;
   }
   function set(model,pose){

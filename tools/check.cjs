@@ -26,6 +26,8 @@ const path = require('node:path');
       await page.goto(origin);
       assert.equal(await page.title(), 'ortogra.fi · Eines per aprendre i ensenyar');
       await page.locator('h1').waitFor();
+      assert.equal(await page.locator('a[href="escriptori-v2/"]').count(),0,'Only one desk link is offered');
+      assert.equal(await page.locator('a[href="escriptori/"]').count(),1);
       const layout = await page.evaluate(() => ({
         fits: document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight,
         footer: document.querySelector('footer').getBoundingClientRect().bottom <= innerHeight,

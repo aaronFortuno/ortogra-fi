@@ -40,7 +40,7 @@ const sceneProbe=`
       await page.route('**/stationery.js*',async r=>{const response=await r.fetch();const source=(await response.text()).replaceAll('\r\n','\n');
         assert.ok(source.includes('  return {\n    cancel: rollback,'));await r.fulfill({response,body:source.replace('if(!route)return false;','if(!route){window.playRouteFailure={name:item.node.name,body:[rest.min.toArray(),rest.max.toArray()],others:others.map(b=>[b.min.toArray(),b.max.toArray()]),regions:regions.map(b=>[b.min.toArray(),b.max.toArray()])};return false;}').replace('  return {\n    cancel: rollback,',probe+'\n  return {\n    cancel: rollback,')});});
       await page.route('**/scene.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('action:onAction,','action:(...args)=>{(window.playEvents??=[]).push(args);onAction(...args)},').replace('  return { highlight, select, home,',sceneProbe+'\n  return { highlight, select, home,')})});
-      await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});await page.locator('#desk-loading').waitFor({state:'hidden'});
+      await page.goto(origin+'/escriptori/anterior.html');await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});await page.locator('#desk-loading').waitFor({state:'hidden'});
       await page.evaluate(()=>{deskPlay.place('DeskStapler',-1.9,2.7);playView.view()});
       const get=name=>page.evaluate(name=>deskPlay.get(name),name);
       const project=p=>page.evaluate(p=>playView.project(p),p);

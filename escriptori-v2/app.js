@@ -7,7 +7,7 @@ const list=document.querySelector('#projectes'),listButton=document.querySelecto
 const loading=createLoadingIndicator(document.querySelector('#desk-loading')),audio=createAmbientAudio(document.querySelector('#ambient-toggle')),reduced=matchMedia('(prefers-reduced-motion: reduce)');
 let desk,busy=false,current=null,projects=[];
 const root=new URL('../',import.meta.url),sleep=ms=>new Promise(r=>setTimeout(r,reduced.matches?0:ms));
-function track(name,data={}){if(location.hostname!=='ortogra.fi'||location.protocol!=='https:'||navigator.webdriver)return;try{window.umami?.track?.('v3_'+name,{interficie:'escriptori-v2',...data})?.catch?.(()=>{});}catch{/* Optional analytics. */}}
+function track(name,data={}){if(location.hostname!=='ortogra.fi'||location.protocol!=='https:'||navigator.webdriver)return;try{window.umami?.track?.('v4_'+name,{interficie:'escriptori-raco',...data})?.catch?.(()=>{});}catch{/* Optional analytics. */}}
 function setList(open){list.classList.toggle('is-open',open);listButton.setAttribute('aria-expanded',String(open));list.inert=!open;}
 function directLinks(){
   document.querySelector('#project-list').replaceChildren(...projects.map(project=>{const link=document.createElement('a');link.href=project.href;link.textContent=project.name;const small=document.createElement('small');small.textContent=project.purpose;link.append(small);return link;}));
@@ -46,13 +46,15 @@ document.querySelector('#sample-previous').addEventListener('click',()=>sample(-
 document.querySelector('#sample-inspect').addEventListener('click',()=>inspect(0));document.querySelector('#sample-answer').addEventListener('click',()=>inspect(1));
 document.querySelector('#inspection-close').addEventListener('click',leaveInspection);document.querySelector('#material-enter').addEventListener('click',()=>track('obre_projecte',{projecte:current?.id}));
 document.querySelectorAll('[data-look]').forEach(b=>b.addEventListener('click',()=>{if(!busy&&!current)desk?.moveView(b.dataset.look);}));
-document.querySelector('#lamp-toggle').addEventListener('click',e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',String(on));e.currentTarget.setAttribute('aria-label',on?'Apaga el llum de la taula':'Encén el llum de la taula');desk?.setLamp(on);track('llum',{actiu:on});});
-document.querySelector('#window-toggle').addEventListener('click',e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',String(on));e.currentTarget.setAttribute('aria-label',on?'Tanca la finestra':'Obre la finestra');desk?.setWindow(on);audio.setWindow(on);track('finestra',{oberta:on});});
+function reflectLamp(on){const b=document.querySelector('#lamp-toggle');b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Apaga el llum de la taula':'Encén el llum de la taula');}
+function reflectWindow(on){const b=document.querySelector('#window-toggle');b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Tanca la finestra':'Obre la finestra');audio.setWindow(on);}
+document.querySelector('#lamp-toggle').addEventListener('click',e=>desk?.setLamp(e.currentTarget.getAttribute('aria-pressed')!=='true'));
+document.querySelector('#window-toggle').addEventListener('click',e=>desk?.setWindow(e.currentTarget.getAttribute('aria-pressed')!=='true'));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){setList(false);if(current){e.preventDefault();close();}}else if(current&&!e.target.closest('button,a,input')&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();sample(e.key==='ArrowLeft'?-1:1);}});
 function mountAbout(portal){
   const source=portal.querySelector('#about-dialog'),opener=document.querySelector('#about-open');if(!source||!opener)return;const dialog=source.cloneNode(true);
   dialog.querySelectorAll('[src],[href]').forEach(el=>{for(const key of ['src','href'])if(el.hasAttribute(key))el.setAttribute(key,new URL(el.getAttribute(key),root).href);});
-  dialog.querySelectorAll('[data-umami-event]').forEach(el=>{el.dataset.umamiEvent='v3_'+el.dataset.umamiEvent;el.dataset.umamiEventInterficie='escriptori-v2';});document.body.append(dialog);
+  dialog.querySelectorAll('[data-umami-event]').forEach(el=>{el.dataset.umamiEvent='v4_'+el.dataset.umamiEvent;el.dataset.umamiEventInterficie='escriptori-raco';});document.body.append(dialog);
   dialog.querySelector('#copy-lightning').removeAttribute('data-umami-event');
   opener.addEventListener('click',()=>{dialog.showModal();requestAnimationFrame(()=>dialog.classList.add('is-visible'));track('obre_v4v');});
   let closing=false;async function hide(){if(closing||!dialog.open)return;closing=true;dialog.classList.remove('is-visible');await sleep(220);dialog.close();closing=false;opener.focus();}
@@ -62,9 +64,9 @@ function mountAbout(portal){
 async function start(){
   try{
     let timer;const firstAudio=Promise.race([audio.prepare(),new Promise(r=>timer=setTimeout(r,2500))]).finally(()=>clearTimeout(timer));
-    const [{projects:items,portal},manifest]=await Promise.all([loadCatalogue(),fetch(new URL('assets/desk/loading.json?v=1.27.0',root)).then(r=>r.json()),firstAudio]);projects=items;
+    const [{projects:items,portal},manifest]=await Promise.all([loadCatalogue(),fetch(new URL('assets/desk/corner-loading.json?v=1.28.0',root)).then(r=>r.json()),firstAudio]);projects=items;
     mountAbout(portal);
-    if(location.hostname==='ortogra.fi'&&location.protocol==='https:'&&!navigator.webdriver){const source=portal.querySelector('script[data-website-id]');if(source){const tracker=source.cloneNode(true);tracker.dataset.tag='escriptori-v3';document.head.append(tracker);}}
+    if(location.hostname==='ortogra.fi'&&location.protocol==='https:'&&!navigator.webdriver){const source=portal.querySelector('script[data-website-id]');if(source){const tracker=source.cloneNode(true);tracker.dataset.tag='escriptori-raco';document.head.append(tracker);}}
     for(const project of projects){
       const button=document.createElement('button');button.className='project-target';button.type='button';button.dataset.project=project.id;button.setAttribute('aria-label',project.name+' · '+project.purpose);button.setAttribute('aria-haspopup','false');project.button=button;
       const hover=()=>{if(current||busy)return;desk?.highlight(project.id);caption.textContent=project.name+' · '+project.purpose;caption.classList.add('visible');};
@@ -72,8 +74,8 @@ async function start(){
       const link=document.createElement('button');link.type='button';link.textContent=project.name;const small=document.createElement('small');small.textContent=project.purpose;link.append(small);link.addEventListener('click',()=>open(project));document.querySelector('#project-list').append(link);
     }
     loading.update(5,'Carregant l’escriptori de prop…');
-    const {createDesk}=await import('./scene.js?v=0.1.1');
-    desk=await createDesk({canvas,projects,resources:createResourceLoader(manifest,root,loading.update),onStage:loading.update,onObjectSound:audio.playObject,onAction:track});
+    const {createDesk}=await import('./scene.js?v=0.2.0');
+    desk=await createDesk({canvas,projects,resources:createResourceLoader(manifest,root,loading.update),onStage:loading.update,onObjectSound:audio.playObject,onAction:track,onWindowChange:reflectWindow,onLampChange:reflectLamp});
     workspace.dataset.ready='true';workspace.setAttribute('aria-busy','false');canvas.removeAttribute('aria-hidden');canvas.tabIndex=0;canvas.setAttribute('aria-label','Arrossega o fes servir les fletxes per mirar al voltant des de la cadira.');audio.start();loading.finish();
   }catch(error){loading.fail();workspace.setAttribute('aria-busy','false');workspace.classList.add('failed');status.textContent='Pots accedir a totes les eines des de la portada.';directLinks();console.error(error);}
 }

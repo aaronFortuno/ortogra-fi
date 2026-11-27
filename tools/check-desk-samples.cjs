@@ -126,7 +126,7 @@ async function inspect(page, side, mobile, screenshot) {
       page.on('response',r=>{if(r.status()>=400)errors.push(r.status()+' '+r.url());});
       page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
       await page.route('**/scene.js*',async route=>{const response=await route.fetch();const body=(await response.text()).replace('  return { highlight, select, home,',instrument+'\n  return { highlight, select, home,');await route.fulfill({response,body});});
-      await page.goto(origin+'/escriptori/');
+      await page.goto(origin+'/escriptori/anterior.html');
       await page.locator('#workspace[data-ready=true]').waitFor({timeout:60000});
       for (const id of process.argv.find(a=>a.startsWith('--project=')) ? process.argv.find(a=>a.startsWith('--project=')).split('=')[1].split(',') : mobile ? ['trama','pauta','mon-a-ma'] : ['trama','pauta','pentagrama','plec','sentit','fil-i-compte','resso','mon-a-ma','relleu-obert']) {
         await open(page,id,mobile);

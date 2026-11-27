@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "assets": {
+    "assets/desk/escriptori.glb": 4618496,
+    "assets/desk/garden.webp": 183388,
+    "assets/desk/pbr/book-color.webp": 501824,
+    "assets/desk/pbr/book-normal.webp": 1521954,
+    "assets/desk/pbr/book-rough.webp": 441940,
+    "assets/desk/pbr/oak-color.webp": 417364,
+    "assets/desk/pbr/oak-normal.webp": 465116,
+    "assets/desk/pbr/oak-rough.webp": 307384,
+    "assets/desk/pbr/studio.hdr": 1615248,
+    "assets/desk/reliefs/agulles-montserrat-preview.glb": 241888,
+    "assets/desk/samples/pauta-1.webp": 11914
+  }
+}

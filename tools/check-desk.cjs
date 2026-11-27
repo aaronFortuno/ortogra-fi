@@ -11,7 +11,7 @@ async function checkTouch(browser) {
   try {
     await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     const page = await context.newPage();
-    await page.goto(origin + '/escriptori/');
+    await page.goto(origin + '/escriptori/anterior.html');
     await page.locator('#workspace[data-ready=true]').waitFor();
     const target = page.locator('[data-project=trama]');
     const initial = await target.boundingBox();
@@ -61,7 +61,7 @@ async function main() {
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
       page.on('response', response => { if (response.status() >= 400) errors.push(response.status() + ' ' + response.url()); });
-      await page.goto(origin + '/escriptori/');
+      await page.goto(origin + '/escriptori/anterior.html');
       await page.locator('#workspace[data-ready=true]').waitFor({ timeout: 20000 });
       assert.equal(await page.locator('.binder-target').count(), 9);
       assert.ok(await page.locator('.binder-target:visible').count()>=(width<=700?4:8));
@@ -156,7 +156,7 @@ async function main() {
     const context = await browser.newContext({ viewport: readingOnly ? { width: 1440, height: 960 } : { width: 1024, height: 768 }, reducedMotion: 'reduce' });
     await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     const page = await context.newPage();
-    await page.goto(origin + '/escriptori/');
+    await page.goto(origin + '/escriptori/anterior.html');
     await page.locator('#workspace[data-ready=true]').waitFor();
     assert.equal(await page.locator('#desk-canvas').getAttribute('data-ambience'), 'still');
     // Check the camera contract independently of screen projections: looking
@@ -215,7 +215,7 @@ async function main() {
     }
     const noScript = await browser.newContext({ javaScriptEnabled: false });
     const fallback = await noScript.newPage();
-    await fallback.goto(origin + '/escriptori/');
+    await fallback.goto(origin + '/escriptori/anterior.html');
     assert.ok(await fallback.locator('#projectes').isVisible());
     assert.equal(await fallback.locator('#projectes a').count(), 9);
     await noScript.close();
