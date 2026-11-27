@@ -4,14 +4,19 @@ const fs=require('node:fs/promises');
 const path=require('node:path');
 const {chromium}=require('playwright');
 const origin='http://127.0.0.1:4187',out=path.resolve('output/desk-corner');
-const seat=[-.52,1.06,.53];
+const seat=[-.22,1.06,.53];
 const probe=`const qaScreen=p=>{const v=p.clone().project(camera),r=canvas.getBoundingClientRect();return{x:r.x+(v.x+1)*r.width/2,y:r.y+(1-v.y)*r.height/2};};
-return {probe:()=>({sheet:inspected?.mesh.position.toArray(),terrain:inspected?.mesh.rotation.toArray(),camera:camera.quaternion.toArray(),pages:active?.pages?.map(p=>p.material.map?.image?.src),shelf:shelf.info(),fly:qaScreen(life.fly.position),flyVisible:life.fly.visible,
+const qaControls={window:()=>room.sash.localToWorld(new THREE.Vector3(0,0,.5)),lamp:()=>room.switchTarget.getWorldPosition(new THREE.Vector3()),stapler:()=>content.getObjectByName('DeskStapler').localToWorld(new THREE.Vector3(0,.22,.12)),plant:()=>new THREE.Box3().setFromObject(content.getObjectByName('Pothos')).getCenter(new THREE.Vector3())};
+return {face:name=>{const d=qaControls[name]().sub(camera.position).normalize(),s=look.info();look.turn(Math.atan2(-d.x,-d.z)-s.yaw,Math.asin(d.y)-s.pitch);},probe:()=>({sheet:inspected?.mesh.position.toArray(),terrain:inspected?.mesh.rotation.toArray(),camera:camera.quaternion.toArray(),down:camera.getWorldDirection(new THREE.Vector3()).y,pages:active?.pages?.map(p=>p.material.map?.image?.src),trama:models.get('trama').group.position.toArray(),shelf:shelf.info(),fly:qaScreen(life.fly.position),flyVisible:life.fly.visible,
 leaves:(()=>{const points=[];content.getObjectByName('Pothos')?.traverse(n=>{if(movingLeaves.has(n.name))points.push(qaScreen(new THREE.Box3().setFromObject(n).getCenter(new THREE.Vector3())));});return points;})(),
 window:qaScreen(room.sash.localToWorld(new THREE.Vector3(0,0,.5))),windowTravel:room.opening,switch:qaScreen(room.switchTarget.getWorldPosition(new THREE.Vector3())),
 stapler:qaScreen(content.getObjectByName('DeskStapler').localToWorld(new THREE.Vector3(0,.22,.12))),pressAngle:staplerPress.rotation.x,
 preview:{visible:box.idle.visible,lid:box.lid.rotation.x,triangles:(()=>{let t=0;box.idle.traverse(n=>{if(n.isMesh)t+=(n.geometry.index?.count||n.geometry.attributes.position.count)/3;});return t;})()}}),select,close,highlight,`;
-async function fixed(page){assert.deepEqual((await page.evaluate(()=>seatedStudy.diagnostics())).look.position,seat,'The viewer never leaves the chair');}
+async function fixed(page){
+  const d=await page.evaluate(()=>seatedStudy.diagnostics()),phase=await page.evaluate(()=>seatedStudy.info().phase);
+  if(phase==='shelf')assert.deepEqual(d.look.position,seat,'Exploration stays in the chair and closing restores it exactly');
+  else if(['reading','inspecting','changing'].includes(phase)){assert.ok(d.look.position[1]>1.4,'Reading camera is above the material');assert.ok((await page.evaluate(()=>seatedStudy.probe().down))<-.99);}
+}
 async function phase(page,value){await page.waitForFunction(value=>seatedStudy.info().phase===value,value,{timeout:30000});await fixed(page);}
 async function home(page){await page.locator('[data-look=home]').click();await page.waitForFunction(()=>seatedStudy.diagnostics().look.enabled);await fixed(page);}
 async function layout(page){
@@ -37,19 +42,22 @@ async function close(page){await page.locator('#material-close').click();await p
       await page.route('**/escriptori-v2/scene.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('return {select,close,highlight,',probe)});});
       await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000});await page.locator('#desk-loading').waitFor({state:'hidden'});
       await layout(page);await fixed(page);assert.equal(await page.locator('#project-list button').count(),9);assert.equal(await page.locator('[data-website-id]').count(),0);assert.deepEqual(external,[]);
-      const initial=await page.evaluate(()=>seatedStudy.diagnostics());assert.ok(initial.calls<300,'Initial render stays below 300 draw calls');assert.ok(initial.triangles<155000);assert.ok(initial.textures<36);
+      const initial=await page.evaluate(()=>seatedStudy.diagnostics());assert.ok(initial.calls<300,'Initial render stays below 300 draw calls');assert.ok(initial.triangles<155000);assert.ok(initial.textures<36);assert.equal(initial.dust,580);assert.equal(new Set(initial.garden.depths).size,3);
+      if(!mobile)assert.ok(initial.pixelRatio<=.8,'The exploration buffer is smaller than CSS size');
       await page.screenshot({path:path.join(out,mobile?'mobile-dark.png':'desktop.png')});
       const preview=await page.evaluate(()=>seatedStudy.probe().preview);assert.ok(preview.visible&&preview.lid< -1);assert.ok(preview.triangles<13000,'The initial box uses a real low-detail preview');
       if(!mobile){
         await page.waitForFunction(()=>seatedStudy.diagnostics().life.fly==='resting');const fly=await page.evaluate(()=>seatedStudy.probe().fly),flights=(await page.evaluate(()=>seatedStudy.diagnostics())).life.flights;
         await page.mouse.move(fly.x,fly.y);await page.waitForFunction(old=>seatedStudy.diagnostics().life.flights>old,flights);const from=(await page.evaluate(()=>seatedStudy.diagnostics())).life.position;await page.waitForTimeout(160);assert.notDeepEqual((await page.evaluate(()=>seatedStudy.diagnostics())).life.position,from,'The fly follows a real trajectory');await fixed(page);
-        const points=await page.evaluate(()=>seatedStudy.probe().leaves);for(const point of points){if(point.x<5||point.x>1435||point.y<70||point.y>900)continue;for(const dx of [0,-9,9]){await page.mouse.move(point.x+dx,point.y);await page.waitForTimeout(70);if((await page.evaluate(()=>seatedStudy.diagnostics())).life.brushes)break;}if((await page.evaluate(()=>seatedStudy.diagnostics())).life.brushes)break;}
+        assert.ok((await page.evaluate(()=>seatedStudy.diagnostics())).life.lastDuration<1.1);await page.waitForFunction(()=>seatedStudy.diagnostics().life.fly==='resting');
+        assert.equal((await page.evaluate(()=>seatedStudy.diagnostics())).life.landingFromPointer,true,'The fly finds free desk space near the cursor');const landing=await page.evaluate(()=>seatedStudy.probe().fly);assert.ok(Math.hypot(landing.x-fly.x,landing.y-fly.y)>=70&&Math.hypot(landing.x-fly.x,landing.y-fly.y)<=135);
+        await page.evaluate(()=>seatedStudy.face('plant'));const points=await page.evaluate(()=>seatedStudy.probe().leaves);for(const point of points){if(point.x<5||point.x>1435||point.y<70||point.y>900)continue;for(const dx of [0,-9,9]){await page.mouse.move(point.x+dx,point.y);await page.waitForTimeout(70);if((await page.evaluate(()=>seatedStudy.diagnostics())).life.brushes)break;}if((await page.evaluate(()=>seatedStudy.diagnostics())).life.brushes)break;}
         await page.waitForFunction(()=>seatedStudy.diagnostics().life.bend>.003,{},{timeout:4000});
-        await page.locator('#desk-canvas').focus();for(let i=0;i<12;i++)await page.keyboard.press('ArrowLeft');for(let i=0;i<10;i++)await page.keyboard.press('ArrowUp');
+        const gardenBefore=(await page.evaluate(()=>seatedStudy.diagnostics())).garden.offsets;await page.evaluate(()=>seatedStudy.face('window'));
         const windowPoint=await page.evaluate(()=>seatedStudy.probe().window);await page.mouse.click(windowPoint.x,windowPoint.y);await page.waitForFunction(()=>seatedStudy.diagnostics().windowOpen);await page.waitForFunction(()=>seatedStudy.probe().windowTravel>.99);assert.equal(await page.locator('#window-toggle').getAttribute('aria-pressed'),'true');
-        await page.screenshot({path:path.join(out,'window.png')});await page.locator('#window-toggle').click();await page.waitForFunction(()=>seatedStudy.probe().windowTravel<.01);await home(page);
-        await page.locator('#desk-canvas').focus();for(let i=0;i<6;i++)await page.keyboard.press('ArrowLeft');for(let i=0;i<7;i++)await page.keyboard.press('ArrowUp');const switchPoint=await page.evaluate(()=>seatedStudy.probe().switch);await page.mouse.click(switchPoint.x,switchPoint.y);await page.waitForFunction(()=>!seatedStudy.diagnostics().lampOn);await page.locator('#lamp-toggle').click();await home(page);
-        await page.locator('#desk-canvas').focus();for(let i=0;i<10;i++)await page.keyboard.press('ArrowRight');for(let i=0;i<2;i++)await page.keyboard.press('ArrowUp');const staplerPoint=await page.evaluate(()=>seatedStudy.probe().stapler);await page.mouse.click(staplerPoint.x,staplerPoint.y);await page.waitForFunction(()=>seatedStudy.probe().pressAngle>.01);await page.waitForFunction(()=>seatedStudy.probe().pressAngle<.001);await fixed(page);await home(page);
+        assert.notDeepEqual((await page.evaluate(()=>seatedStudy.diagnostics())).garden.offsets,gardenBefore);await page.screenshot({path:path.join(out,'window.png')});await page.locator('#window-toggle').click();await page.waitForFunction(()=>seatedStudy.probe().windowTravel<.01);await home(page);
+        await page.evaluate(()=>seatedStudy.face('lamp'));const switchPoint=await page.evaluate(()=>seatedStudy.probe().switch);await page.mouse.click(switchPoint.x,switchPoint.y);await page.waitForFunction(()=>!seatedStudy.diagnostics().lampOn);await page.locator('#lamp-toggle').click();await home(page);
+        await page.evaluate(()=>seatedStudy.face('stapler'));const staplerPoint=await page.evaluate(()=>seatedStudy.probe().stapler);await page.mouse.click(staplerPoint.x,staplerPoint.y);await page.waitForFunction(()=>seatedStudy.probe().pressAngle>.01);await page.waitForFunction(()=>seatedStudy.probe().pressAngle<.001);await fixed(page);await home(page);
       }
       // Theme is handled once by the shared root script and persists to this origin.
       const theme=await page.locator('html').getAttribute('data-theme');await page.locator('[data-theme-toggle]').click();assert.notEqual(await page.locator('html').getAttribute('data-theme'),theme);await page.locator('[data-theme-toggle]').click();
@@ -61,9 +69,12 @@ async function close(page){await page.locator('#material-close').click();await p
       await page.mouse.move(mobile?200:700,mobile?500:620);await page.mouse.wheel(0,180);await fixed(page);await home(page);
       if(!mobile){
         // A real hit target and the complete animated journey, sampled throughout.
+        let sampleRequests=0;await page.route('**/samples/trama*.webp',async r=>{sampleRequests++;await new Promise(resolve=>setTimeout(resolve,1800));await r.continue();});
+        const start=await page.evaluate(()=>seatedStudy.probe().trama);
         await page.evaluate(()=>{window.seatSamples=[];window.seatTimer=setInterval(()=>seatSamples.push(seatedStudy.diagnostics().look.position),80);});
-        await page.locator('[data-project=trama]').click();await phase(page,'reading');await page.locator('#material-info.is-visible').waitFor();
-        const samples=await page.evaluate(()=>{clearInterval(seatTimer);return seatSamples;});assert.ok(samples.length>15);for(const p of samples)assert.deepEqual(p,seat);
+        await page.locator('[data-project=trama]').click();await page.waitForTimeout(450);assert.notDeepEqual(await page.evaluate(()=>seatedStudy.probe().trama),start,'The binder moves while print downloads are delayed');assert.equal((await page.evaluate(()=>seatedStudy.info())).phase,'opening');
+        await phase(page,'reading');await page.locator('#material-info.is-visible').waitFor();
+        const samples=await page.evaluate(()=>{clearInterval(seatTimer);return seatSamples;});assert.ok(samples.length>15);assert.ok(samples.some(p=>p[1]>1.4));assert.equal(sampleRequests,2,'Only the first spread is requested before reading');await page.unroute('**/samples/trama*.webp');
       }else await open(page,'trama');
       assert.equal(await page.locator('#material-title').textContent(),'Trama');assert.equal(await page.locator('#sample-counter').textContent(),'2 / 3');
       assert.equal(await page.evaluate(()=>seatedStudy.probe().flyVisible),false,'The fly stays out of the reading view');
@@ -79,6 +90,7 @@ async function close(page){await page.locator('#material-close').click();await p
       if(!mobile){
         // Test remaining resources with reduced motion after checking the normal journey.
         await page.emulateMedia({reducedMotion:'reduce'});
+        let rerequests=0;const countTrama=r=>{if(r.url().includes('/samples/trama')&&r.url().endsWith('.webp'))rerequests++;};page.on('request',countTrama);await open(page,'trama');await close(page);page.off('request',countTrama);assert.equal(rerequests,0,'Reopening a recent binder reuses its cached spread');
         for(const name of ['Plec','Ressò','Sentit','Fil i Compte','Món a mà','Pentagrama']){
           await page.locator('.list-toggle').click();await page.getByRole('button',{name,exact:false}).filter({has:page.locator('small')}).click();await phase(page,'reading');await close(page);
         }
@@ -93,7 +105,12 @@ async function close(page){await page.locator('#material-close').click();await p
       if(mobile){await page.setViewportSize({width:320,height:568});await layout(page);await fixed(page);await page.screenshot({path:path.join(out,'small-mobile.png')});}
       assert.deepEqual(errors,[]);report.push({mode:mobile?'mobile-dark-reduced':'desktop',initial});await context.close();
     }
-    const failed=await browser.newContext({reducedMotion:'reduce'});await failed.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());await failed.route('**/escriptori.glb*',r=>r.abort());const page=await failed.newPage();await page.goto(origin+'/escriptori-v2/');await page.locator('#workspace.failed').waitFor({timeout:30000});assert.equal(await page.locator('#project-list a').count(),9,'Loading failure offers real links to every resource');assert.equal(await page.locator('#projectes').evaluate(e=>e.inert),false);await failed.close();
-    console.log('PASS: fixed seat during gestures, reading, inspection and terrain; all 9 resources, 3 samples, paired pages, theme, V4V, mobile and render budget.');console.log(JSON.stringify(report,null,2));
+    const failed=await browser.newContext({reducedMotion:'reduce'});await failed.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());
+    const recovery=await failed.newPage();await recovery.route('**/escriptori-v2/app.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace("workspace.dataset.ready='true';","window.seatedStudy=desk;workspace.dataset.ready='true';")});});
+    await recovery.route('**/samples/trama*.webp',r=>r.abort());await recovery.goto(origin+'/escriptori/');await recovery.locator('#workspace[data-ready=true]').waitFor({timeout:90000});await recovery.locator('#desk-loading').waitFor({state:'hidden'});await recovery.locator('.list-toggle').click();await recovery.locator('#project-list button').filter({hasText:'Trama'}).click();
+    await recovery.waitForFunction(()=>document.querySelector('#desk-status').textContent.includes('No s’ha pogut'));assert.equal(await recovery.locator('.view-tools').evaluate(e=>e.inert),false);assert.deepEqual(await recovery.evaluate(()=>seatedStudy.diagnostics().look.position),seat);
+    await recovery.unroute('**/samples/trama*.webp');await recovery.locator('.list-toggle').click();await recovery.locator('#project-list button').filter({hasText:'Trama'}).click();await recovery.locator('#material-info.is-visible').waitFor();assert.equal(await recovery.locator('#material-title').textContent(),'Trama');await recovery.close();
+    await failed.route('**/escriptori.glb*',r=>r.abort());const page=await failed.newPage();await page.goto(origin+'/escriptori-v2/');await page.locator('#workspace.failed').waitFor({timeout:30000});assert.equal(await page.locator('#project-list a').count(),9,'Loading failure offers real links to every resource');assert.equal(await page.locator('#projectes').evaluate(e=>e.inert),false);await failed.close();
+    console.log('PASS: fixed exploration, overhead reading, immediate motion with delayed downloads, layered garden, dust, quick fly, physical lamp, all 9 resources, mobile and render budget.');console.log(JSON.stringify(report,null,2));
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

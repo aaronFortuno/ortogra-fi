@@ -1,63 +1,61 @@
 # Racó de treball · 27 de novembre de 2026
 
-La vista principal d’[Escriptori](https://ortogra.fi/escriptori/) segueix el croquis de l’autor: enquadrament proper de la cantonada d’una taula, amb arxivadors parcialment fora del marc i espai per descobrir elements girant el cap. La finestra segueix el costat esquerre del dibuix. La portada ofereix un únic accés; `/escriptori-v2/` redirigeix al principal. L’escena anterior es conserva a `/escriptori/anterior.html`, amb els seus objectes movibles i minijocs.
+La vista principal d’[Escriptori](https://ortogra.fi/escriptori/) segueix el [croquis de l’autor](references/mockup-escriptori.png): una cantonada propera de taula, arxivadors recolzats i descobertes girant el cap. La finestra és a l’esquerra del dibuix. La portada ofereix un únic accés; `/escriptori-v2/` redirigeix al principal. L’escena anterior i els seus minijocs es conserven a `/escriptori/anterior.html`.
 
-[Croquis d’enquadrament de l’autor](references/mockup-escriptori.png).
+## Càmera: cadira i lectura
 
-## Mirada fixa
+L’ull d’exploració és a `[-0.22, 1.06, 0.53]` metres, 30 cm a la dreta de la primera prova. La mirada inicial té inclinació `-0.42`, gir `-0.14` radians i camp vertical de 50°. En mòbil mira una mica cap al primer grup. Arrossegar el fons o un material, la roda i les fletxes només giren la mirada. Un clic sense arrossegar obre el recurs. No hi ha captura obligatòria del punter.
 
-L’ull està a `[-0.52, 1.06, 0.53]` metres. La posició es reafirma a cada render. La mirada inicial té inclinació `-0.46` i gir `-0.22` radians, amb camp de visió vertical de 50°. En mòbil es mira una mica més cap al primer grup. Arrossegar el fons o un material, la roda i les fletxes només giren la mirada; un clic sense arrossegar obre el material. No hi ha trasllat, òrbita al voltant d’un punt ni captura obligatòria del punter.
+El gir horitzontal va de `-1.40` a `1.10` radians i el vertical de `-1.20` a `0.70`. Es poden descobrir la finestra, els papers, les carpetes, la làmpada i la prestatgeria superior. «Projectes» dona accés als nou recursos sense haver de trobar-los a l’escena.
 
-El gir horitzontal està limitat entre `-1.40` i `1.10` radians i el vertical entre `-1.20` i `0.70`. Els límits deixen descobrir la finestra, els papers de Pauta, la carpeta de Pentagrama, el llum, la nota i la prestatgeria superior des del mateix lloc. «Projectes» dona accés als nou recursos sense haver de trobar-los dins l’escena.
+Per petició de l’autor, la consulta d’un material és una excepció a la posició fixa: el material arriba a la zona de treball i la càmera puja en el mateix recorregut per mirar-lo des de sobre. Els fulls reposen plans. L’alçada de lectura s’adapta a la proporció de pantalla, amb un mínim de 76 cm sobre el material. La informació i els botons queden fora del material. En tancar es restauren exactament posició i gir previs, i es torna a explorar des de la cadira. Els fulls i les tres maquetes es poden acostar des d’aquesta vista.
 
-El material s’acosta a la zona de treball, lleugerament a la dreta de la cadira. La mirada s’hi orienta, però l’ull no canvia de lloc. Els exemples reals, el solucionari, les plantilles i les tres maquetes continuen disponibles. La inspecció acosta el paper o el model, també amb càmera fixa.
+## Obertura sense esperar tots els exemples
 
-## Distribució i contacte
+L’obertura inicia alhora la descàrrega de la primera parella de fulls i el moviment físic. La preparació dels veïns de l’arxivador dura 220 ms; no espera la xarxa. Es demana només la mostra central, i les altres dues es carreguen quan es consulten. Relleu carrega primer una maqueta detallada i després les altres sota demanda.
 
-- Plec, Trama i Ressò es recolzen entre ells i contra la paret del fons del racó.
-- Sentit, Fil i Compte i Món a mà es recolzen cap al costat contrari, amb un subjectallibres metàl·lic en L.
-- L’ampit no travessa els arxivadors ni el pot de llapis. La planta reposa sobre seu; el pot és damunt la taula i té l’interior buit.
-- Relleu Obert comença amb la capsa oberta i una maqueta real a dins. La primera vista només en mostra una part.
-- Pauta es presenta com una pila irregular de fulls impresos; Pentagrama queda més enllà del primer enquadrament. Les seves mostres s’obren amb els mateixos controls que els altres projectes.
-- El llapis i la grapadora deixen lliure la zona on arriba el material obert. La grapadora respon amb una pressió del capçal i el so enregistrat existent.
+Els darrers dos projectes conserven les seves textures de paper en memòria, evitant tornar-les a descarregar a cada obertura. Els exemples evictats s’alliberen de la GPU. Si la xarxa triga més que el trajecte, es conserva el missatge de preparació sobre el material obert. Hi ha un límit d’espera de 20 segons; un error retorna el material, restaura la càmera i reactiva els controls perquè es pugui tornar a provar.
 
-Els dos grups d’arxivadors utilitzen `createBinderShelf`. Els paràmetres opcionals `leanSign` i `right` permeten recolzament cap a la dreta sense alterar els valors per defecte de l’escena anterior. Els veïns es redrecen abans de treure’n un i es tornen a recolzar quan el material ja és fora. Les etiquetes baixen lleugerament al llom perquè el nom sigui llegible amb la part superior fora del marc.
+## Distribució i controls físics
 
-La paret té variació de color i fissures fines. L’oclusió de la llum indirecta reforça la cantonada i la unió amb la taula; les ombres de contacte suaus complementen les ombres direccionals. La fusta conserva els mapes PBR locals, amb marques petites concentrades a la zona de treball. L’escena no utilitza textures remotes.
+- Plec, Trama i Ressò es recolzen entre ells i contra la paret del racó.
+- Sentit, Fil i Compte i Món a mà es recolzen cap al costat contrari amb un subjectallibres metàl·lic en L.
+- La planta és a l’ampit i el pot buit de llapis és damunt de la taula. No travessen el suport dels arxivadors.
+- Relleu comença amb la capsa oberta i una còpia lleugera de la maqueta real. Els models detallats es carreguen en obrir-la.
+- Pauta és una pila irregular de fulls impresos; Pentagrama queda més a la dreta i al fons. Les mostres comparteixen controls amb els altres projectes.
+- L’interruptor és a la base de la làmpada, prop del costat dret de la taula, amb un cable que baixa per la vora. El clic físic i el botó de llum comparteixen estat. S’ha retirat l’interruptor de la paret.
+- La grapadora respon amb una pressió real del capçal i el so enregistrat existent.
 
-## Vida i controls físics
+`createBinderShelf` conserva els recolzaments amb els paràmetres opcionals `right` i `leanSign`, sense canviar els valors de l’escena arxivada. Els veïns es redrecen abans de retirar un arxivador i tornen a recolzar-se quan és fora. Les etiquetes baixen lleugerament perquè el nom sigui llegible amb la part superior fora del marc.
 
-Quatre fulles conserven els seus nervis com a part de la mateixa geometria mòbil. La resta de la planta s’agrupa per material. Passar el punter prop de la planta dona un impuls a les fulles properes; el moll amortit i les variacions d’impuls eviten repetir una animació tancada. Es reutilitzen els enregistraments de fregament de fulles.
+## Acabat i exterior
 
-La mosca alterna repòs i trajectes corbs entre llocs de l’habitació. Acostar-hi el punter la fa fugir. El cos, les ales i les potes són geometria molt petita; no hi ha un motor físic complet ni seguiment del punter enviat a analítica. Durant la consulta d’un material la mosca queda fora de la vista de lectura. Amb moviment reduït s’aturen els moviments ambientals i les reaccions animades.
+L’escena explorable prova un acabat lleugerament pixelat. Es redueix la resolució del dibuix 3D i es prescindeix de MSAA; la interfície HTML conserva la seva resolució. En lectura, les fitxes recuperen fins a 1,5 píxels per píxel CSS. No es pixelitzen les imatges font de les fitxes.
 
-La finestra gira com una fulla amb frontissa: marc i vidre es mouen junts. Es pot obrir des del vidre o des del botó, i tots dos actualitzen el mateix estat i el filtre de so ambient. L’interruptor de paret i el botó de llum també comparteixen l’estat. El tema clar/fosc pertany a la interfície; la llum de l’escena continua seguint l’hora solar i la llum de taula.
+`patina.js` afegeix un únic camp procedural de 256 × 256, compartit pels materials de tela, fusta, paret, ceràmica i metall pintat. Modula petites variacions de color, rugositat i normal: zones fregades reflecteixen diferent, la paret té porus i la tela conserva el teixit existent. Les coordenades són locals perquè el desgast segueixi els objectes. Es reutilitzen els mapes PBR locals; no es descarreguen textures noves. El mapa de guix baixa de 1.024 a 512 px.
 
-La interfície manté transicions de 220 ms, els botons de mirada duren 420 ms, els acostaments i la finestra 820 ms i els recorreguts dels materials 2.500 ms. El vol de la mosca i el moll de les fulles tenen durades pròpies. La pestanya oculta atura el render ambiental; el so conserva els esvaïments de focus de l’escena anterior.
+`garden.js` deixa la fotografia existent al fons, a 4,8 m del pla d’origen. Dues capes de branques i fulles instanciades, a 1,26 i 2,15 m, donen profunditat davant seu. El vent es calcula al shader i el gir de mirada aplica un desplaçament de paral·laxi petit, limitat a uns centímetres. La finestra gira amb frontissa, marc i vidre junts; obrir-la actualitza també el filtre del so. La llum continua seguint l’hora solar i la làmpada; el tema de la interfície es tria independentment.
 
-## Càrrega i rendiment
+## Pols, planta i mosca
 
-La capsa inicial utilitza `agulles-montserrat-preview.glb`, derivat del model real amb una decimació a 0,13. Pesa 241.888 bytes i conserva els colors i les fonts geogràfiques. Els models detallats es carreguen quan s’obre la capsa. La previsualització de Pauta reutilitza un full real del banc.
+La pols utilitza 580 punts en un únic dibuix amb moviment al shader. Es concentra prop de la zona visible, amb mida segons la distància i llum segons l’hora. No s’afegeixen rajos rectes ni volums de render addicionals.
 
-`assets/desk/corner-loading.json` compta els models i les textures d’arrencada de la nova vista. `tools/prepare-desk-loading.cjs` genera tant aquest índex com el de l’escena arxivada. El cercle de càrrega, els missatges humans i la preparació prioritària de l’ambient es mantenen.
+Quatre fulles conserven els nervis com a part de la geometria mòbil. La resta de la planta s’agrupa per material. El punter impulsa un moll amortit amb força variable i reutilitza els enregistraments de fregament.
 
-La densitat de píxels es limita a 1,6 i es manté un únic mapa d’ombres de 2.048 px. Les superfícies estàtiques i la part estàtica de la planta s’agrupen. La pols es mou al shader. L’ambient es redibuixa aproximadament a 24 Hz i les animacions utilitzen la freqüència de pantalla. Els comptadors del header continuen sent locals i no bloquegen la GPU.
+La mosca fa vols d’entre 0,68 i 1,02 segons, amb recorreguts corbs. Quan té una posició recent del punter, prova punts de repòs a 78–126 px al voltant seu. Només accepta fusta descoberta dins de la taula: descarta punts tapats per materials o objectes. Si no en troba, torna als punts de repòs coneguts. Acostar-se a menys de 48 px la fa fugir. No s’envia la posició del punter a analítica. Durant la consulta queda oculta. Amb moviment reduït s’aturen el vol, les reaccions animades i el vent.
 
-La comprovació local del 27 de novembre registra 248 crides de dibuix, 103.734 triangles i 22 textures en la vista inicial de 1.440 × 960; en mòbil de 390 × 844, 125 crides, 61.647 triangles i 16 textures. Són comptadors de l’escena, no una garantia d’FPS en qualsevol dispositiu.
+## Rendiment i comprovacions
 
-## Fitxers i verificació
+L’exploració es limita a una escala de 0,8 en ordinador i 1 en mòbil, amb un sostre de 1.152 × 720. En una vista de 1.440 × 844 es dibuixa a 1.152 × 675: aproximadament un 36% menys de píxels que a escala 1. El mapa d’ombres baixa de 2.048 a 1.024 px. La reducció de píxels i de mostres no garanteix un increment concret d’FPS: també hi influeixen les crides de dibuix, els shaders i el dispositiu.
 
-El motor conserva el directori `escriptori-v2/` per reutilitzar els mòduls del prototip; el punt d’entrada és `escriptori/index.html`. `room.js` construeix el racó, `seated-look.js` fixa l’ull, `scene.js` coordina els materials i `life.js` gestiona fulles i mosca. La portada i el V4V es mantenen compartits. El croquis de l’autor guia l’enquadrament, no es tracta com una textura de l’escena.
+L’ambient tranquil es redibuixa a un màxim aproximat de 30 Hz. Durant el vol de la mosca o la reacció de les fulles, s’utilitza `requestAnimationFrame` a ritme de pantalla i s’actualitza el moviment a cada fotograma. Les ombres ambientals s’actualitzen a 4 Hz. La pestanya oculta atura el render. Els comptadors del header són locals i no consulten la GPU amb esperes bloquejants.
 
-```text
-node tools/serve.cjs
-node tools/check.cjs
-node tools/check-desk-corner.cjs
-node tools/check-desk-materials.cjs
-```
+La interfície conserva transicions de 220 ms, els botons de mirada duren 420 ms, els acostaments i la finestra 820 ms i el recorregut dels materials 2.500 ms. Es respecta el moviment reduït.
 
-La comprovació nova cobreix contacte amb la mosca i les fulles, finestra, interruptor i grapadora físics, punt fix durant gestos i recorreguts, els nou recursos, mostres i maquetes, tema, V4V, mòbil i fallada de càrrega. Les proves específiques de l’escena anterior apunten a `anterior.html`. Les captures es desen a `output/desk-corner/`. No es comprova el desplegament remot.
+`node tools/check-desk-corner.cjs` comprova la cadira durant exploració, vista zenital i retorn, moviment mentre es retarden les descàrregues, pols, jardí a diferents profunditats, vol ràpid, fulles, finestra, interruptor i grapadora físics, els nou recursos, mostres, maquetes, tema, V4V, mòbil i fallada de càrrega. Les captures queden a `output/desk-corner/`. `node tools/check.cjs` cobreix la portada. No es comprova el desplegament remot.
 
-## Analítica
+## Rutes i analítica
 
-La vista principal envia `v4_*`, amb `interficie: escriptori-raco` i etiqueta `escriptori-raco`. L’escena arxivada conserva `v2_*`; les dades històriques no es reetiqueten. Es compten les accions dels materials, les entrades als projectes, els controls i els gestos complets de mirada. No s’envien trajectes del punter, posicions de la mosca ni impactes de les fulles. La portada conserva `obre_escriptori`, amb un únic enllaç. L’analítica no es carrega en local ni en navegadors amb `navigator.webdriver`.
+El motor conserva el directori `escriptori-v2/`; l’entrada és `escriptori/index.html`. `room.js` construeix el racó, `seated-look.js` fixa l’exploració, `scene.js` coordina material i càmera, `life.js` gestiona fulles i mosca, i `garden.js` i `patina.js` donen profunditat i acabat. `assets/desk/corner-loading.json` compta els recursos d’arrencada; `tools/prepare-desk-loading.cjs` el regenera juntament amb l’índex de l’escena arxivada.
+
+La vista principal envia `v4_*`, amb `interficie: escriptori-raco` i etiqueta `escriptori-raco`. L’arxivada conserva `v2_*`. Només es compten accions explícites sobre recursos, controls i gestos complets de mirada. No s’envien trajectes del punter, vols ni impactes de fulles. Les proves i el desenvolupament local bloquegen tota l’analítica externa.

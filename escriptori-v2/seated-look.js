@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
-export const SEAT=Object.freeze([-.52,1.06,.53]);
+export const SEAT=Object.freeze([-.22,1.06,.53]);
 export function createSeatedLook(camera,surface,{redraw,onGesture=()=>{}}){
-  const seat=new THREE.Vector3(...SEAT),rotation=new THREE.Euler(-.46,-.22,0,'YXZ'),pointers=new Map();
+  const seat=new THREE.Vector3(...SEAT),rotation=new THREE.Euler(-.42,-.14,0,'YXZ'),pointers=new Map();
   let enabled=true,dragged=false;
   function update(){camera.position.copy(seat);camera.quaternion.setFromEuler(rotation);camera.updateMatrixWorld();redraw();}
   function turn(dx,dy){rotation.y=THREE.MathUtils.clamp(rotation.y+dx,-1.40,1.10);rotation.x=THREE.MathUtils.clamp(rotation.x+dy,-1.20,.70);update();}
@@ -18,7 +18,7 @@ export function createSeatedLook(camera,surface,{redraw,onGesture=()=>{}}){
   surface.addEventListener('keydown',e=>{if(!enabled||e.target.closest('button,a'))return;const d={ArrowLeft:[.10,0],ArrowRight:[-.10,0],ArrowUp:[0,.08],ArrowDown:[0,-.08]}[e.key];if(d){e.preventDefault();turn(...d);onGesture();}});
   update();
   return {set enabled(value){enabled=value;if(!value)pointers.clear();},get enabled(){return enabled;},
-    home(){rotation.set(-.46,camera.aspect<.9?.04:-.22,0,'YXZ');update();},turn,
+    home(){rotation.set(-.42,camera.aspect<.9?.30:-.14,0,'YXZ');update();},turn,
     sync(){rotation.setFromQuaternion(camera.quaternion,'YXZ');camera.position.copy(seat);},
     info:()=>({seat:seat.toArray(),position:camera.position.toArray(),yaw:rotation.y,pitch:rotation.x,enabled})};
 }

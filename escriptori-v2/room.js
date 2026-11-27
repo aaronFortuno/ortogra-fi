@@ -3,14 +3,14 @@ import { mergeGeometries } from '../assets/vendor/three/addons/utils/BufferGeome
 
 const texture=canvas=>{const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;};
 function plaster(){
-  const canvas=document.createElement('canvas');canvas.width=canvas.height=1024;const ctx=canvas.getContext('2d'),pixels=ctx.createImageData(1024,1024);let seed=8741;
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=512;const ctx=canvas.getContext('2d'),pixels=ctx.createImageData(512,512);let seed=8741;
   const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-  for(let y=0;y<1024;y++)for(let x=0;x<1024;x++){
-    const i=(y*1024+x)*4,s=Math.sin(x*.011+Math.sin(y*.008))*3.2+Math.cos(y*.017+x*.004)*2+Math.sin(x*.031-y*.021)*.55+(random()-.5)*1.4;
+  for(let y=0;y<512;y++)for(let x=0;x<512;x++){
+    const i=(y*512+x)*4,s=Math.sin(x*.022+Math.sin(y*.016))*5+Math.cos(y*.034+x*.008)*3+Math.sin(x*.062-y*.042)*.9+(random()-.5)*4;
     pixels.data[i]=201+s;pixels.data[i+1]=194+s*.9;pixels.data[i+2]=175+s*.8;pixels.data[i+3]=255;
   }
   ctx.putImageData(pixels,0,0);
-  for(let i=0;i<15;i++){let x=random()*1024,y=random()*1024;ctx.strokeStyle='rgba(82,70,53,.14)';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(x,y);for(let j=0;j<8;j++){x+=(random()-.5)*14;y+=3+random()*9;ctx.lineTo(x,y);}ctx.stroke();}
+  for(let i=0;i<15;i++){let x=random()*512,y=random()*512;ctx.strokeStyle='rgba(82,70,53,.14)';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(x,y);for(let j=0;j<8;j++){x+=(random()-.5)*7;y+=2+random()*5;ctx.lineTo(x,y);}ctx.stroke();}
   const material=new THREE.MeshStandardMaterial({name:'CornerPlaster',map:texture(canvas),roughness:.98,envMapIntensity:.36});
   material.onBeforeCompile=shader=>{
     shader.vertexShader='varying vec3 cornerWorld;\n'+shader.vertexShader;
@@ -74,16 +74,18 @@ export function createRoom(scene){
   const glassMaterial=new THREE.MeshPhysicalMaterial({color:'#d8dfcf',transparent:true,opacity:.12,roughness:.21,metalness:.06,clearcoat:1,clearcoatRoughness:.19,normalMap:normal,normalScale:new THREE.Vector2(.15,.15),side:THREE.DoubleSide,depthWrite:false});
   const glass=new THREE.Mesh(new THREE.PlaneGeometry(.97,.88),glassMaterial);glass.name='WindowGlass';glass.rotation.y=Math.PI/2;glass.position.z=.5;glass.renderOrder=3;sash.add(glass);
   const handle=box('WindowHandle',[.021,.055,.012],[.022,-.1,.93],iron,.004,sash);
-  const wallSwitch=new THREE.Group();wallSwitch.name='WallSwitch';wallSwitch.position.set(-.81,1.15,-.26);wallSwitch.rotation.y=Math.PI/2;root.add(wallSwitch);
-  box('SwitchPlate',[.047,.062,.008],[0,0,0],new THREE.MeshStandardMaterial({color:'#cdc8b7',roughness:.7}),.004,wallSwitch);
-  const rocker=box('SwitchRocker',[.021,.035,.006],[0,0,.006],new THREE.MeshStandardMaterial({color:'#dfd8c2',roughness:.6}),.002,wallSwitch);
-  box('LampFoot',[.13,.018,.10],[1.05,.761,-.18],iron,.006);
-  const stem=new THREE.Mesh(new THREE.CylinderGeometry(.005,.005,.30,12),iron);stem.position.set(1.05,.91,-.18);stem.rotation.z=-.2;root.add(stem);
-  const shade=new THREE.Mesh(new THREE.ConeGeometry(.065,.08,32,1,true),iron);shade.position.set(1.02,1.075,-.18);shade.rotation.z=-.18;root.add(shade);
-  const bulb=new THREE.Mesh(new THREE.SphereGeometry(.012,10,8),new THREE.MeshBasicMaterial({color:'#fff0c7'}));bulb.position.set(1.02,1.055,-.18);root.add(bulb);
+  // A rocker on the movable lamp's own base, not a household wall switch.
+  const lampSwitch=new THREE.Group();lampSwitch.name='LampBaseSwitch';lampSwitch.position.set(.94,.773,.23);lampSwitch.rotation.x=-Math.PI/2;root.add(lampSwitch);
+  box('SwitchPlate',[.030,.038,.005],[0,0,0],new THREE.MeshStandardMaterial({color:'#434b43',roughness:.65}),.003,lampSwitch);
+  const rocker=box('SwitchRocker',[.017,.025,.005],[0,0,.004],new THREE.MeshStandardMaterial({color:'#c9c3a9',roughness:.6}),.002,lampSwitch);
+  box('LampFoot',[.13,.018,.10],[.94,.761,.20],iron,.006);
+  const stem=new THREE.Mesh(new THREE.CylinderGeometry(.005,.005,.30,12),iron);stem.position.set(.94,.91,.20);stem.rotation.z=-.2;root.add(stem);
+  const shade=new THREE.Mesh(new THREE.ConeGeometry(.065,.08,32,1,true),iron);shade.position.set(.91,1.075,.20);shade.rotation.z=-.18;root.add(shade);
+  const bulb=new THREE.Mesh(new THREE.SphereGeometry(.012,10,8),new THREE.MeshBasicMaterial({color:'#fff0c7'}));bulb.position.set(.91,1.055,.20);root.add(bulb);
+  const cable=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(.99,.757,.20),new THREE.Vector3(1.08,.754,.17),new THREE.Vector3(1.14,.73,.14),new THREE.Vector3(1.15,.63,.14)]),14,.002,5,false),new THREE.MeshStandardMaterial({color:'#373b33',roughness:.85}));root.add(cable);
   const lamp=new THREE.SpotLight('#ffecd0',6.4,3.0,Math.PI/3,.85,2);lamp.position.copy(bulb.position);lamp.target.position.set(-.25,.75,.10);scene.add(lamp,lamp.target);
   let opening=0;
-  return {root,wood,trim,lamp,sash,outside,bulb,windowTargets:[glass,handle],switchTarget:wallSwitch,
+  return {root,wood,trim,lamp,sash,outside,bulb,windowTargets:[glass,handle],switchTarget:lampSwitch,
     get opening(){return opening;},
     setLamp(on){lamp.intensity=on?6.4:0;bulb.visible=on;rocker.rotation.x=on?-.07:.07;},
     setWindow(t){opening=t;sash.rotation.y=-t*.48;},
