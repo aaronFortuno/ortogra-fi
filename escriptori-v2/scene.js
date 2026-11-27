@@ -7,11 +7,11 @@ import { createLabelTexture } from '../escriptori/labels.js?v=1.11.0';
 import { createBinderShelf } from '../escriptori/binder-shelf.js?v=1.28.0';
 import { createPerformanceMonitor } from '../escriptori/performance.js?v=1.22.1';
 import { solarLight } from '../escriptori/solar.js?v=1.6.0';
-import { createSeatedLook, SEAT } from './seated-look.js?v=0.3.0';
+import { createSeatedLook, SEAT } from './seated-look.js?v=0.3.1';
 import { createRoom } from './room.js?v=0.3.0';
-import { createDeskLife, movingLeaves } from './life.js?v=0.3.0';
-import { addPatina } from './patina.js?v=0.3.0';
-import { createGarden } from './garden.js?v=0.3.0';
+import { createDeskLife, movingLeaves } from './life.js?v=0.3.1';
+import { addPatina } from './patina.js?v=0.3.1';
+import { createGarden } from './garden.js?v=0.3.1';
 import { addMonAMaModel } from '../escriptori/project-models.js?v=1.27.0';
 import { prepareStapler } from '../escriptori/stapler-mechanism.js?v=1.19.0';
 
@@ -22,9 +22,9 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.AgXToneMapping;
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.shadowMap.autoUpdate=false;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(50,1,.025,12);camera.position.set(...SEAT);
-  const monitor=createPerformanceMonitor(renderer),models=new Map(),motions=new Map(),lastView=new THREE.Matrix4();let controlsDirty=true,contactsDirty=true;
-  let frame=0,ambientTimer,active=null,phase='shelf',hovered=null,inspected=null,savedLook,savedPosition,clock=0,lastTime,lastShadow=-Infinity,readyToRender=false;
-  const look=createSeatedLook(camera,surface,{redraw:()=>requestRender(),onGesture:()=>{surface.dataset.looked='true';onAction('mira',{gest:'arrossega'});}});
+  const monitor=createPerformanceMonitor(renderer),models=new Map(),motions=new Map(),lastView=new THREE.Matrix4(),lastProjection=new THREE.Matrix4();let controlsDirty=true,contactsDirty=true;
+  let frame=0,ambientTimer,active=null,phase='shelf',hovered=null,inspected=null,savedLook,savedPosition,savedFov,clock=0,lastTime,lastShadow=-Infinity,readyToRender=false;
+  const look=createSeatedLook(camera,surface,{redraw:()=>requestRender(),onGesture:gest=>{surface.dataset.looked='true';onAction('mira',{gest});}});
   const room=createRoom(scene),content=new THREE.Group();content.name='ProjectMaterials';scene.add(content);
   const sky=new THREE.HemisphereLight('#e0e9e6','#9e8b6d',.7);scene.add(sky);
   const sun=new THREE.DirectionalLight('#fff4db',2.5);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
@@ -107,7 +107,7 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
     }
     if(!living)lastTime=undefined;dust.visible=!active;garden.tick(clock,camera);
     if(inspected?.type==='sheet')placeInspection();
-    if(controlsDirty||hadMotion||!lastView.equals(camera.matrixWorld)){projectControls();lastView.copy(camera.matrixWorld);controlsDirty=false;}
+    if(controlsDirty||hadMotion||!lastView.equals(camera.matrixWorld)||!lastProjection.equals(camera.projectionMatrix)){projectControls();lastView.copy(camera.matrixWorld);lastProjection.copy(camera.projectionMatrix);controlsDirty=false;}
     if(hadMotion)renderer.shadowMap.needsUpdate=true;renderer.render(scene,camera);monitor.end();
     clearTimeout(ambientTimer);if(living&&!life.moving())ambientTimer=setTimeout(requestRender,1000/30);if(motions.size||(living&&life.moving()))requestRender();
   }
@@ -131,9 +131,9 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
   }
   function resize(){
     const reading=['reading','inspecting','changing'].includes(phase),w=canvas.clientWidth,h=canvas.clientHeight;
-    const ratio=reading?Math.min(devicePixelRatio,1.5):Math.min(w<600?1:.80,1152/w,720/h);
+    const ratio=reading?Math.min(devicePixelRatio,1.5):Math.min(devicePixelRatio,1.05,1440/w,900/h);
     renderer.setPixelRatio(ratio);renderer.setSize(w,h,false);dust.material.uniforms.pixelRatio.value=ratio;
-    canvas.style.imageRendering=reading?'auto':'pixelated';canvas.dataset.finish=reading?'print':'textured';
+    canvas.style.imageRendering='auto';canvas.dataset.finish=reading?'print':'textured';
     camera.aspect=w/h;camera.updateProjectionMatrix();controlsDirty=true;requestRender();
   }
   new ResizeObserver(resize).observe(surface);resize();look.home();
@@ -184,7 +184,7 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
     if(active||phase!=='shelf')return;surface.dataset.busy='true';look.enabled=false;const m=models.get(id);
     hovered=null;for(const [key,motion]of motions)if(key.startsWith('hover-')){motions.delete(key);motion.resolve();}for(const other of models.values())if(other!==m)other.group.position.copy(other.home);
     const viewMotion=motions.get('look');if(viewMotion){viewMotion.update(1);motions.delete('look');viewMotion.resolve();look.sync();}
-    active=m;const visit=Symbol();m.visit=visit;life.pause(true);savedLook=camera.quaternion.clone();savedPosition=camera.position.clone();
+    active=m;const visit=Symbol();m.visit=visit;life.pause(true);savedLook=camera.quaternion.clone();savedPosition=camera.position.clone();savedFov=camera.fov;
     m.index=m.project.kind==='box'?0:1;if(m.project.kind!=='box')makePages(m);
     if(m.terrains)for(const node of m.terrains.values())node.visible=false;
     // Fetch only the first spread while the object is already being picked up.
@@ -198,7 +198,7 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
       requestRender();return null;
     }).catch(error=>error).finally(()=>clearTimeout(timeout));
     surface.dataset.open='true';phase='opening';if(shelf.has(m))await shelf.take(m);
-    const target=readingPose(m),focus=new THREE.Vector3(-.03,.79,.065),height=Math.max(.76,.62/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*camera.aspect*.86));
+    const target=readingPose(m),focus=new THREE.Vector3(-.03,.79,.065),height=Math.max(.76,.62/(2*Math.tan(THREE.MathUtils.degToRad(50/2))*camera.aspect*.86));
     const readPosition=new THREE.Vector3(focus.x,.79+height,focus.z+.006),readLook=headTo(focus,readPosition),from=m.home.clone(),q=m.rotation.clone();m.group.position.copy(from);m.group.quaternion.copy(q);m.lid.rotation[m.axis]=m.homeLid;
     if(m.idle)m.idle.visible=false;
     m.journey=t=>{
@@ -207,7 +207,7 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
       m.group.position.set(THREE.MathUtils.lerp(from.x,target.position.x,travel),THREE.MathUtils.lerp(from.y,target.position.y,t)+Math.sin(Math.PI*t)*.11,THREE.MathUtils.lerp(from.z,forward,pull)+(target.position.z-forward)*travel);
       m.group.quaternion.slerpQuaternions(q,target.rotation,settle);m.lid.rotation[m.axis]=THREE.MathUtils.lerp(m.homeLid,m.angle,open);m.setLoad?.(1-open);
       if(m.terrains)for(const [i,node]of m.terrains)node.visible=t>.58&&i===m.index;
-      camera.position.lerpVectors(savedPosition,readPosition,exit);camera.quaternion.slerpQuaternions(savedLook,readLook,exit);
+      camera.position.lerpVectors(savedPosition,readPosition,exit);camera.quaternion.slerpQuaternions(savedLook,readLook,exit);camera.fov=THREE.MathUtils.lerp(savedFov,50,exit);camera.updateProjectionMatrix();
     };
     await animate('material',t=>{m.journey(t);m.group.updateWorldMatrix(true,true);shelf.leaving(m,t);},2500);
     const error=await data;phase='reading';
@@ -267,8 +267,9 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
   canvas.addEventListener('wheel',e=>{if(!inspected)return;e.preventDefault();if(inspected.type==='sheet')inspected.scroll=THREE.MathUtils.clamp(inspected.scroll+e.deltaY*.00025,-.16,.16);else inspected.mesh.rotation.y+=e.deltaY*.002;requestRender();},{passive:false});
   function highlight(id){if(active||phase!=='shelf')return;hovered=id;for(const m of models.values()){const from=m.group.position.clone(),to=m.home.clone();if(m.project.id===id)to.z+=.015;animate('hover-'+m.project.id,t=>m.group.position.lerpVectors(from,to,t));}requestRender();}
   async function moveView(direction){
-    if(active||phase!=='shelf'||motions.has('look'))return;const from=camera.quaternion.clone();if(direction==='home')look.home();else look.turn(direction==='left'?.28:-.28,0);
-    const to=camera.quaternion.clone();camera.quaternion.copy(from);look.enabled=false;await animate('look',t=>camera.quaternion.slerpQuaternions(from,to,t),420);look.sync();if(phase==='shelf')look.enabled=true;onAction('mira',{gest:'boto',direccio:direction});
+    if(active||phase!=='shelf'||motions.has('look'))return;const from=camera.quaternion.clone(),fromFov=camera.fov;if(direction==='home')look.home();else look.turn(direction==='left'?.28:-.28,0);
+    const to=camera.quaternion.clone(),toFov=camera.fov;camera.quaternion.copy(from);camera.fov=fromFov;camera.updateProjectionMatrix();look.enabled=false;
+    await animate('look',t=>{camera.quaternion.slerpQuaternions(from,to,t);camera.fov=THREE.MathUtils.lerp(fromFov,toFov,t);camera.updateProjectionMatrix();},420);look.sync();if(phase==='shelf')look.enabled=true;onAction('mira',{gest:'boto',direccio:direction});
   }
   function setLamp(on){lampOn=on;room.setLamp(on);onLampChange(on);onAction('llum',{actiu:on});renderer.shadowMap.needsUpdate=true;requestRender();}
   function setWindow(on){windowOpen=on;onWindowChange(on);onAction('finestra',{oberta:on});const from=room.opening;animate('window',t=>room.setWindow(THREE.MathUtils.lerp(from,on?1:0,t)),820);}
@@ -306,10 +307,10 @@ function batchPlant(plant){
   }
 }
 function createDust(scene){
-  const n=580,data=new Float32Array(n*3);let seed=7429;for(let i=0;i<data.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;data[i]=seed/4294967296;}
+  const n=820,data=new Float32Array(n*3);let seed=7429;for(let i=0;i<data.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;data[i]=seed/4294967296;}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(data,3));
   const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{time:{value:0},light:{value:.6},pixelRatio:{value:1}},
-    vertexShader:'uniform float time;uniform float pixelRatio;varying float size;void main(){vec3 s=fract(position+vec3(.0012,.0022,.0009)*time);vec3 p=vec3(-.77+s.x*1.9,.79+s.y*.60,-.5+s.z*.94);p.x+=sin(time*.27+position.z*18.)*.014;p.z+=cos(time*.23+position.y*17.)*.015;size=position.z;vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=clamp((.8+position.z*1.5)*.65/max(.18,-mv.z),1.4,5.5)*pixelRatio;}',
-    fragmentShader:'uniform float light;varying float size;void main(){float r=length(gl_PointCoord-.5)*2.;float a=exp(-r*r*2.)*(1.-smoothstep(.5,1.,r))*light*(.5+size*.5);gl_FragColor=vec4(1.,.95,.82,a);}',
+    vertexShader:'uniform float time;uniform float pixelRatio;varying float size;void main(){vec3 s=fract(position+vec3(.0012,.0022,.0009)*time);vec3 p=vec3(-.77+s.x*1.9,.79+s.y*.60,-.5+s.z*.94);p.x+=sin(time*.27+position.z*18.)*.020;p.z+=cos(time*.23+position.y*17.)*.022;size=position.z;vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=clamp((1.+position.z*1.7)*.72/max(.18,-mv.z),1.6,6.5)*pixelRatio;}',
+    fragmentShader:'uniform float light;varying float size;void main(){float r=length(gl_PointCoord-.5)*2.;float a=exp(-r*r*2.3)*(1.-smoothstep(.55,1.,r))*light*(.55+size*.45);gl_FragColor=vec4(1.,.95,.82,a);}',
   });const points=new THREE.Points(g,material);points.name='SeatedDust';points.frustumCulled=false;points.raycast=()=>{};scene.add(points);return points;
 }

@@ -11,7 +11,7 @@ export function createGarden(scene,backdrop,reduced){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d');
   ctx.translate(64,64);
   for(let i=0;i<13;i++){ctx.save();ctx.rotate(random()*Math.PI*2);ctx.translate((random()-.5)*70,(random()-.5)*52);ctx.fillStyle=['#778651','#8b9862','#a0a26b','#657b4a'][i%4];ctx.beginPath();ctx.ellipse(0,0,9+random()*10,4+random()*6,random(),0,Math.PI*2);ctx.fill();ctx.restore();}
-  const leafMap=new THREE.CanvasTexture(canvas);leafMap.colorSpace=THREE.SRGBColorSpace;leafMap.magFilter=THREE.NearestFilter;
+  const leafMap=new THREE.CanvasTexture(canvas);leafMap.colorSpace=THREE.SRGBColorSpace;leafMap.magFilter=THREE.LinearFilter;
   const bark=new THREE.MeshStandardMaterial({color:'#625c43',roughness:.97});
   for(let layer=0;layer<2;layer++){
     const group=new THREE.Group();group.position.set(layer?-2.15:-1.26,0,layer?.20:.75);root.add(group);layers.push(group);

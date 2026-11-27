@@ -74,9 +74,9 @@ async function start(){
       const link=document.createElement('button');link.type='button';link.textContent=project.name;const small=document.createElement('small');small.textContent=project.purpose;link.append(small);link.addEventListener('click',()=>open(project));document.querySelector('#project-list').append(link);
     }
     loading.update(5,'Carregant l’escriptori de prop…');
-    const {createDesk}=await import('./scene.js?v=0.3.0');
+    const {createDesk}=await import('./scene.js?v=0.3.1');
     desk=await createDesk({canvas,projects,resources:createResourceLoader(manifest,root,loading.update),onStage:loading.update,onObjectSound:audio.playObject,onAction:track,onWindowChange:reflectWindow,onLampChange:reflectLamp});
-    workspace.dataset.ready='true';workspace.setAttribute('aria-busy','false');canvas.removeAttribute('aria-hidden');canvas.tabIndex=0;canvas.setAttribute('aria-label','Arrossega o fes servir les fletxes per mirar al voltant des de la cadira.');audio.start();loading.finish();
+    workspace.dataset.ready='true';workspace.setAttribute('aria-busy','false');canvas.removeAttribute('aria-hidden');canvas.tabIndex=0;canvas.setAttribute('aria-label','Arrossega o fes servir les fletxes per mirar al voltant des de la cadira. Fes servir la roda per apropar o allunyar la vista.');audio.start();loading.finish();
   }catch(error){loading.fail();workspace.setAttribute('aria-busy','false');workspace.classList.add('failed');status.textContent='Pots accedir a totes les eines des de la portada.';directLinks();console.error(error);}
 }
 canvas.addEventListener('webglcontextlost',()=>{workspace.classList.add('failed');directLinks();});

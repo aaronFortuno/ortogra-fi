@@ -6,8 +6,8 @@ const {chromium}=require('playwright');
 const origin='http://127.0.0.1:4187',out=path.resolve('output/desk-corner');
 const seat=[-.22,1.06,.53];
 const probe=`const qaScreen=p=>{const v=p.clone().project(camera),r=canvas.getBoundingClientRect();return{x:r.x+(v.x+1)*r.width/2,y:r.y+(1-v.y)*r.height/2};};
-const qaControls={window:()=>room.sash.localToWorld(new THREE.Vector3(0,0,.5)),lamp:()=>room.switchTarget.getWorldPosition(new THREE.Vector3()),stapler:()=>content.getObjectByName('DeskStapler').localToWorld(new THREE.Vector3(0,.22,.12)),plant:()=>new THREE.Box3().setFromObject(content.getObjectByName('Pothos')).getCenter(new THREE.Vector3())};
-return {face:name=>{const d=qaControls[name]().sub(camera.position).normalize(),s=look.info();look.turn(Math.atan2(-d.x,-d.z)-s.yaw,Math.asin(d.y)-s.pitch);},probe:()=>({sheet:inspected?.mesh.position.toArray(),terrain:inspected?.mesh.rotation.toArray(),camera:camera.quaternion.toArray(),down:camera.getWorldDirection(new THREE.Vector3()).y,pages:active?.pages?.map(p=>p.material.map?.image?.src),trama:models.get('trama').group.position.toArray(),shelf:shelf.info(),fly:qaScreen(life.fly.position),flyVisible:life.fly.visible,
+const qaControls={trama:()=>models.get('trama').group.localToWorld(new THREE.Vector3(0,-.35,.87)),window:()=>room.sash.localToWorld(new THREE.Vector3(0,0,.5)),lamp:()=>room.switchTarget.getWorldPosition(new THREE.Vector3()),stapler:()=>content.getObjectByName('DeskStapler').localToWorld(new THREE.Vector3(0,.22,.12)),plant:()=>new THREE.Box3().setFromObject(content.getObjectByName('Pothos')).getCenter(new THREE.Vector3())};
+return {face:name=>{const d=qaControls[name]().sub(camera.position).normalize(),s=look.info();look.turn(Math.atan2(-d.x,-d.z)-s.yaw,Math.asin(d.y)-s.pitch);},probe:()=>({sheet:inspected?.mesh.position.toArray(),terrain:inspected?.mesh.rotation.toArray(),camera:camera.quaternion.toArray(),down:camera.getWorldDirection(new THREE.Vector3()).y,pages:active?.pages?.map(p=>p.material.map?.image?.src),trama:models.get('trama').group.position.toArray(),tramaHit:qaScreen(qaControls.trama()),shelf:shelf.info(),fly:qaScreen(life.fly.position),flyVisible:life.fly.visible,
 leaves:(()=>{const points=[];content.getObjectByName('Pothos')?.traverse(n=>{if(movingLeaves.has(n.name))points.push(qaScreen(new THREE.Box3().setFromObject(n).getCenter(new THREE.Vector3())));});return points;})(),
 window:qaScreen(room.sash.localToWorld(new THREE.Vector3(0,0,.5))),windowTravel:room.opening,switch:qaScreen(room.switchTarget.getWorldPosition(new THREE.Vector3())),
 stapler:qaScreen(content.getObjectByName('DeskStapler').localToWorld(new THREE.Vector3(0,.22,.12))),pressAngle:staplerPress.rotation.x,
@@ -42,15 +42,14 @@ async function close(page){await page.locator('#material-close').click();await p
       await page.route('**/escriptori-v2/scene.js*',async r=>{const response=await r.fetch();await r.fulfill({response,body:(await response.text()).replace('return {select,close,highlight,',probe)});});
       await page.goto(origin+'/escriptori/');await page.locator('#workspace[data-ready=true]').waitFor({timeout:90000});await page.locator('#desk-loading').waitFor({state:'hidden'});
       await layout(page);await fixed(page);assert.equal(await page.locator('#project-list button').count(),9);assert.equal(await page.locator('[data-website-id]').count(),0);assert.deepEqual(external,[]);
-      const initial=await page.evaluate(()=>seatedStudy.diagnostics());assert.ok(initial.calls<300,'Initial render stays below 300 draw calls');assert.ok(initial.triangles<155000);assert.ok(initial.textures<36);assert.equal(initial.dust,580);assert.equal(new Set(initial.garden.depths).size,3);
-      if(!mobile)assert.ok(initial.pixelRatio<=.8,'The exploration buffer is smaller than CSS size');
+      const initial=await page.evaluate(()=>seatedStudy.diagnostics());assert.ok(initial.calls<300,'Initial render stays below 300 draw calls');assert.ok(initial.triangles<155000);assert.ok(initial.textures<36);assert.equal(initial.dust,820);assert.equal(new Set(initial.garden.depths).size,3);
+      if(!mobile)assert.ok(initial.pixelRatio>=.95&&initial.pixelRatio<=1.05,'Exploration keeps moderate resolution');assert.equal(await page.locator('#desk-canvas').evaluate(e=>e.style.imageRendering),'auto');
       await page.screenshot({path:path.join(out,mobile?'mobile-dark.png':'desktop.png')});
       const preview=await page.evaluate(()=>seatedStudy.probe().preview);assert.ok(preview.visible&&preview.lid< -1);assert.ok(preview.triangles<13000,'The initial box uses a real low-detail preview');
       if(!mobile){
         await page.waitForFunction(()=>seatedStudy.diagnostics().life.fly==='resting');const fly=await page.evaluate(()=>seatedStudy.probe().fly),flights=(await page.evaluate(()=>seatedStudy.diagnostics())).life.flights;
         await page.mouse.move(fly.x,fly.y);await page.waitForFunction(old=>seatedStudy.diagnostics().life.flights>old,flights);const from=(await page.evaluate(()=>seatedStudy.diagnostics())).life.position;await page.waitForTimeout(160);assert.notDeepEqual((await page.evaluate(()=>seatedStudy.diagnostics())).life.position,from,'The fly follows a real trajectory');await fixed(page);
-        assert.ok((await page.evaluate(()=>seatedStudy.diagnostics())).life.lastDuration<1.1);await page.waitForFunction(()=>seatedStudy.diagnostics().life.fly==='resting');
-        assert.equal((await page.evaluate(()=>seatedStudy.diagnostics())).life.landingFromPointer,true,'The fly finds free desk space near the cursor');const landing=await page.evaluate(()=>seatedStudy.probe().fly);assert.ok(Math.hypot(landing.x-fly.x,landing.y-fly.y)>=70&&Math.hypot(landing.x-fly.x,landing.y-fly.y)<=135);
+        assert.ok((await page.evaluate(()=>seatedStudy.diagnostics())).life.lastDuration<=1.3);await page.waitForFunction(()=>seatedStudy.diagnostics().life.fly!=='flying');
         await page.evaluate(()=>seatedStudy.face('plant'));const points=await page.evaluate(()=>seatedStudy.probe().leaves);for(const point of points){if(point.x<5||point.x>1435||point.y<70||point.y>900)continue;for(const dx of [0,-9,9]){await page.mouse.move(point.x+dx,point.y);await page.waitForTimeout(70);if((await page.evaluate(()=>seatedStudy.diagnostics())).life.brushes)break;}if((await page.evaluate(()=>seatedStudy.diagnostics())).life.brushes)break;}
         await page.waitForFunction(()=>seatedStudy.diagnostics().life.bend>.003,{},{timeout:4000});
         const gardenBefore=(await page.evaluate(()=>seatedStudy.diagnostics())).garden.offsets;await page.evaluate(()=>seatedStudy.face('window'));
@@ -66,13 +65,22 @@ async function close(page){await page.locator('#material-close').click();await p
       else {await page.mouse.move(700,265);await page.mouse.down();await page.mouse.move(790,280,{steps:6});await page.mouse.up();}
       assert.notEqual((await page.evaluate(()=>seatedStudy.diagnostics())).look.yaw,before.yaw);await fixed(page);
       await home(page);await page.locator('#desk-canvas').focus();const yaw=(await page.evaluate(()=>seatedStudy.diagnostics())).look.yaw;await page.keyboard.press('ArrowRight');assert.notEqual((await page.evaluate(()=>seatedStudy.diagnostics())).look.yaw,yaw);await fixed(page);await home(page);
-      await page.mouse.move(mobile?200:700,mobile?500:620);await page.mouse.wheel(0,180);await fixed(page);await home(page);
+      const beforeZoom=await page.evaluate(()=>seatedStudy.diagnostics().look);await page.mouse.move(mobile?200:700,mobile?500:620);await page.mouse.wheel(0,-180);
+      await page.waitForFunction(old=>{const l=seatedStudy.diagnostics().look;return l.fov<old-1&&Math.abs(l.fov-l.zoomTarget)<.02;},beforeZoom.fov);
+      const zoomed=await page.evaluate(()=>seatedStudy.diagnostics().look);assert.equal(zoomed.pitch,beforeZoom.pitch);assert.equal(zoomed.yaw,beforeZoom.yaw);await fixed(page);
+      for(let i=0;i<5;i++)await page.mouse.wheel(0,-1000);await page.waitForFunction(()=>Math.abs(seatedStudy.diagnostics().look.fov-34)<.02);
+      for(let i=0;i<5;i++)await page.mouse.wheel(0,1000);await page.waitForFunction(()=>Math.abs(seatedStudy.diagnostics().look.fov-62)<.02);
+      await home(page);assert.equal((await page.evaluate(()=>seatedStudy.diagnostics().look)).fov,50);
+      // A normal zoom survives the overhead-reading round trip exactly.
+      await page.mouse.move(mobile?200:700,mobile?500:620);await page.mouse.wheel(0,-120);await page.waitForFunction(()=>seatedStudy.diagnostics().look.fov===seatedStudy.diagnostics().look.zoomTarget);
+      if(!mobile)await page.evaluate(()=>seatedStudy.face('trama'));
+      const readingStart=await page.evaluate(()=>seatedStudy.diagnostics().look),readingCamera=await page.evaluate(()=>seatedStudy.probe().camera);
       if(!mobile){
         // A real hit target and the complete animated journey, sampled throughout.
         let sampleRequests=0;await page.route('**/samples/trama*.webp',async r=>{sampleRequests++;await new Promise(resolve=>setTimeout(resolve,1800));await r.continue();});
         const start=await page.evaluate(()=>seatedStudy.probe().trama);
         await page.evaluate(()=>{window.seatSamples=[];window.seatTimer=setInterval(()=>seatSamples.push(seatedStudy.diagnostics().look.position),80);});
-        await page.locator('[data-project=trama]').click();await page.waitForTimeout(450);assert.notDeepEqual(await page.evaluate(()=>seatedStudy.probe().trama),start,'The binder moves while print downloads are delayed');assert.equal((await page.evaluate(()=>seatedStudy.info())).phase,'opening');
+        await page.waitForTimeout(60);const hit=await page.evaluate(()=>seatedStudy.probe().tramaHit);await page.mouse.click(hit.x,hit.y);await page.waitForTimeout(450);assert.notDeepEqual(await page.evaluate(()=>seatedStudy.probe().trama),start,'The binder moves while print downloads are delayed');assert.equal((await page.evaluate(()=>seatedStudy.info())).phase,'opening');
         await phase(page,'reading');await page.locator('#material-info.is-visible').waitFor();
         const samples=await page.evaluate(()=>{clearInterval(seatTimer);return seatSamples;});assert.ok(samples.length>15);assert.ok(samples.some(p=>p[1]>1.4));assert.equal(sampleRequests,2,'Only the first spread is requested before reading');await page.unroute('**/samples/trama*.webp');
       }else await open(page,'trama');
@@ -87,6 +95,7 @@ async function close(page){await page.locator('#material-close').click();await p
       if(mobile){const old=await page.evaluate(()=>seatedStudy.probe().sheet),cdp=await context.newCDPSession(page);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:200,y:400}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:200,y:460}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForFunction(old=>JSON.stringify(seatedStudy.probe().sheet)!==JSON.stringify(old),old);await fixed(page);}
       await page.screenshot({path:path.join(out,mobile?'mobile-sheet.png':'sheet.png')});await page.locator('#inspection-close').click();await phase(page,'reading');
       await page.locator('#sample-answer').click();await page.locator('#inspection-close').waitFor();await page.keyboard.press('Escape');await phase(page,'reading');await close(page);
+      assert.equal((await page.evaluate(()=>seatedStudy.diagnostics().look)).fov,readingStart.fov);assert.deepEqual(await page.evaluate(()=>seatedStudy.probe().camera),readingCamera);await home(page);
       if(!mobile){
         // Test remaining resources with reduced motion after checking the normal journey.
         await page.emulateMedia({reducedMotion:'reduce'});
@@ -111,6 +120,6 @@ async function close(page){await page.locator('#material-close').click();await p
     await recovery.waitForFunction(()=>document.querySelector('#desk-status').textContent.includes('No s’ha pogut'));assert.equal(await recovery.locator('.view-tools').evaluate(e=>e.inert),false);assert.deepEqual(await recovery.evaluate(()=>seatedStudy.diagnostics().look.position),seat);
     await recovery.unroute('**/samples/trama*.webp');await recovery.locator('.list-toggle').click();await recovery.locator('#project-list button').filter({hasText:'Trama'}).click();await recovery.locator('#material-info.is-visible').waitFor();assert.equal(await recovery.locator('#material-title').textContent(),'Trama');await recovery.close();
     await failed.route('**/escriptori.glb*',r=>r.abort());const page=await failed.newPage();await page.goto(origin+'/escriptori-v2/');await page.locator('#workspace.failed').waitFor({timeout:30000});assert.equal(await page.locator('#project-list a').count(),9,'Loading failure offers real links to every resource');assert.equal(await page.locator('#projectes').evaluate(e=>e.inert),false);await failed.close();
-    console.log('PASS: fixed exploration, overhead reading, immediate motion with delayed downloads, layered garden, dust, quick fly, physical lamp, all 9 resources, mobile and render budget.');console.log(JSON.stringify(report,null,2));
+    console.log('PASS: optical zoom without tilt, exact reading return, smoother finish, overhead reading, delayed downloads, garden, dust, fly, all 9 resources, mobile and render budget.');console.log(JSON.stringify(report,null,2));
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

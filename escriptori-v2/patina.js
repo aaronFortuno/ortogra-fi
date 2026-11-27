@@ -38,7 +38,7 @@ export function addPatina(scene){
           roughnessFactor=clamp(roughnessFactor+${wood?'-.24*rubbed+.15*(wear.g-.4)':cloth?'-.14*rubbed+.14*wear.g':'.16*(wear.g-.4)'},.32,1.);`);
         shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
           vec3 wx=dFdx(-vViewPosition),wy=dFdy(-vViewPosition);vec3 wr1=cross(wy,normal),wr2=cross(normal,wx);
-          float wd=dot(wx,wr1);float wh=wear.b*${wall?'.00025':wood?'.00006':'.00003'};
+          float wd=dot(wx,wr1);float wh=wear.b*${wall?'.00019':wood?'.00004':'.000012'};
           normal=normalize(abs(wd)*normal-sign(wd)*(dFdx(wh)*wr1+dFdy(wh)*wr2));`);
       };
       material.customProgramCacheKey=()=>key+'-corner-patina-1';material.needsUpdate=true;
