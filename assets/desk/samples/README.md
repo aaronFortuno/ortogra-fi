@@ -48,7 +48,7 @@ Actualització del 19 de novembre: la caixa de Relleu Obert ara mostra [maquetes
 
 ## Món a mà · 27 de novembre de 2026
 
-Tres exemples exportats del generador local de [Món a mà](https://monama.ortogra.fi/), versió 0.1.43. Es conserva el document complet a cada PDF; l’escriptori presenta els seus dos primers fulls, amb els codis i la composició originals. Són apunts, no parelles de fitxa i solucionari.
+Tres exemples exportats del generador local de [Món a mà](https://monama.ortogra.fi/), versió 0.1.45. Es conserva el document complet a cada PDF; l’escriptori presenta els seus dos primers fulls, amb els codis i la composició originals. Són apunts, no parelles de fitxa i solucionari.
 
 | PDF | Material | Pàgines |
 | --- | --- | --- |
