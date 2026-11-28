@@ -8,9 +8,9 @@
   <link rel="canonical" href="https://ortogra.fi/escriptori/">
   <link rel="icon" href="../assets/brand/symbol.svg" type="image/svg+xml">
   <script src="../theme.js?v=1.0.0"></script>
-  <link rel="stylesheet" href="../styles.css?v=1.6.0"><link rel="stylesheet" href="../escriptori-v2/desk.css?v=0.3.0">
+  <link rel="stylesheet" href="../styles.css?v=1.6.0"><link rel="stylesheet" href="../escriptori-v2/desk.css?v=0.3.4">
   <script type="importmap">{"imports":{"three":"../assets/vendor/three/three.module.min.js"}}</script>
-  <script type="module" src="../escriptori-v2/app.js?v=0.3.3"></script>
+  <script type="module" src="../escriptori-v2/app.js?v=0.3.4"></script>
 </head>
 <body class="seated-page">
 <a class="skip-link" href="#projectes">Ves als projectes</a>
@@ -78,6 +78,7 @@
       <button id="lamp-toggle" aria-label="Apaga el llum de la taula" aria-pressed="true" title="Llum de la taula"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6 0m-5 3h4M8.5 14a6 6 0 1 1 7 0c-1 .8-1.5 1.5-1.5 3h-4c0-1.5-.5-2.2-1.5-3ZM12 1v1M3 5l1 1m16-1-1 1"/></svg></button>
       <button id="window-toggle" aria-label="Obre la finestra" aria-pressed="false" title="Finestra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3ZM12 3v18M3 12h18"/></svg></button>
       <button id="focus-toggle" aria-label="Desactiva el desenfocament perifèric" aria-pressed="true" title="Desenfocament perifèric"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3"/></svg></button>
+      <button id="light-toggle" type="button" popovertarget="light-panel" aria-label="Ajusta l’hora i la llum del dia" aria-expanded="false" title="Llum del dia" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
     </div>
     <section id="material-info" class="material-info" hidden aria-label="Material obert">
       <button id="material-close" class="icon-button material-close" aria-label="Desa el material" title="Desa el material"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
@@ -86,6 +87,14 @@
     </section>
     <button id="inspection-close" class="inspection-close" hidden>Torna al material</button>
   </div>
+  <section id="light-panel" class="light-panel" popover aria-labelledby="light-title">
+    <div class="light-heading"><h2 id="light-title">Llum del dia</h2><button type="button" class="icon-button light-close" aria-label="Tanca els ajustos de llum"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
+    <p id="light-status">Segons l’hora actual</p>
+    <div class="light-fields"><label>Data<input id="light-date" type="date" min="2000-01-01" max="2100-12-31"></label><label>Hora<input id="light-time" type="time"></label></div>
+    <input id="light-hour" type="range" min="0" max="1439" step="1" aria-label="Hora del dia">
+    <div class="light-hours" aria-hidden="true"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div>
+    <div class="light-bottom"><span>Data i hora de Catalunya</span><button id="light-now" class="text-button" type="button" disabled>Hora actual</button></div>
+  </section>
   <nav id="projectes" class="desk-list" aria-label="Projectes d’ortogra.fi"><h2>Les eines de la taula</h2><div id="project-list"></div></nav>
 </main>
   <footer class="site-footer">

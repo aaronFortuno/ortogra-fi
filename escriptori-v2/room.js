@@ -90,6 +90,7 @@ export function createRoom(scene){
   const lamp=new THREE.SpotLight('#ffecd0',6.4,3.0,Math.PI/3,.85,2);lamp.position.copy(bulb.position);lamp.target.position.set(-.25,.75,.10);lamp.shadow.mapSize.set(1024,1024);lamp.shadow.camera.near=.03;lamp.shadow.camera.far=3;lamp.shadow.normalBias=.0012;lamp.shadow.bias=-.00006;lamp.shadow.radius=3.5;scene.add(lamp,lamp.target);
   let opening=0;
   return {root,wood,trim,lamp,sash,outside,bulb,windowTargets:[glass,handle],switchTarget:lampSwitch,
+    aperture:{center:new THREE.Vector3(-.802,1.31,.345),half:new THREE.Vector2(.43,.475)},
     get opening(){return opening;},
     setLamp(on){lamp.intensity=on?6.4:0;bulb.visible=on;rocker.rotation.x=on?-.07:.07;},
     setWindow(t){opening=t;sash.rotation.y=-t*.48;},

@@ -6,19 +6,20 @@ import { prepareBinderLoad } from '../escriptori/binder-load.js?v=1.25.0';
 import { createLabelTexture } from '../escriptori/labels.js?v=1.11.0';
 import { createBinderShelf } from '../escriptori/binder-shelf.js?v=1.28.0';
 import { createPerformanceMonitor } from '../escriptori/performance.js?v=1.22.1';
-import { solarLight } from '../escriptori/solar.js?v=1.6.0';
+import { solarLight } from '../escriptori/solar.js?v=1.6.1';
 import { createSeatedLook, SEAT } from './seated-look.js?v=0.3.1';
-import { createRoom } from './room.js?v=0.3.2';
+import { createRoom } from './room.js?v=0.3.4';
 import { createDeskLife, movingLeaves } from './life.js?v=0.3.3';
 import { addPatina } from './patina.js?v=0.3.2';
 import { createGarden } from './garden.js?v=0.3.2';
 import { createPeripheralFocus } from './focus.js?v=0.3.2';
+import { createSunlitDust } from './sunlit-dust.js?v=0.3.4';
 import { addMonAMaModel } from '../escriptori/project-models.js?v=1.27.0';
 import { prepareStapler } from '../escriptori/stapler-mechanism.js?v=1.19.0';
 
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 const flatBinder=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,-1),new THREE.Vector3(-1,0,0)));
-export async function createDesk({canvas,projects,resources,onStage,onObjectSound=()=>{},onAction=()=>{},onWindowChange=()=>{},onLampChange=()=>{}}){
+export async function createDesk({canvas,projects,resources,onStage,onObjectSound=()=>{},onAction=()=>{},onWindowChange=()=>{},onLampChange=()=>{},onLightingChange=()=>{}}){
   const surface=canvas.parentElement,renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'low-power'});
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.AgXToneMapping;
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.shadowMap.autoUpdate=false;
@@ -29,7 +30,8 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
   const room=createRoom(scene),content=new THREE.Group();content.name='ProjectMaterials';scene.add(content);
   const sky=new THREE.HemisphereLight('#e0e9e6','#9e8b6d',.7);scene.add(sky);
   const sun=new THREE.DirectionalLight('#fff4db',2.5);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
-  Object.assign(sun.shadow.camera,{left:-1.6,right:1.6,top:1.7,bottom:-1.3,near:.1,far:8});sun.shadow.normalBias=.0015;sun.shadow.bias=-.00015;sun.shadow.radius=3;scene.add(sun,sun.target);
+  Object.assign(sun.shadow.camera,{left:-1.45,right:1.45,top:1.2,bottom:-1.2,near:.1,far:8});sun.shadow.normalBias=.0007;sun.shadow.bias=-.00006;sun.shadow.radius=3;scene.add(sun,sun.target);
+  sun.shadow.camera.updateProjectionMatrix();
   onStage(null,'Preparant els materials de la taula…');
   const bytes=await resources.buffer(new URL('../assets/desk/escriptori.glb?v=1.15.0',import.meta.url).href),asset=await new GLTFLoader().parseAsync(bytes,new URL('../assets/desk/',import.meta.url).href);
   addMonAMaModel(asset.scene);
@@ -87,23 +89,32 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
   const materials=await prepareMaterials(scene,scene,renderer,resources);addPatina(scene);room.finish();batchPlant(content.getObjectByName('Pothos'));const staplerPress=prepareStapler(content.getObjectByName('DeskStapler'));
   scene.traverse(n=>{if(n.isMesh&&(n.material.isMeshBasicMaterial||n.material.transparent)){n.castShadow=false;n.receiveShadow=n.material.name==='PaperLabel';}});
   room.outside.material.map=await resources.load(new URL('../assets/desk/garden.webp',import.meta.url).href,url=>new THREE.TextureLoader().loadAsync(url));room.outside.material.map.colorSpace=THREE.SRGBColorSpace;room.outside.material.color.set('#ffffff');room.outside.material.needsUpdate=true;
-  const garden=createGarden(scene,room.outside,reduced),dust=createDust(scene);let lampOn=true,windowOpen=false;
+  const garden=createGarden(scene,room.outside,reduced),dust=createSunlitDust(scene,sun,room.aperture);let lampOn=true,windowOpen=false;
   const life=createDeskLife({scene,camera,canvas,plant:content.getObjectByName('Pothos'),landingSurfaces:[room.root,content],reduced,redraw:requestRender,onBrush:()=>onObjectSound('chime','leaf')});
   const rows=[createBinderShelf(['plec','trama','resso'].map(id=>models.get(id)),{left:-.831,surface:.75,gap:.001,animate,redraw:requestRender}),createBinderShelf(['sentit','fil-i-compte','mon-a-ma'].map(id=>models.get(id)),{left:-.10,right:.300,leanSign:-1,surface:.756,gap:.001,animate,redraw:requestRender})];
   const owner=m=>rows.find(row=>row.has(m)),shelf={has:m=>Boolean(owner(m)),take:m=>owner(m)?.take(m),leaving:(m,t)=>owner(m)?.leaving(m,t),prepareReturn:m=>owner(m)?.prepareReturn(m),restore:async()=>{for(const row of rows)if(row.info().departing)await row.restore();},info:()=>rows.map(row=>row.info())};
   const contacts=createContacts(scene,models);
   addPotContacts(scene,content);
-  let daylight=solarLight(new Date());
+  let manualMoment=null,lightingMoment=new Date(),daylight=solarLight(lightingMoment,{windowAzimuth:0});
   function paperBrightness(){return Math.min(1,.0005+daylight.day+(lampOn?.65:0));}
   function updateLighting(){
-    const day=daylight.day;sky.intensity=.0035+day*.237+(lampOn?.025*(1-day):0);scene.environmentIntensity=.001+day*.179+(lampOn?.018*(1-day):0);
+    const day=daylight.day;sky.intensity=.0035+day*.32+(lampOn?.025*(1-day):0);scene.environmentIntensity=.001+day*.22+(lampOn?.018*(1-day):0);
     sky.color.set(day>.2?'#dae5e5':'#d9b88b');room.lamp.castShadow=lampOn&&day<.30;
-    dust.material.uniforms.light.value=.001+day*.55+(lampOn?.18*(1-day):0);
+    room.lamp.intensity=lampOn?6.4*(1-.72*day):0;
+    dust.material.uniforms.light.value=.001+day*.13+(lampOn?.18*(1-day):0);
     for(const m of models.values())for(const page of m.pages||[])page.material.color.setScalar(paperBrightness());
     if(inspected?.type==='sheet')inspected.mesh.material.color.setScalar(paperBrightness());
     renderer.shadowMap.needsUpdate=true;requestRender();
   }
-  function setTime(){daylight=solarLight(new Date());const state=daylight;sun.intensity=state.sunIntensity;sun.castShadow=sun.intensity>.01;sun.color.set(state.golden>.3?'#fff0d2':'#fff7e8');sun.position.set(...state.direction).multiplyScalar(4).add(new THREE.Vector3(0,.9,0));sun.target.position.set(0,.78,-.15);garden.setDay(state.day);canvas.dataset.lighting=state.phase;updateLighting();}
+  function lightingState(){return {...daylight,date:new Date(lightingMoment),automatic:manualMoment===null};}
+  function setTime(){
+    lightingMoment=manualMoment||new Date();daylight=solarLight(lightingMoment,{windowAzimuth:0});const state=daylight;
+    sun.intensity=state.sunIntensity;sun.castShadow=sun.intensity>.01;sun.color.set(state.golden>.3?'#ffe0ad':'#fff5df');
+    sun.target.position.set(.05,.95,-.10);sun.position.copy(sun.target.position).addScaledVector(new THREE.Vector3(...state.direction),4);
+    garden.setDay(state.day);canvas.dataset.lighting=state.phase;canvas.dataset.solarAltitude=state.altitude.toFixed(2);
+    updateLighting();onLightingChange(lightingState());
+  }
+  function setMoment(date){if(date!==null&&(!(date instanceof Date)||!Number.isFinite(date.valueOf())))return false;manualMoment=date===null?null:new Date(date);setTime();return true;}
   setTime();const minuteTimer=setInterval(()=>{if(!document.hidden)setTime();},60000);window.addEventListener('pagehide',()=>clearInterval(minuteTimer),{once:true});
   function animate(key,update,duration=220){if(motions.has(key))motions.get(key).resolve();if(reduced.matches){update(1);requestRender();return Promise.resolve();}return new Promise(resolve=>{motions.set(key,{start:null,update,resolve,duration});requestRender();});}
   function requestRender(){if(readyToRender&&!frame&&!document.hidden)frame=requestAnimationFrame(render);}
@@ -294,13 +305,13 @@ export async function createDesk({canvas,projects,resources,onStage,onObjectSoun
     if(stapler?.getObjectById(hit.object.id)){if(motions.has('stapler'))return;animate('stapler',t=>{staplerPress.rotation.x=.19*Math.sin(Math.PI*t);staplerPress.userData.magazine.rotation.x=.103*Math.sin(Math.PI*t);},420);onObjectSound('staple','metal');onAction('toca_grapadora');}
     else if(room.switchTarget.getObjectById(hit.object.id))setLamp(!lampOn);else setWindow(!windowOpen);
   });
-  document.addEventListener('visibilitychange',()=>{clearTimeout(ambientTimer);lastTime=undefined;if(!document.hidden)requestRender();});
+  document.addEventListener('visibilitychange',()=>{clearTimeout(ambientTimer);lastTime=undefined;if(!document.hidden){if(manualMoment===null)setTime();requestRender();}});
   reduced.addEventListener('change',()=>{for(const m of motions.values()){m.update(1);m.resolve();}motions.clear();requestRender();});
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();clearTimeout(ambientTimer);document.querySelector('.desk-list').classList.add('is-open');document.querySelector('#desk-status').textContent='Pots continuar des de la llista de projectes.';});
   onStage(94,'Preparant la mirada des de la cadira…');readyToRender=true;renderer.shadowMap.needsUpdate=true;await lens.compile(scene,camera);await new Promise(resolve=>{requestRender();requestAnimationFrame(()=>requestAnimationFrame(resolve));});
-  return {select,close,highlight,moveView,changeSample,inspect,leaveInspection,setLamp,setWindow,setFocus,
+  return {select,close,highlight,moveView,changeSample,inspect,leaveInspection,setLamp,setWindow,setFocus,setMoment,lightingState,
     info:()=>({phase,selected:active?.project.id,index:active?.index||0,count:active?.project.kind==='box'?active.project.reliefs.length:3,secondary:Boolean(active?.pages?.[1]?.visible),paired:active?.pages?.[1]?.userData.sample?.role==='answers',inspection:inspected?.type||null}),
-    diagnostics:()=>({look:look.info(),calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,textures:renderer.info.memory.textures,geometries:renderer.info.memory.geometries,materials:materials.size,lampOn,windowOpen,life:life.info(),garden:garden.info(),dust:dust.geometry.attributes.position.count,buffer:[canvas.width,canvas.height],pixelRatio:renderer.getPixelRatio(),focus:lens.info(),lighting:{day:daylight.day,sky:sky.intensity,environment:scene.environmentIntensity,lampShadow:room.lamp.castShadow}}),
+    diagnostics:()=>({look:look.info(),calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,textures:renderer.info.memory.textures,geometries:renderer.info.memory.geometries,materials:materials.size,lampOn,windowOpen,life:life.info(),garden:garden.info(),dust:dust.geometry.attributes.position.count,buffer:[canvas.width,canvas.height],pixelRatio:renderer.getPixelRatio(),focus:lens.info(),lighting:{day:daylight.day,sky:sky.intensity,environment:scene.environmentIntensity,lampShadow:room.lamp.castShadow,sunPower:sun.intensity,direction:daylight.direction,altitude:daylight.altitude,automatic:manualMoment===null}}),
   };
 }
 function createContacts(scene,models){
@@ -329,12 +340,4 @@ function batchPlant(plant){
       let end=0;mesh.userData.leafRanges=geometries.map((g,i)=>({end:end+=g.getAttribute('position').count/3,id:nodes[i].userData.leafId||null}));
       plant.add(mesh);for(const n of nodes){n.removeFromParent();n.geometry.dispose();}}for(const g of geometries)g.dispose();
   }
-}
-function createDust(scene){
-  const n=820,data=new Float32Array(n*3);let seed=7429;for(let i=0;i<data.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;data[i]=seed/4294967296;}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(data,3));
-  const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{time:{value:0},light:{value:.6},pixelRatio:{value:1}},
-    vertexShader:'uniform float time;uniform float pixelRatio;varying float size;void main(){vec3 s=fract(position+vec3(.0012,.0022,.0009)*time);vec3 p=vec3(-.77+s.x*1.9,.79+s.y*.60,-.5+s.z*.94);p.x+=sin(time*.27+position.z*18.)*.020;p.z+=cos(time*.23+position.y*17.)*.022;size=position.z;vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=clamp((1.+position.z*1.7)*.72/max(.18,-mv.z),1.6,6.5)*pixelRatio;}',
-    fragmentShader:'uniform float light;varying float size;void main(){float r=length(gl_PointCoord-.5)*2.;float a=exp(-r*r*2.3)*(1.-smoothstep(.55,1.,r))*light*(.55+size*.45);gl_FragColor=vec4(1.,.95,.82,a);}',
-  });const points=new THREE.Points(g,material);points.name='SeatedDust';points.frustumCulled=false;points.raycast=()=>{};scene.add(points);return points;
 }

@@ -19,6 +19,8 @@ L’acabat explorable suavitza els píxels i conserva una resolució moderada, a
 
 El desgast de tela i fusta combina marques desiguals i vores fregades; els pots tenen un acabat mat i ombres de contacte. Les etiquetes reaccionen a la llum, i la nit amb la làmpada apagada queda pràcticament a les fosques. Cada fulla que toca el punter dispara un [dring enregistrat](assets/desk/audio/README.md#dring-de-les-fulles), fluix i amb un to agut variable; els sons es poden superposar i el test queda silenciós. Les ales de la mosca es pleguen en repòs i caminant. Un botó del visor permet provar un desenfocament perifèric lleu, que s’omet sempre en consultar fitxes.
 
+La icona de rellotge permet regular l’hora amb una barra lliscant i triar la data, o tornar a l’hora actual. La finestra s’orienta a sud: el sol entra al matí i a la tarda i projecta les ombres de la planta i els llapis, sense cap disc solar visible. L’alçada i la direcció segueixen la data i l’hora de Catalunya. La pols queda més realçada dins la zona de sol, reutilitzant el mapa d’ombres existent. Canviar l’hora no altera la tria de la làmpada ni el tema.
+
 `node tools/check-desk-corner.cjs` comprova la posició fixa en explorar, la lectura zenital i el retorn, l’obertura mentre es descarreguen els fulls, la memòria de mostres, la recuperació d’errors, la mosca, les fulles, la finestra, els materials i els controls en ordinador/mòbil. `node tools/check-desk-v2.cjs` conserva el mateix comandament per compatibilitat. Les proves bloquegen l’analítica externa. La vista nova utilitza `v4_*`, `interficie: escriptori-raco` i etiqueta `escriptori-raco`. [Disseny, rendiment i límits](docs/ESCRIPTORI-RACO.md).
 
 ## Escriptori anterior (arxiu)

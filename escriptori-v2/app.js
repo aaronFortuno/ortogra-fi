@@ -1,6 +1,7 @@
 import { createLoadingIndicator,createResourceLoader } from '../escriptori/loading.js?v=1.16.1';
 import { createAmbientAudio } from '../escriptori/ambient-audio.js?v=1.26.2';
 import { loadCatalogue } from './catalogue.js?v=0.1.1';
+import { createCornerLightControls } from './light-controls.js?v=0.3.4';
 
 const workspace=document.querySelector('#workspace'),canvas=document.querySelector('#desk-canvas'),status=document.querySelector('#desk-status'),caption=document.querySelector('#hover-caption');
 const list=document.querySelector('#projectes'),listButton=document.querySelector('.list-toggle'),info=document.querySelector('#material-info');
@@ -8,6 +9,7 @@ const loading=createLoadingIndicator(document.querySelector('#desk-loading')),au
 let desk,busy=false,current=null,projects=[];
 const root=new URL('../',import.meta.url),sleep=ms=>new Promise(r=>setTimeout(r,reduced.matches?0:ms));
 function track(name,data={}){if(location.hostname!=='ortogra.fi'||location.protocol!=='https:'||navigator.webdriver)return;try{window.umami?.track?.('v4_'+name,{interficie:'escriptori-raco',...data})?.catch?.(()=>{});}catch{/* Optional analytics. */}}
+const lightControls=createCornerLightControls(()=>desk,track);
 function setList(open){list.classList.toggle('is-open',open);listButton.setAttribute('aria-expanded',String(open));list.inert=!open;}
 function directLinks(){
   document.querySelector('#project-list').replaceChildren(...projects.map(project=>{const link=document.createElement('a');link.href=project.href;link.textContent=project.name;const small=document.createElement('small');small.textContent=project.purpose;link.append(small);return link;}));
@@ -26,7 +28,7 @@ function updateInfo(){
   workspace.dataset.inspecting=String(Boolean(state.inspection));document.querySelector('#inspection-close').hidden=!state.inspection;info.inert=Boolean(state.inspection);
 }
 async function open(project){
-  if(!desk||busy||current)return;busy=true;current=project;document.querySelector('.view-tools').inert=true;setList(false);caption.classList.remove('visible');status.textContent='Preparant '+project.name+'…';
+  if(!desk||busy||current)return;busy=true;current=project;lightControls.close();document.querySelector('.view-tools').inert=true;setList(false);caption.classList.remove('visible');status.textContent='Preparant '+project.name+'…';
   try{
     await desk.select(project.id);status.textContent='';document.querySelector('#material-title').textContent=project.name;document.querySelector('#material-description').textContent=project.description;
     const enter=document.querySelector('#material-enter');enter.href=project.href;enter.textContent='Obre '+project.name;
@@ -76,8 +78,8 @@ async function start(){
       const link=document.createElement('button');link.type='button';link.textContent=project.name;const small=document.createElement('small');small.textContent=project.purpose;link.append(small);link.addEventListener('click',()=>open(project));document.querySelector('#project-list').append(link);
     }
     loading.update(5,'Carregant l’escriptori de prop…');
-    const {createDesk}=await import('./scene.js?v=0.3.3');
-    desk=await createDesk({canvas,projects,resources:createResourceLoader(manifest,root,loading.update),onStage:loading.update,onObjectSound:audio.playObject,onAction:track,onWindowChange:reflectWindow,onLampChange:reflectLamp});
+    const {createDesk}=await import('./scene.js?v=0.3.4');
+    desk=await createDesk({canvas,projects,resources:createResourceLoader(manifest,root,loading.update),onStage:loading.update,onObjectSound:audio.playObject,onAction:track,onWindowChange:reflectWindow,onLampChange:reflectLamp,onLightingChange:lightControls.update});
     const focus=desk.diagnostics().focus;reflectFocus(focus.enabled);document.querySelector('#focus-toggle').disabled=!focus.available;
     workspace.dataset.ready='true';workspace.setAttribute('aria-busy','false');canvas.removeAttribute('aria-hidden');canvas.tabIndex=0;canvas.setAttribute('aria-label','Arrossega o fes servir les fletxes per mirar al voltant des de la cadira. Fes servir la roda per apropar o allunyar la vista.');audio.start();loading.finish();
   }catch(error){loading.fail();workspace.setAttribute('aria-busy','false');workspace.classList.add('failed');status.textContent='Pots accedir a totes les eines des de la portada.';directLinks();console.error(error);}

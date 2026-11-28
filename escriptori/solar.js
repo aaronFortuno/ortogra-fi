@@ -4,12 +4,14 @@ export const solarReference = Object.freeze({ latitude: 41.39, longitude: 2.17, 
 const degrees = 180 / Math.PI;
 const smooth = (low, high, value) => { const t = Math.min(1, Math.max(0, (value - low) / (high - low))); return t * t * (3 - 2 * t); };
 
-export function solarLight(date) {
+export function solarLight(date, { windowAzimuth = 45 } = {}) {
   if (!(date instanceof Date) || !Number.isFinite(date.valueOf())) throw new TypeError('Data no vàlida.');
   // SunCalc 1.9 uses radians, azimuth measured from south towards west.
   const sun = SunCalc.getPosition(date, solarReference.latitude, solarReference.longitude);
   const altitude = sun.altitude * degrees;
-  const relative = sun.azimuth - Math.PI / 4; // The window faces south-west.
+  // Room orientation is independent of the geographical solar calculation.
+  // Default keeps the archived south-west window; the desk corner faces south.
+  const relative = sun.azimuth - windowAzimuth / degrees;
   const direction = [-Math.cos(sun.altitude) * Math.cos(relative), Math.sin(sun.altitude), Math.cos(sun.altitude) * Math.sin(relative)];
   const day = smooth(-8, 12, altitude);
   const artificial = 1 - smooth(0, 13, altitude);
