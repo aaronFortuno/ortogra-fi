@@ -13,7 +13,11 @@ export function createDeskLife({scene,camera,canvas,plant,landingSurfaces=[],red
   const head=new THREE.Mesh(new THREE.SphereGeometry(.0017,8,6),eye);head.position.z=-.0038;fly.add(head);
   const wingMaterial=new THREE.MeshStandardMaterial({color:'#cbd8cc',roughness:.9,envMapIntensity:.08,transparent:true,opacity:.29,side:THREE.DoubleSide,depthWrite:false});
   const wingShape=new THREE.Shape();wingShape.moveTo(0,0);wingShape.bezierCurveTo(.005,.003,.012,.001,.008,-.002);wingShape.quadraticCurveTo(.003,-.004,0,0);
-  const wings=[];for(const side of [-1,1]){const wing=new THREE.Mesh(new THREE.ShapeGeometry(wingShape,5),wingMaterial);wing.rotation.x=-Math.PI/2;wing.scale.x=side;wing.position.set(side*.0007,.0015,.0004);fly.add(wing);wings.push(wing);}
+  const wings=[];let wingSpread=0;
+  for(const side of [-1,1]){
+    const pivot=new THREE.Group();pivot.name=side<0?'FlyWingLeft':'FlyWingRight';pivot.position.set(side*.0007,.0015,-.001);pivot.rotation.y=-side*1.25;
+    const wing=new THREE.Mesh(new THREE.ShapeGeometry(wingShape,5),wingMaterial);wing.rotation.x=-Math.PI/2;wing.scale.set(side*.85,.85,1);pivot.add(wing);fly.add(pivot);wings.push({pivot,side});
+  }
   const legGeometry=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(.003,-.0015,.001),new THREE.Vector3(.004,-.003,.002)]),legMaterial=new THREE.LineBasicMaterial({color:'#353a2d'});
   for(const side of [-1,1])for(let i=0;i<3;i++){const leg=new THREE.Line(legGeometry,legMaterial);leg.scale.x=side;leg.rotation.y=(i-1)*.8;leg.position.z=(i-1)*.0013;fly.add(leg);legs.push(leg);}
   const up=new THREE.Vector3(0,1,0),normalMatrix=new THREE.Matrix3();
@@ -95,24 +99,36 @@ export function createDeskLife({scene,camera,canvas,plant,landingSurfaces=[],red
     return false;
   }
   function brush(point,dx=1){
+    // Sound follows leaf entries, independently of the spring's impulse limit.
+    onBrush();brushes++;redraw();
     if(reduced.matches||time-lastBrush<.13||!leaves.length)return;
     const nearest=[...leaves].sort((a,b)=>a.node.getWorldPosition(new THREE.Vector3()).distanceToSquared(point)-b.node.getWorldPosition(new THREE.Vector3()).distanceToSquared(point));
     nearest.slice(0,2).forEach((leaf,i)=>{leaf.velocity+=Math.sign(dx||1)*(1.05+random()*.6)/(i+1);});
-    if(time-lastBrush>.55)onBrush();lastBrush=time;brushes++;redraw();
+    lastBrush=time;
   }
-  let lastPointerX=0;
+  let lastPointer=null,hoveredLeaf=null;
+  function leafAt(hit){
+    if(!hit||![].concat(hit.object.material||[]).some(m=>/^IndoorFoliage_|^IndoorLeafVeins/.test(m.name)))return null;
+    return hit.object.userData.leafId||hit.object.userData.leafRanges?.find(range=>hit.faceIndex<range.end)?.id||null;
+  }
   function pointerMove(event){
-    if(paused||event.target.closest('.view-tools,.material-info,.inspection-close,.desk-list')||!canvas.isConnected)return;
+    if(paused||event.target.closest('.view-tools,.material-info,.inspection-close,.desk-list')||!canvas.isConnected){hoveredLeaf=null;lastPointer=null;return;}
     const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
-    pointer.set(x/rect.width*2-1,1-y/rect.height*2);mouse.copy(pointer);hasPointer=true;pointerAt=time;ray.setFromCamera(pointer,camera);
+    pointer.set(x/rect.width*2-1,1-y/rect.height*2);mouse.copy(pointer);hasPointer=true;pointerAt=time;
     if(plant){
-      const hit=ray.intersectObject(plant,true)[0];
-      if(hit&&[].concat(hit.object.material||[]).some(m=>/^IndoorFoliage_|^IndoorLeafVeins/.test(m.name)))brush(hit.point,x-lastPointerX);
+      // Short ray samples retain contacts in a quick sweep. Remaining within the
+      // same leaf (including its veins) is one touch, rather than an audio loop.
+      const from=lastPointer||{x,y},dx=x-from.x,dy=y-from.y,steps=Math.min(16,Math.max(1,Math.ceil(Math.hypot(dx,dy)/7)));
+      for(let i=1;i<=steps;i++){
+        pointer.set((from.x+dx*i/steps)/rect.width*2-1,1-(from.y+dy*i/steps)/rect.height*2);ray.setFromCamera(pointer,camera);
+        const hit=ray.intersectObject(plant,true)[0],id=leafAt(hit);
+        if(id&&id!==hoveredLeaf)brush(hit.point,dx);hoveredLeaf=id;
+      }
     }
-    const screen=fly.position.clone().project(camera);if(screen.z>-1&&screen.z<1&&Math.hypot((screen.x+1)*rect.width/2-x,(1-screen.y)*rect.height/2-y)<48)takeFlight('startle');lastPointerX=x;
+    const screen=fly.position.clone().project(camera);if(screen.z>-1&&screen.z<1&&Math.hypot((screen.x+1)*rect.width/2-x,(1-screen.y)*rect.height/2-y)<48)takeFlight('startle');lastPointer={x,y};
   }
   canvas.parentElement.addEventListener('pointermove',pointerMove);
-  canvas.parentElement.addEventListener('pointerleave',()=>hasPointer=false);
+  canvas.parentElement.addEventListener('pointerleave',()=>{hasPointer=false;hoveredLeaf=null;lastPointer=null;});
   return {fly,
     tick(seconds){
       time=seconds;const dt=Math.min(.05,Math.max(0,seconds-previous));previous=seconds;
@@ -126,15 +142,16 @@ export function createDeskLife({scene,camera,canvas,plant,landingSurfaces=[],red
         }else if(seconds>nextAction){if(random()<.58){if(!startWalk())takeFlight();}else takeFlight();}
       }
       const animated=!paused&&!reduced.matches;
-      for(const [i,wing]of wings.entries())wing.rotation.z=(i?1:-1)*(animated&&flight ? .65+Math.sin(seconds*122)*.6 : .13);
+      const target=animated&&flight?1:0;wingSpread=THREE.MathUtils.damp(wingSpread,target,38,dt);if(Math.abs(wingSpread-target)<.001)wingSpread=target;
+      for(const {pivot,side}of wings){pivot.rotation.y=-side*(1.25*(1-wingSpread)+.08*wingSpread);pivot.rotation.z=side*wingSpread*(.32+Math.sin(seconds*122)*.65);}
       for(const [i,leg]of legs.entries())leg.rotation.z=animated&&walk?Math.sin(seconds*36+i*2.3)*.17:0;
       head.rotation.y=animated&&!flight?Math.sin(seconds*1.7)*.08:0;
     },
     pause(value){
       if(value&&flight)finishFlight();if(value&&walk){surface=walk.target;fly.position.copy(lift(surface));walk=null;}
-      paused=value;fly.visible=!value;hasPointer=false;if(!value)scheduleRest();
+      paused=value;fly.visible=!value;hasPointer=false;hoveredLeaf=null;lastPointer=null;if(!value)scheduleRest();
     },
-    moving:()=>!paused&&!reduced.matches&&(Boolean(flight||walk)||leaves.some(l=>Math.abs(l.bend)>.003||Math.abs(l.velocity)>.02)),
-    info:()=>({fly:flight?'flying':walk?'walking':'resting',flights,walks,landings,pointerLandings,autoFlights,brushes,position:fly.position.toArray(),surfaceNormal:surface.normal.toArray(),bend:Math.max(0,...leaves.map(l=>Math.abs(l.bend))),landingFromPointer,lastDuration,lastCause,lastLandingGap}),
+    moving:()=>!paused&&!reduced.matches&&(Boolean(flight||walk)||wingSpread>.003||leaves.some(l=>Math.abs(l.bend)>.003||Math.abs(l.velocity)>.02)),
+    info:()=>({fly:flight?'flying':walk?'walking':'resting',wingSpread,flights,walks,landings,pointerLandings,autoFlights,brushes,position:fly.position.toArray(),surfaceNormal:surface.normal.toArray(),bend:Math.max(0,...leaves.map(l=>Math.abs(l.bend))),landingFromPointer,lastDuration,lastCause,lastLandingGap}),
   };
 }

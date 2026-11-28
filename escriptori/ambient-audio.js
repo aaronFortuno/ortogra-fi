@@ -1,5 +1,5 @@
 import { objectAudio } from './object-audio.js?v=1.25.0';
-import { createLeafChime } from './leaf-chime.js?v=0.3.2';
+import { createLeafChime } from './leaf-chime.js?v=0.3.3';
 
 // Each exterior layer schedules its own next entrance on the audio clock.
 export function createAmbientAudio(button) {
@@ -36,6 +36,7 @@ export function createAmbientAudio(button) {
   };
   function stopLayers(fade = 0) {
     generation++;
+    chime?.cancelPending();
     effects?.stop(fade);
     for (const timer of timers) clearTimeout(timer);
     timers.clear();
@@ -212,7 +213,7 @@ export function createAmbientAudio(button) {
     playObject(action, material) {
       if (!wanted || !available() || context?.state !== 'running') return;
       if(action==='chime'&&material==='leaf'){
-        chime ||= createLeafChime(context,(source,voice)=>{sources.set(source,voice);source.onended=()=>{sources.delete(source);source.disconnect();voice.level.disconnect();};});chime();return;
+        chime ||= createLeafChime(context,(source,voice)=>{sources.set(source,voice);source.onended=()=>{sources.delete(source);source.disconnect();voice.level.disconnect();};},()=>wanted&&available());chime();return;
       }
       effects ||= objectAudio(context); effects.play(action, material);
     } };

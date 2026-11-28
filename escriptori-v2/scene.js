@@ -9,7 +9,7 @@ import { createPerformanceMonitor } from '../escriptori/performance.js?v=1.22.1'
 import { solarLight } from '../escriptori/solar.js?v=1.6.0';
 import { createSeatedLook, SEAT } from './seated-look.js?v=0.3.1';
 import { createRoom } from './room.js?v=0.3.2';
-import { createDeskLife, movingLeaves } from './life.js?v=0.3.2';
+import { createDeskLife, movingLeaves } from './life.js?v=0.3.3';
 import { addPatina } from './patina.js?v=0.3.2';
 import { createGarden } from './garden.js?v=0.3.2';
 import { createPeripheralFocus } from './focus.js?v=0.3.2';
@@ -320,10 +320,14 @@ function addPotContacts(scene,content){
 // Keep reactive leaves and their own veins together; batch the static foliage.
 function batchPlant(plant){
   if(!plant)return;plant.updateWorldMatrix(true,true);const inverse=plant.matrixWorld.clone().invert(),batches=new Map();
-  plant.traverse(n=>{if(!n.isMesh)return;for(let parent=n;parent&&parent!==plant;parent=parent.parent)if(movingLeaves.has(parent.name))return;const key=n.material.uuid+'|'+Object.keys(n.geometry.attributes).sort().join(','),list=batches.get(key)||[];list.push(n);batches.set(key,list);});
+  plant.traverse(n=>{if(!n.isMesh)return;let reactive=false;for(let parent=n;parent&&parent!==plant;parent=parent.parent)if(/^IndoorLeaf_\d+$/.test(parent.name)){n.userData.leafId=parent.name;reactive=movingLeaves.has(parent.name);break;}if(reactive)return;const key=n.material.uuid+'|'+Object.keys(n.geometry.attributes).sort().join(','),list=batches.get(key)||[];list.push(n);batches.set(key,list);});
   for(const nodes of batches.values())if(nodes.length>1){const material=nodes[0].material;
     const geometries=nodes.map(n=>(n.geometry.index?n.geometry.toNonIndexed():n.geometry.clone()).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,n.matrixWorld)));
-    const geometry=mergeGeometries(geometries,false);if(geometry){const mesh=new THREE.Mesh(geometry,material);mesh.name='StaticPlant';mesh.castShadow=mesh.receiveShadow=true;plant.add(mesh);for(const n of nodes){n.removeFromParent();n.geometry.dispose();}}for(const g of geometries)g.dispose();
+    const geometry=mergeGeometries(geometries,false);if(geometry){const mesh=new THREE.Mesh(geometry,material);mesh.name='StaticPlant';mesh.castShadow=mesh.receiveShadow=true;
+      // Preserve each leaf's identity through batching, without more draw calls
+      // or GPU attributes. Raycaster faceIndex addresses the concatenated faces.
+      let end=0;mesh.userData.leafRanges=geometries.map((g,i)=>({end:end+=g.getAttribute('position').count/3,id:nodes[i].userData.leafId||null}));
+      plant.add(mesh);for(const n of nodes){n.removeFromParent();n.geometry.dispose();}}for(const g of geometries)g.dispose();
   }
 }
 function createDust(scene){

@@ -1,5 +1,15 @@
 # Ambient exterior de l’escriptori
 
+## Dring de les fulles
+
+La vista principal fa servir `leaf-chime.mp3`, l’arxiu aportat per l’autor del projecte: **«Chime sound» de jgreer (Freesound), publicat per freesound_community a Pixabay**. [Font](https://pixabay.com/sound-effects/film-special-effects-chime-sound-7143/) · [Pixabay Content License](https://pixabay.com/service/license-summary/). És un enregistrament, separat dels sis fragments d’ambient exterior i del banc CC0 d’objectes.
+
+El MP3 es conserva sense recodificar: 32.640 bytes, 1,632 s descodificats. SHA-256: `7acef7baf6016cdb0a1fa57191cb30b0451b9853c0832de75d5664392f6f1692`. No es contacta amb Pixabay durant l’ús. El primer contacte audible el descarrega i descodifica una sola vegada; cada nova entrada en una fulla crea una veu independent. La reproducció puja entre 3 i 10 semitons (velocitat 1,189–1,782), sense repetir immediatament el mateix to. El guany s’ajusta al pic del buffer per mantenir cada veu aproximadament per sota de 0,020 d’amplitud, amb rampes curtes als extrems. Cinc veus superposades es comproven amb `tools/check-desk-chime.cjs`; no s’hi afegeixen oscil·ladors.
+
+El silenci i la pèrdua de focus afecten totes les veus. Les peticions de contacte pendents queden cancel·lades en silenciar; els gestos que arribin amb més de 750 ms de retard de càrrega es descarten per evitar un so deslligat de l’acció. La valoració auditiva dins l’escena correspon a l’autor.
+
+## Ambient exterior
+
 Els efectes interiors enregistrats de grapadora, paper i contactes es documenten separadament a [Sons dels objectes de taula](foley/README.md). No modifiquen els sis fragments d'ambient d'aquest document.
 
 El vent, els ocells i el vehicle provenen d’enregistraments CC0. Per al pati s’ha utilitzat «Playground with kids playing» de Mixkit. Tots sis fragments se serveixen des d’ortogra.fi.

@@ -1,5 +1,5 @@
 import { createLoadingIndicator,createResourceLoader } from '../escriptori/loading.js?v=1.16.1';
-import { createAmbientAudio } from '../escriptori/ambient-audio.js?v=1.26.1';
+import { createAmbientAudio } from '../escriptori/ambient-audio.js?v=1.26.2';
 import { loadCatalogue } from './catalogue.js?v=0.1.1';
 
 const workspace=document.querySelector('#workspace'),canvas=document.querySelector('#desk-canvas'),status=document.querySelector('#desk-status'),caption=document.querySelector('#hover-caption');
@@ -76,7 +76,7 @@ async function start(){
       const link=document.createElement('button');link.type='button';link.textContent=project.name;const small=document.createElement('small');small.textContent=project.purpose;link.append(small);link.addEventListener('click',()=>open(project));document.querySelector('#project-list').append(link);
     }
     loading.update(5,'Carregant l’escriptori de prop…');
-    const {createDesk}=await import('./scene.js?v=0.3.2');
+    const {createDesk}=await import('./scene.js?v=0.3.3');
     desk=await createDesk({canvas,projects,resources:createResourceLoader(manifest,root,loading.update),onStage:loading.update,onObjectSound:audio.playObject,onAction:track,onWindowChange:reflectWindow,onLampChange:reflectLamp});
     const focus=desk.diagnostics().focus;reflectFocus(focus.enabled);document.querySelector('#focus-toggle').disabled=!focus.available;
     workspace.dataset.ready='true';workspace.setAttribute('aria-busy','false');canvas.removeAttribute('aria-hidden');canvas.tabIndex=0;canvas.setAttribute('aria-label','Arrossega o fes servir les fletxes per mirar al voltant des de la cadira. Fes servir la roda per apropar o allunyar la vista.');audio.start();loading.finish();

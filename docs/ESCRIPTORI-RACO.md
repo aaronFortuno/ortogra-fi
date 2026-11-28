@@ -1,4 +1,4 @@
-# Racó de treball · 27 de novembre de 2026
+# Racó de treball · 28 de novembre de 2026
 
 La vista principal d’[Escriptori](https://ortogra.fi/escriptori/) segueix el [croquis de l’autor](references/mockup-escriptori.png): una cantonada propera de taula, arxivadors recolzats i descobertes girant el cap. La finestra és a l’esquerra del dibuix. La portada ofereix un únic accés; `/escriptori-v2/` redirigeix al principal. L’escena anterior i els seus minijocs es conserven a `/escriptori/anterior.html`.
 
@@ -46,11 +46,15 @@ La pols utilitza 820 punts en un únic dibuix amb moviment al shader. Es concent
 
 Quatre fulles conserven els nervis com a part de la geometria mòbil. La resta de la planta s’agrupa per material. El punter impulsa un moll amortit amb força variable només quan la primera superfície de la planta que toca és una fulla o un nervi. El test, la terra i les tiges no activen aquesta reacció.
 
-El so de les fulles és ara un dring molt fluix, amb una fonamental entre 2.400 i 4.036 Hz i un segon parcial més dèbil. Evita repetir la nota anterior i té un marge de 450 ms contra ràfegues. `escriptori/leaf-chime.js` genera dues ones sinusoidals curtes dins del mateix context d’àudio de l’ambient: respecta silenci, focus, política d’activació del navegador i neteja de veus. No descarrega el banc de fregaments en tocar una fulla. L’escena arxivada manté els seus enregistraments i accions anteriors.
+El so de les fulles utilitza el [chime enregistrat aportat per l’autor](../assets/desk/audio/README.md#dring-de-les-fulles), servit localment (32.640 bytes). `escriptori/leaf-chime.js` el descodifica una sola vegada i crea una veu nova en cada entrada del punter en una fulla, encara que altres drings estiguin sonant. Cada veu puja aleatòriament entre 3 i 10 semitons, evita repetir el to anterior i té un volum molt baix. No hi ha un interval global entre fulles. Mantenir el punter dins de la mateixa fulla no el repeteix; sortir-ne i tornar-hi sí. Un escombrat ràpid comprova fins a 16 punts intermedis per conservar els contactes.
+
+L’agrupació estàtica de la planta conserva l’identificador de cadascuna de les 26 fulles amb rangs de triangles, sense més geometria, atributs de GPU ni crides de dibuix. Fulla i nervis comparteixen identificador. El test, la terra i les tiges continuen silenciosos. L’impuls del moll té el seu límit propi, independent del so; amb moviment reduït es pot sentir el dring sense animar les fulles.
+
+Les veus respecten el silenci, el focus i la política d’activació del navegador de l’ambient compartit. Silenciar cancel·la també els contactes pendents de la primera descàrrega, per evitar reproduir-los després de reactivar el so. No es descarrega el banc de fregaments en tocar una fulla. L’escena arxivada manté els seus enregistraments i accions anteriors.
 
 La mosca alterna repòs, passejades i vols autònoms. Les pauses, els punts de repòs, el nombre de corbes i les desviacions del vol varien, amb aleatorietat nova a cada visita. Els vols duren entre 0,38 i 1,3 segons segons el recorregut. En un 35% dels intents es prova un lloc a 156–252 px del punter recent; si no és una superfície vàlida s’explora de forma independent. La resta d’intents no depenen del punter. Acostar-se a menys de 48 px la fa fugir.
 
-Els punts de repòs es comproven amb raigs sobre els sòlids visibles. La mosca pot caminar per la taula, els materials i les parets: valida vuit punts del recorregut i la normal abans de caminar, evitant passar una vora o penetrar un objecte. El cos s’orienta segons la superfície i les potes tenen una petita alternança. Les decisions i la posició del punter no s’envien a analítica. Durant la consulta queda oculta. Amb moviment reduït s’aturen el vol, les passejades, les reaccions animades i el vent.
+Els punts de repòs es comproven amb raigs sobre els sòlids visibles. La mosca pot caminar per la taula, els materials i les parets: valida vuit punts del recorregut i la normal abans de caminar, evitant passar una vora o penetrar un objecte. El cos s’orienta segons la superfície i les potes tenen una petita alternança. Les ales es pleguen sobre el dors en repòs i caminant; només es despleguen i bateguen durant el vol, amb una transició breu. Les decisions i la posició del punter no s’envien a analítica. Durant la consulta queda oculta. Amb moviment reduït s’aturen el vol, les passejades, les reaccions animades i el vent.
 
 ## Rendiment i comprovacions
 
@@ -67,6 +71,8 @@ La interfície conserva transicions de 220 ms, els botons de mirada duren 420 ms
 `node tools/check-desk-corner.cjs` comprova el zoom sense inclinar ni desplaçar la cadira, els límits i el retorn del zoom després de llegir, l’acabat suau, la vista zenital, les descàrregues lentes i fallides, la pols, el jardí, les fulles, els controls físics, els nou recursos, les mostres, les maquetes, el tema, V4V i el mòbil. `node tools/check-desk-life.cjs` simula el mòdul real amb una llavor de prova: comprova l’autonomia, les rutes variades, les passejades adherides a superfícies, el biaix ocasional, la distància ampliada, el moviment reduït i la pausa.
 
 `node tools/check-desk-finish.cjs` comprova materials mats, etiquetes il·luminades, silenci sobre el test, dring variable i fluix, el botó de silenci, foscor nocturna i llum natural de dia. Compara també el centre i els marges amb el filtre activat/desactivat i el nombre de crides. La lectura de píxels és només a la resposta injectada de prova, mai al monitor de rendiment públic. Les captures queden a `output/desk-finish/`. `node tools/check-desk-loading-audio.cjs` comprova la compatibilitat de l’ambient compartit a la ruta arxivada. `node tools/check.cjs` cobreix la portada. No es comprova el desplegament remot.
+
+`node tools/check-desk-chime.cjs` comprova amb raigs i àudio natius que cinc contactes ràpids en cinc fulles agrupades creen cinc veus superposades del mateix buffer. Valida els tons aguts, el nivell del senyal, l’absència de repetició mentre es roman dins d’una fulla i el retorn en tornar-hi, el silenci del test i la cancel·lació de veus actives i pendents. La prova de vida comprova també les ales plegades caminant/en repòs i obertes en vol.
 
 ## Rutes i analítica
 
